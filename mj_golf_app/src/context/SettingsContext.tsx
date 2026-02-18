@@ -14,7 +14,7 @@ const UNITS_STORAGE_KEY = 'mj-golf-units';
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [apiKey, setApiKeyState] = useState(
-    () => localStorage.getItem(API_KEY_STORAGE_KEY) || ''
+    () => localStorage.getItem(API_KEY_STORAGE_KEY) || import.meta.env.VITE_CLAUDE_API_KEY || ''
   );
   const [units, setUnitsState] = useState<'yards' | 'meters'>(
     () => (localStorage.getItem(UNITS_STORAGE_KEY) as 'yards' | 'meters') || 'yards'
