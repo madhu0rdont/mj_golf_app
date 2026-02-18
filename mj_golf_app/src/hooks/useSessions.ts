@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/index';
 import type { Session, Shot, IngestionMethod } from '../models/session';
 import { classifyAllShots } from '../services/shot-classifier';
+import type { Handedness } from '../context/SettingsContext';
 
 export function useSessionsForClub(clubId: string | undefined) {
   return useLiveQuery(
@@ -43,7 +44,7 @@ export interface CreateSessionInput {
   shots: Omit<Shot, 'id' | 'sessionId' | 'clubId' | 'shape' | 'quality' | 'timestamp'>[];
 }
 
-export async function createSession(input: CreateSessionInput): Promise<string> {
+export async function createSession(input: CreateSessionInput, handedness: Handedness = 'right'): Promise<string> {
   const sessionId = crypto.randomUUID();
   const now = Date.now();
 
@@ -57,7 +58,7 @@ export async function createSession(input: CreateSessionInput): Promise<string> 
     timestamp: now,
   }));
 
-  const classifiedShots = classifyAllShots(rawShots);
+  const classifiedShots = classifyAllShots(rawShots, handedness);
 
   const session: Session = {
     id: sessionId,

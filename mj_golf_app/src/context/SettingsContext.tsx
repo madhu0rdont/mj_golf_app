@@ -1,16 +1,21 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 
+export type Handedness = 'left' | 'right';
+
 interface SettingsContextType {
   apiKey: string;
   setApiKey: (key: string) => void;
   units: 'yards' | 'meters';
   setUnits: (units: 'yards' | 'meters') => void;
+  handedness: Handedness;
+  setHandedness: (h: Handedness) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
 
 const API_KEY_STORAGE_KEY = 'mj-golf-claude-api-key';
 const UNITS_STORAGE_KEY = 'mj-golf-units';
+const HANDEDNESS_STORAGE_KEY = 'mj-golf-handedness';
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [apiKey, setApiKeyState] = useState(
@@ -18,6 +23,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   );
   const [units, setUnitsState] = useState<'yards' | 'meters'>(
     () => (localStorage.getItem(UNITS_STORAGE_KEY) as 'yards' | 'meters') || 'yards'
+  );
+  const [handedness, setHandednessState] = useState<Handedness>(
+    () => (localStorage.getItem(HANDEDNESS_STORAGE_KEY) as Handedness) || 'left'
   );
 
   const setApiKey = useCallback((key: string) => {
@@ -30,8 +38,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setUnitsState(u);
   }, []);
 
+  const setHandedness = useCallback((h: Handedness) => {
+    localStorage.setItem(HANDEDNESS_STORAGE_KEY, h);
+    setHandednessState(h);
+  }, []);
+
   return (
-    <SettingsContext.Provider value={{ apiKey, setApiKey, units, setUnits }}>
+    <SettingsContext.Provider value={{ apiKey, setApiKey, units, setUnits, handedness, setHandedness }}>
       {children}
     </SettingsContext.Provider>
   );

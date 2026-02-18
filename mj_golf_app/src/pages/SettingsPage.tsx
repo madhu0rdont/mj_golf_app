@@ -8,7 +8,7 @@ import { exportAllData, importAllData, clearAllData } from '../db/backup';
 import { seedDefaultBag } from '../db/seed';
 
 export function SettingsPage() {
-  const { apiKey, setApiKey } = useSettings();
+  const { apiKey, setApiKey, handedness, setHandedness } = useSettings();
   const [showKey, setShowKey] = useState(false);
   const [keyInput, setKeyInput] = useState(apiKey);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -77,6 +77,36 @@ export function SettingsPage() {
             <Button onClick={handleSaveKey} size="sm" disabled={keyInput.trim() === apiKey}>
               Save
             </Button>
+          </div>
+        </section>
+
+        {/* Handedness */}
+        <section className="mb-6">
+          <h3 className="mb-2 text-sm font-medium text-gray-400 uppercase">Handedness</h3>
+          <p className="mb-3 text-xs text-gray-500">
+            Affects how draw/fade and hook/slice are classified from spin data.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setHandedness('left')}
+              className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                handedness === 'left'
+                  ? 'border-green-500 bg-green-500/10 text-green-400'
+                  : 'border-gray-700 bg-gray-800 text-gray-400'
+              }`}
+            >
+              Left-Handed
+            </button>
+            <button
+              onClick={() => setHandedness('right')}
+              className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                handedness === 'right'
+                  ? 'border-green-500 bg-green-500/10 text-green-400'
+                  : 'border-gray-700 bg-gray-800 text-gray-400'
+              }`}
+            >
+              Right-Handed
+            </button>
           </div>
         </section>
 

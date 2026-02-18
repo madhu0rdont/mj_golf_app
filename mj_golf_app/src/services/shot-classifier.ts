@@ -1,10 +1,18 @@
 import type { ShotShape, ShotQuality, Shot } from '../models/session';
+import type { Handedness } from '../context/SettingsContext';
 
-export function classifyShape(spinAxis?: number, offlineYards?: number): ShotShape | undefined {
+export function classifyShape(
+  spinAxis?: number,
+  offlineYards?: number,
+  handedness: Handedness = 'right',
+): ShotShape | undefined {
   if (spinAxis == null && offlineYards == null) return undefined;
 
-  const sa = spinAxis ?? 0;
-  const ol = offlineYards ?? 0;
+  // For left-handed golfers, negate spin axis and offline so the same
+  // thresholds produce correctly named shapes (draw/fade/hook/slice flip).
+  const flip = handedness === 'left' ? -1 : 1;
+  const sa = (spinAxis ?? 0) * flip;
+  const ol = (offlineYards ?? 0) * flip;
 
   // Straight: minimal spin axis and minimal offline
   if (Math.abs(sa) <= 2 && Math.abs(ol) <= 5) return 'straight';
@@ -37,7 +45,7 @@ export function classifyQuality(
   return 'mishit';
 }
 
-export function classifyAllShots(shots: Shot[]): Shot[] {
+export function classifyAllShots(shots: Shot[], handedness: Handedness = 'right'): Shot[] {
   if (shots.length === 0) return shots;
 
   const carries = shots.map((s) => s.carryYards);
@@ -47,7 +55,7 @@ export function classifyAllShots(shots: Shot[]): Shot[] {
 
   return shots.map((shot) => ({
     ...shot,
-    shape: classifyShape(shot.spinAxis, shot.offlineYards),
+    shape: classifyShape(shot.spinAxis, shot.offlineYards, handedness),
     quality: classifyQuality(shot.carryYards, avg, stdDev),
   }));
 }
