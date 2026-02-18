@@ -9,6 +9,9 @@ export interface ParsedCsvRow {
   spinAxis?: number;
   apexHeight?: number;
   offlineYards?: number;
+  pushPull?: number;
+  sideSpinRate?: number;
+  descentAngle?: number;
 }
 
 export interface CsvParseResult {
@@ -29,6 +32,9 @@ const COLUMN_ALIASES: Record<string, string[]> = {
   spinAxis: ['spin axis', 'spin_axis', 'axis', 'spin axis (deg)'],
   apexHeight: ['apex', 'apex height', 'apex_height', 'height', 'peak height', 'apex (ft)'],
   offlineYards: ['offline', 'offline distance', 'offline_distance', 'lateral', 'side', 'offline (yds)'],
+  pushPull: ['push/pull', 'push pull', 'push_pull', 'face to path', 'face path'],
+  sideSpinRate: ['side spin', 'sidespin', 'side_spin', 'side spin rate', 'side spin (rpm)'],
+  descentAngle: ['descent', 'descent angle', 'descent_angle', 'land angle', 'landing angle', 'descent angle (deg)'],
 };
 
 function normalizeHeader(header: string): string {
@@ -122,6 +128,9 @@ export function parseCsvFile(text: string): CsvParseResult {
         spinAxis: row.spinAxis,
         apexHeight: row.apexHeight,
         offlineYards: row.offlineYards,
+        pushPull: row.pushPull,
+        sideSpinRate: row.sideSpinRate,
+        descentAngle: row.descentAngle,
       });
     }
   }

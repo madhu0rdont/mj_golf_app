@@ -61,6 +61,9 @@ export function SessionCsvPage() {
           spinAxis: r.spinAxis ?? '',
           apexHeight: r.apexHeight ?? '',
           offlineYards: r.offlineYards ?? '',
+          pushPull: r.pushPull ?? '',
+          sideSpinRate: r.sideSpinRate ?? '',
+          descentAngle: r.descentAngle ?? '',
         }))
       );
     } catch {
@@ -109,6 +112,9 @@ export function SessionCsvPage() {
           spinAxis: parseNum(s.spinAxis),
           apexHeight: parseNum(s.apexHeight),
           offlineYards: parseNum(s.offlineYards),
+          pushPull: parseNum(s.pushPull),
+          sideSpinRate: parseNum(s.sideSpinRate),
+          descentAngle: parseNum(s.descentAngle),
         })),
       });
       navigate(`/session/${sessionId}`, { replace: true });

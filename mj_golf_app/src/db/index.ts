@@ -14,6 +14,12 @@ export class MJGolfDB extends Dexie {
       sessions: 'id, clubId, date, [clubId+date]',
       shots: 'id, sessionId, clubId, [sessionId+clubId]',
     });
+    // v2: adds pushPull, sideSpinRate, descentAngle to shots (no index changes)
+    this.version(2).stores({
+      clubs: 'id, category, sortOrder',
+      sessions: 'id, clubId, date, [clubId+date]',
+      shots: 'id, sessionId, clubId, [sessionId+clubId]',
+    });
   }
 }
 

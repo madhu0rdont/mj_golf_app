@@ -5,11 +5,13 @@ Extract shot data from Foresight GC4/GCQuad session screenshots.
 Return ONLY valid JSON — no other text, no markdown code fences.
 Return an array of shot objects with these fields:
   shotNumber, carryYards, totalYards, ballSpeed, clubHeadSpeed,
-  launchAngle, spinRate, spinAxis, apexHeight, offlineYards
+  launchAngle, spinRate, spinAxis, apexHeight, offlineYards,
+  pushPull, sideSpinRate, descentAngle
 Use null for any field not visible or not readable.
 Numbers should be plain numbers (no units, no symbols).
 For offlineYards: negative = left of target, positive = right.
-For spinAxis: negative = draw spin, positive = fade spin.`;
+For spinAxis: negative = draw spin, positive = fade spin.
+For pushPull: positive = push (right), negative = pull (left).`;
 
 const USER_PROMPT = 'Extract all shot data from this Foresight GC4 session summary. Return only a JSON array of shot objects.';
 
@@ -24,6 +26,9 @@ export interface ExtractedShot {
   spinAxis: number | null;
   apexHeight: number | null;
   offlineYards: number | null;
+  pushPull: number | null;
+  sideSpinRate: number | null;
+  descentAngle: number | null;
 }
 
 export interface ExtractionResult {
@@ -110,6 +115,7 @@ export async function extractShotDataFromImage(
     const fields = [
       'carryYards', 'totalYards', 'ballSpeed', 'clubHeadSpeed',
       'launchAngle', 'spinRate', 'spinAxis', 'apexHeight', 'offlineYards',
+      'pushPull', 'sideSpinRate', 'descentAngle',
     ] as const;
 
     for (const field of fields) {

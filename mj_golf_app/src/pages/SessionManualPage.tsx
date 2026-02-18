@@ -18,6 +18,9 @@ function emptyShot(shotNumber: number): ShotRow {
     spinAxis: '',
     apexHeight: '',
     offlineYards: '',
+    pushPull: '',
+    sideSpinRate: '',
+    descentAngle: '',
   };
 }
 
@@ -91,6 +94,9 @@ export function SessionManualPage() {
           spinAxis: parseNum(s.spinAxis),
           apexHeight: parseNum(s.apexHeight),
           offlineYards: parseNum(s.offlineYards),
+          pushPull: parseNum(s.pushPull),
+          sideSpinRate: parseNum(s.sideSpinRate),
+          descentAngle: parseNum(s.descentAngle),
         })),
       });
       navigate(`/session/${sessionId}`, { replace: true });

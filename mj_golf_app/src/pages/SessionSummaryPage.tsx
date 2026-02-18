@@ -8,6 +8,7 @@ import { useSession, useShotsForSession } from '../hooks/useSessions';
 import { useClub } from '../hooks/useClubs';
 import { computeSessionSummary } from '../services/stats';
 import { useMemo } from 'react';
+import { SessionFlightView } from '../components/flight/SessionFlightView';
 
 export function SessionSummaryPage() {
   const { sessionId } = useParams();
@@ -47,6 +48,9 @@ export function SessionSummaryPage() {
     spinAxis: s.spinAxis,
     apexHeight: s.apexHeight,
     offlineYards: s.offlineYards,
+    pushPull: s.pushPull,
+    sideSpinRate: s.sideSpinRate,
+    descentAngle: s.descentAngle,
   }));
 
   return (
@@ -61,6 +65,13 @@ export function SessionSummaryPage() {
             {session.location && ` at ${session.location}`}
           </p>
         </div>
+
+        {/* Flight View */}
+        <SessionFlightView
+          shots={shots}
+          clubName={club.name}
+          sessionDate={new Date(session.date)}
+        />
 
         {/* Key Stats Grid */}
         <div className="mb-6 grid grid-cols-2 gap-2">

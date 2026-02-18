@@ -13,6 +13,9 @@ export interface ShotRow {
   spinAxis?: number | string;
   apexHeight?: number | string;
   offlineYards?: number | string;
+  pushPull?: number | string;
+  sideSpinRate?: number | string;
+  descentAngle?: number | string;
 }
 
 interface ShotTableProps {
@@ -35,6 +38,9 @@ const ADVANCED_FIELDS: { key: keyof ShotRow; label: string; unit: string; placeh
   { key: 'spinAxis', label: 'Axis', unit: '°', placeholder: '-2.1' },
   { key: 'apexHeight', label: 'Apex', unit: 'yds', placeholder: '28' },
   { key: 'offlineYards', label: 'Offline', unit: 'yds', placeholder: '-4.2' },
+  { key: 'pushPull', label: 'Push/Pull', unit: '°', placeholder: '0.5' },
+  { key: 'sideSpinRate', label: 'Side Spin', unit: 'rpm', placeholder: '200' },
+  { key: 'descentAngle', label: 'Descent', unit: '°', placeholder: '42' },
 ];
 
 function ShotRowCard({

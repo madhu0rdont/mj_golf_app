@@ -14,6 +14,9 @@ export const SHOT_FIELD_RANGES: Record<string, ValidationRange> = {
   spinAxis: { min: -45, max: 45, label: 'Spin Axis' },
   apexHeight: { min: 0, max: 80, label: 'Apex' },
   offlineYards: { min: -100, max: 100, label: 'Offline' },
+  pushPull: { min: -30, max: 30, label: 'Push/Pull' },
+  sideSpinRate: { min: -5000, max: 5000, label: 'Side Spin' },
+  descentAngle: { min: 20, max: 70, label: 'Descent Angle' },
 };
 
 export function validateShotField(field: string, value: number): boolean {

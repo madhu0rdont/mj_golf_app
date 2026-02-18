@@ -28,6 +28,9 @@ export interface Shot {
   spinAxis?: number;
   apexHeight?: number;
   offlineYards?: number;
+  pushPull?: number;
+  sideSpinRate?: number;
+  descentAngle?: number;
   shape?: ShotShape;
   quality?: ShotQuality;
   timestamp: number;
@@ -54,6 +57,9 @@ export interface SessionSummary {
   avgApexHeight?: number;
   avgOffline?: number;
   avgAbsOffline?: number;
+  avgPushPull?: number;
+  avgSideSpinRate?: number;
+  avgDescentAngle?: number;
   shapeDistribution: Partial<Record<ShotShape, number>>;
   dominantShape?: ShotShape;
   qualityDistribution: Partial<Record<ShotQuality, number>>;

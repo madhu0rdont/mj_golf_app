@@ -24,6 +24,9 @@ function toShotRows(shots: ExtractedShot[]): ShotRow[] {
     spinAxis: s.spinAxis ?? '',
     apexHeight: s.apexHeight ?? '',
     offlineYards: s.offlineYards ?? '',
+    pushPull: s.pushPull ?? '',
+    sideSpinRate: s.sideSpinRate ?? '',
+    descentAngle: s.descentAngle ?? '',
   }));
 }
 
@@ -138,6 +141,9 @@ export function SessionPhotoPage() {
           spinAxis: parseNum(s.spinAxis),
           apexHeight: parseNum(s.apexHeight),
           offlineYards: parseNum(s.offlineYards),
+          pushPull: parseNum(s.pushPull),
+          sideSpinRate: parseNum(s.sideSpinRate),
+          descentAngle: parseNum(s.descentAngle),
         })),
       });
       navigate(`/session/${sessionId}`, { replace: true });
