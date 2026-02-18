@@ -12,15 +12,15 @@ export function GappingPage() {
       <TopBar title="Gapping Analysis" showBack />
       <div className="px-4 py-4">
         {entries.length === 0 ? (
-          <p className="py-8 text-center text-sm text-gray-500">
+          <p className="py-8 text-center text-sm text-text-muted">
             No yardage data yet. Log sessions to see your gapping chart.
           </p>
         ) : (
           <>
-            <p className="mb-4 text-xs text-gray-500">
+            <p className="mb-4 text-xs text-text-muted">
               Club distances sorted by carry. Large gaps ({'>'}15 yds) are highlighted.
             </p>
-            <div className="rounded-xl border border-gray-800 bg-gray-900 p-3">
+            <div className="rounded-2xl border border-border bg-card shadow-sm p-3">
               <GappingChart entries={entries} />
             </div>
           </>

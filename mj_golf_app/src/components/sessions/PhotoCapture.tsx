@@ -38,20 +38,20 @@ export function PhotoCapture({ onCapture }: PhotoCaptureProps) {
     <div className="flex flex-col gap-4">
       {!preview ? (
         <>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-text-medium">
             Photograph the GC4 session table view, or choose an image from your gallery.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => cameraInputRef.current?.click()}
-              className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gray-700 p-6 text-gray-400 transition-colors hover:border-green-600 hover:text-green-400"
+              className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-text-muted transition-colors hover:border-primary hover:text-primary"
             >
               <Camera size={28} />
               <span className="text-sm">Take Photo</span>
             </button>
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gray-700 p-6 text-gray-400 transition-colors hover:border-green-600 hover:text-green-400"
+              className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-text-muted transition-colors hover:border-primary hover:text-primary"
             >
               <Upload size={28} />
               <span className="text-sm">Upload Image</span>
@@ -64,7 +64,7 @@ export function PhotoCapture({ onCapture }: PhotoCaptureProps) {
             <img
               src={preview}
               alt="GC4 session screenshot"
-              className="w-full rounded-xl border border-gray-700"
+              className="w-full rounded-xl border border-border"
             />
             <button
               onClick={clear}

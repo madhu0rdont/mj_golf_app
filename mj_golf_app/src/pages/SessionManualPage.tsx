@@ -44,7 +44,7 @@ export function SessionManualPage() {
     return (
       <>
         <TopBar title="Manual Entry" showBack />
-        <div className="px-4 py-8 text-center text-sm text-gray-500">
+        <div className="px-4 py-8 text-center text-sm text-text-muted">
           No club selected. Go back and select a club first.
         </div>
       </>
@@ -116,7 +116,7 @@ export function SessionManualPage() {
     <>
       <TopBar title="Manual Entry" showBack />
       <div className="px-4 py-4">
-        <p className="mb-4 text-xs text-gray-500">
+        <p className="mb-4 text-xs text-text-muted">
           Enter shot data below. Carry is required; expand each shot for advanced fields.
         </p>
 

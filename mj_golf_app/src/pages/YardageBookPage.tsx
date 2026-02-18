@@ -18,7 +18,7 @@ export function YardageBookPage() {
         showSettings
         rightAction={
           entries.length > 0 ? (
-            <Link to="/yardage/gapping" className="rounded-lg p-1.5 text-gray-400 hover:text-white">
+            <Link to="/yardage/gapping" className="rounded-lg p-1.5 text-text-muted hover:text-text-dark">
               <BarChart3 size={20} />
             </Link>
           ) : undefined
@@ -38,7 +38,7 @@ export function YardageBookPage() {
           />
         ) : (
           <>
-            <p className="mb-3 text-xs text-gray-500">
+            <p className="mb-3 text-xs text-text-muted">
               {entries.length} club{entries.length !== 1 ? 's' : ''} with data — recency-weighted
             </p>
             <div className="flex flex-col gap-2">

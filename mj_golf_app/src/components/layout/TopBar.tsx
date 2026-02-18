@@ -12,23 +12,23 @@ export function TopBar({ title, showBack, showSettings, rightAction }: TopBarPro
   const navigate = useNavigate();
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center border-b border-gray-800 bg-gray-900/95 px-4 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 flex h-14 items-center border-b border-border bg-card/95 px-4 backdrop-blur-sm">
       <div className="flex w-10 justify-start">
         {showBack && (
           <button
             onClick={() => navigate(-1)}
-            className="rounded-lg p-1.5 text-gray-400 hover:text-white"
+            className="rounded-lg p-1.5 text-text-muted hover:text-text-dark"
           >
             <ArrowLeft size={20} />
           </button>
         )}
       </div>
-      <h1 className="flex-1 text-center text-lg font-semibold text-white">{title}</h1>
+      <h1 className="flex-1 text-center text-lg font-semibold text-text-dark">{title}</h1>
       <div className="flex w-10 justify-end">
         {showSettings && (
           <button
             onClick={() => navigate('/settings')}
-            className="rounded-lg p-1.5 text-gray-400 hover:text-white"
+            className="rounded-lg p-1.5 text-text-muted hover:text-text-dark"
           >
             <Settings size={20} />
           </button>

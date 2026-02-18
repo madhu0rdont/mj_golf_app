@@ -23,28 +23,28 @@ export function HomePage() {
       <div className="px-4 py-6">
         <div className="mb-6">
           <h2 className="mb-1 text-2xl font-bold">Welcome back</h2>
-          <p className="text-sm text-gray-400">Track your game, improve your scores.</p>
+          <p className="text-sm text-text-medium">Track your game, improve your scores.</p>
         </div>
 
         {/* Quick Actions */}
         <div className="mb-6 grid grid-cols-3 gap-2">
           <Link
             to="/session/new"
-            className="flex flex-col items-center gap-1.5 rounded-xl bg-green-700 p-3 text-center text-sm font-medium transition-colors hover:bg-green-600"
+            className="flex flex-col items-center gap-1.5 rounded-xl bg-primary p-3 text-center text-sm font-medium text-white transition-colors hover:bg-primary-light"
           >
             <Plus size={20} />
             <span>Session</span>
           </Link>
           <Link
             to="/yardage"
-            className="flex flex-col items-center gap-1.5 rounded-xl bg-gray-800 p-3 text-center text-sm font-medium transition-colors hover:bg-gray-700"
+            className="flex flex-col items-center gap-1.5 rounded-xl bg-card border border-border shadow-sm p-3 text-center text-sm font-medium transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
           >
             <BookOpen size={20} />
             <span>Yardage</span>
           </Link>
           <Link
             to="/course"
-            className="flex flex-col items-center gap-1.5 rounded-xl bg-gray-800 p-3 text-center text-sm font-medium transition-colors hover:bg-gray-700"
+            className="flex flex-col items-center gap-1.5 rounded-xl bg-card border border-border shadow-sm p-3 text-center text-sm font-medium transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
           >
             <Target size={20} />
             <span>Course</span>
@@ -53,12 +53,12 @@ export function HomePage() {
 
         {/* Stale Clubs Warning */}
         {staleClubs.length > 0 && (
-          <div className="mb-6 rounded-xl border border-amber-800 bg-amber-950/30 p-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-amber-300">
+          <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-amber-700">
               <AlertTriangle size={16} />
               {staleClubs.length} club{staleClubs.length !== 1 ? 's' : ''} need fresh data
             </div>
-            <p className="mt-1 text-xs text-amber-400/70">
+            <p className="mt-1 text-xs text-amber-600">
               {staleClubs.map((c) => c.clubName).join(', ')}
             </p>
           </div>
@@ -67,26 +67,26 @@ export function HomePage() {
         {/* Quick Stats */}
         {yardageBook && yardageBook.length > 0 && (
           <div className="mb-6 grid grid-cols-3 gap-2">
-            <div className="rounded-xl border border-gray-800 bg-gray-900 p-3 text-center">
-              <div className="text-xl font-bold text-white">{clubs?.length ?? 0}</div>
-              <div className="text-[10px] text-gray-500 uppercase">Clubs</div>
+            <div className="rounded-2xl border border-border bg-card shadow-sm p-3 text-center">
+              <div className="text-xl font-bold text-text-dark">{clubs?.length ?? 0}</div>
+              <div className="text-[10px] text-text-muted uppercase">Clubs</div>
             </div>
-            <div className="rounded-xl border border-gray-800 bg-gray-900 p-3 text-center">
-              <div className="text-xl font-bold text-white">{yardageBook.length}</div>
-              <div className="text-[10px] text-gray-500 uppercase">With Data</div>
+            <div className="rounded-2xl border border-border bg-card shadow-sm p-3 text-center">
+              <div className="text-xl font-bold text-text-dark">{yardageBook.length}</div>
+              <div className="text-[10px] text-text-muted uppercase">With Data</div>
             </div>
-            <div className="rounded-xl border border-gray-800 bg-gray-900 p-3 text-center">
-              <div className="text-xl font-bold text-white">{totalSessions}</div>
-              <div className="text-[10px] text-gray-500 uppercase">Sessions</div>
+            <div className="rounded-2xl border border-border bg-card shadow-sm p-3 text-center">
+              <div className="text-xl font-bold text-text-dark">{totalSessions}</div>
+              <div className="text-[10px] text-text-muted uppercase">Sessions</div>
             </div>
           </div>
         )}
 
         {/* Recent Sessions */}
         <div>
-          <h3 className="mb-3 text-sm font-medium text-gray-400 uppercase">Recent Sessions</h3>
+          <h3 className="mb-3 text-sm font-medium text-text-medium uppercase">Recent Sessions</h3>
           {!recentSessions || recentSessions.length === 0 ? (
-            <div className="rounded-xl border border-gray-800 p-8 text-center text-sm text-gray-500">
+            <div className="rounded-2xl border border-border p-8 text-center text-sm text-text-muted">
               No sessions yet. Tap "Session" to get started.
             </div>
           ) : (
@@ -95,13 +95,13 @@ export function HomePage() {
                 <button
                   key={session.id}
                   onClick={() => navigate(`/session/${session.id}`)}
-                  className="flex items-center justify-between rounded-xl border border-gray-800 bg-gray-900 p-3 text-left transition-colors hover:border-gray-700"
+                  className="flex items-center justify-between rounded-2xl border border-border bg-card shadow-sm p-3 text-left transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
                 >
                   <div>
-                    <div className="text-sm font-medium text-white">
+                    <div className="text-sm font-medium text-text-dark">
                       {clubMap.get(session.clubId) || 'Unknown Club'}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-text-muted">
                       {new Date(session.date).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
@@ -110,8 +110,8 @@ export function HomePage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm text-gray-300">{session.shotCount} shots</div>
-                    <div className="text-[10px] text-gray-600 capitalize">{session.source}</div>
+                    <div className="text-sm text-text-medium">{session.shotCount} shots</div>
+                    <div className="text-[10px] text-text-faint capitalize">{session.source}</div>
                   </div>
                 </button>
               ))}

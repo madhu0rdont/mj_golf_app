@@ -24,19 +24,19 @@ export function ExtractionPreview({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-400">
+        <h3 className="text-sm font-medium text-text-medium">
           Extracted {shots.length} shot{shots.length !== 1 ? 's' : ''}
         </h3>
-        <span className="text-xs text-gray-500">Tap any value to edit</span>
+        <span className="text-xs text-text-muted">Tap any value to edit</span>
       </div>
 
       {warnings.length > 0 && (
-        <div className="rounded-lg border border-amber-800 bg-amber-950/50 p-3">
-          <div className="mb-1 flex items-center gap-2 text-sm font-medium text-amber-400">
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+          <div className="mb-1 flex items-center gap-2 text-sm font-medium text-amber-700">
             <AlertTriangle size={14} />
             {warnings.length} warning{warnings.length !== 1 ? 's' : ''}
           </div>
-          <ul className="text-xs text-amber-300/80">
+          <ul className="text-xs text-amber-600">
             {warnings.slice(0, 5).map((w, i) => (
               <li key={i}>{w}</li>
             ))}

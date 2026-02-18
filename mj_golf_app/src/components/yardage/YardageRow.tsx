@@ -13,14 +13,14 @@ export function YardageRow({ entry }: { entry: YardageBookEntry }) {
   return (
     <button
       onClick={() => navigate(`/yardage/${entry.clubId}`)}
-      className="flex w-full items-center gap-3 rounded-xl border border-gray-800 bg-gray-900 p-3 text-left transition-colors hover:border-gray-700"
+      className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] p-3 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[var(--shadow-card-hover)]"
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <FreshnessBadge freshness={entry.freshness} />
-          <span className="font-medium text-white">{entry.clubName}</span>
+          <span className="font-medium text-text-dark">{entry.clubName}</span>
         </div>
-        <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+        <div className="mt-1 flex items-center gap-3 text-xs text-text-muted">
           {entry.dominantShape && <span className="capitalize">{entry.dominantShape}</span>}
           <span>{entry.sessionCount} session{entry.sessionCount !== 1 ? 's' : ''}</span>
           <span>{lastPracticed}</span>
@@ -29,20 +29,20 @@ export function YardageRow({ entry }: { entry: YardageBookEntry }) {
 
       <div className="flex items-center gap-4">
         <div className="text-right">
-          <div className="text-lg font-bold text-white">{entry.bookCarry}</div>
-          <div className="text-[10px] text-gray-500">carry</div>
+          <div className="text-lg font-bold text-text-dark">{entry.bookCarry}</div>
+          <div className="text-[10px] text-text-muted">carry</div>
         </div>
         {entry.bookTotal && (
           <div className="text-right">
-            <div className="text-sm font-semibold text-gray-300">{entry.bookTotal}</div>
-            <div className="text-[10px] text-gray-500">total</div>
+            <div className="text-sm font-semibold text-text-medium">{entry.bookTotal}</div>
+            <div className="text-[10px] text-text-muted">total</div>
           </div>
         )}
         <div className="text-right">
-          <div className="text-sm text-gray-400">{entry.dispersion}</div>
-          <div className="text-[10px] text-gray-500">disp</div>
+          <div className="text-sm text-text-medium">{entry.dispersion}</div>
+          <div className="text-[10px] text-text-muted">disp</div>
         </div>
-        <ChevronRight size={16} className="text-gray-600" />
+        <ChevronRight size={16} className="text-text-faint" />
       </div>
     </button>
   );

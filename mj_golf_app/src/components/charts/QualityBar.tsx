@@ -35,7 +35,7 @@ export function QualityBar({ distribution, total }: QualityBarProps) {
         {QUALITY_CONFIG.map(({ key, label, color }) => {
           const count = distribution[key] || 0;
           return (
-            <div key={key} className="flex items-center gap-1 text-gray-400">
+            <div key={key} className="flex items-center gap-1 text-text-medium">
               <div className={`h-2 w-2 rounded-full ${color}`} />
               <span>
                 {label} ({count})

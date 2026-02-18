@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { Shot } from '../../models/session';
 import type { AxisScale } from './flight-math';
 import { computeLandingDots, computeDispersionEllipse } from './flight-math';
+import { THEME } from '../../theme/colors';
 
 interface DispersionChartProps {
   shots: Shot[];
@@ -62,7 +63,7 @@ export function DispersionChart({
       role="img"
       aria-label="Top-down dispersion chart"
     >
-      <rect width={WIDTH} height={HEIGHT} fill="#1a1a1a" />
+      <rect width={WIDTH} height={HEIGHT} fill={THEME.grass} />
 
       {/* Grid lines */}
       {ticks.map((x) => (
@@ -72,7 +73,7 @@ export function DispersionChart({
           y1={MARGIN.top}
           x2={sx(x)}
           y2={HEIGHT - MARGIN.bottom}
-          stroke="#222"
+          stroke={THEME.grassGrid}
           strokeWidth="0.5"
         />
       ))}
@@ -83,16 +84,16 @@ export function DispersionChart({
         y1={centerY}
         x2={WIDTH - MARGIN.right}
         y2={centerY}
-        stroke="#333"
+        stroke={THEME.grassCenter}
         strokeWidth="1"
         strokeDasharray="4 3"
       />
 
       {/* L/R labels */}
-      <text x={MARGIN.left + 2} y={MARGIN.top + 10} fill="#444" fontSize="8" fontFamily="system-ui">
+      <text x={MARGIN.left + 2} y={MARGIN.top + 10} fill={THEME.grassLabel} fontSize="8" fontFamily="system-ui">
         L
       </text>
-      <text x={MARGIN.left + 2} y={HEIGHT - MARGIN.bottom - 4} fill="#444" fontSize="8" fontFamily="system-ui">
+      <text x={MARGIN.left + 2} y={HEIGHT - MARGIN.bottom - 4} fill={THEME.grassLabel} fontSize="8" fontFamily="system-ui">
         R
       </text>
 
@@ -104,8 +105,8 @@ export function DispersionChart({
           rx={Math.max(ellipseRxPx, 8)}
           ry={Math.max(ellipseRyPx, 4)}
           fill="none"
-          stroke="#d4a843"
-          strokeOpacity="0.3"
+          stroke={THEME.gold}
+          strokeOpacity="0.4"
           strokeWidth="1"
           strokeDasharray="4 3"
           className={animated ? 'ellipse-animate' : ''}
@@ -122,8 +123,8 @@ export function DispersionChart({
             y1={centerY}
             x2={sx(dot.x)}
             y2={sy(dot.y)}
-            stroke="#d4a843"
-            strokeOpacity={isHighlighted ? 0.3 : 0.1}
+            stroke={THEME.gold}
+            strokeOpacity={isHighlighted ? 0.4 : 0.15}
             strokeWidth="0.5"
           />
         );
@@ -148,8 +149,8 @@ export function DispersionChart({
               cx={sx(dot.x)}
               cy={sy(dot.y)}
               r={isHighlighted ? 5 : 3}
-              fill={isHighlighted ? '#d4a843' : '#d4a843'}
-              fillOpacity={isHighlighted ? 1 : 0.6}
+              fill={THEME.gold}
+              fillOpacity={isHighlighted ? 1 : 0.7}
               className={animated ? 'dot-animate' : ''}
               style={animated ? { animationDelay: `${0.8 + i * 0.08}s` } : undefined}
             />
@@ -165,7 +166,7 @@ export function DispersionChart({
             y1={sy(ellipse.cy)}
             x2={sx(ellipse.cx) + 6}
             y2={sy(ellipse.cy)}
-            stroke="#d4a843"
+            stroke={THEME.gold}
             strokeWidth="1"
           />
           <line
@@ -173,7 +174,7 @@ export function DispersionChart({
             y1={sy(ellipse.cy) - 6}
             x2={sx(ellipse.cx)}
             y2={sy(ellipse.cy) + 6}
-            stroke="#d4a843"
+            stroke={THEME.gold}
             strokeWidth="1"
           />
         </>

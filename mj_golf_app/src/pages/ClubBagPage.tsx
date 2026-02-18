@@ -18,7 +18,7 @@ export function ClubBagPage() {
         title="My Bag"
         showSettings
         rightAction={
-          <Link to="/bag/new" className="rounded-lg p-1.5 text-green-400 hover:text-green-300">
+          <Link to="/bag/new" className="rounded-lg p-1.5 text-primary hover:text-primary-light">
             <Plus size={20} />
           </Link>
         }
@@ -44,7 +44,7 @@ export function ClubBagPage() {
           />
         ) : (
           <>
-            <p className="mb-3 text-xs text-gray-500">
+            <p className="mb-3 text-xs text-text-muted">
               {clubs.length} club{clubs.length !== 1 ? 's' : ''} — drag to reorder
             </p>
             <ClubList clubs={clubs} />

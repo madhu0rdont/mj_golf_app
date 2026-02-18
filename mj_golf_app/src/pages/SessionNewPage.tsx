@@ -71,21 +71,21 @@ export function SessionNewPage() {
           />
         </div>
 
-        <h3 className="mb-3 text-sm font-medium text-gray-400 uppercase">Add Data</h3>
+        <h3 className="mb-3 text-sm font-medium text-text-medium uppercase">Add Data</h3>
         <div className="flex flex-col gap-2">
           {methods.map(({ icon: Icon, label, desc, path }) => (
             <button
               key={path}
               onClick={() => navigate(path, { state: buildState() })}
               disabled={!selectedClub}
-              className="flex items-center gap-4 rounded-xl border border-gray-800 bg-gray-900 p-4 text-left transition-colors hover:border-gray-700 disabled:opacity-40"
+              className="flex items-center gap-4 rounded-2xl border border-border bg-card shadow-sm p-4 text-left transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px disabled:opacity-40"
             >
-              <div className="rounded-lg bg-gray-800 p-2.5">
-                <Icon size={20} className="text-green-400" />
+              <div className="rounded-lg bg-primary-pale p-2.5">
+                <Icon size={20} className="text-primary" />
               </div>
               <div>
-                <div className="font-medium text-white">{label}</div>
-                <div className="text-xs text-gray-500">{desc}</div>
+                <div className="font-medium text-text-dark">{label}</div>
+                <div className="text-xs text-text-muted">{desc}</div>
               </div>
             </button>
           ))}

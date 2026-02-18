@@ -10,13 +10,13 @@ export function Select({ label, options, className = '', id, ...props }: SelectP
   return (
     <div className="flex flex-col gap-1">
       {label && (
-        <label htmlFor={selectId} className="text-sm font-medium text-gray-400">
+        <label htmlFor={selectId} className="text-sm font-medium text-text-medium">
           {label}
         </label>
       )}
       <select
         id={selectId}
-        className={`w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-white focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 ${className}`}
+        className={`w-full rounded-lg border border-border bg-card px-3 py-2 text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${className}`}
         {...props}
       >
         {options.map((opt) => (

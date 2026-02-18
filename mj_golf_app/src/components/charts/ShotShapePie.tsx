@@ -1,19 +1,12 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, type PieLabelRenderProps } from 'recharts';
 import type { ShotShape } from '../../models/session';
+import { THEME } from '../../theme/colors';
 
 interface ShotShapePieProps {
   distribution: Partial<Record<ShotShape, number>>;
 }
 
-const SHAPE_COLORS: Record<ShotShape, string> = {
-  straight: '#22c55e',
-  draw: '#3b82f6',
-  fade: '#a855f7',
-  hook: '#ef4444',
-  slice: '#f97316',
-  pull: '#eab308',
-  push: '#06b6d4',
-};
+const SHAPE_COLORS: Record<ShotShape, string> = THEME.shotShape as Record<ShotShape, string>;
 
 const SHAPE_LABELS: Record<ShotShape, string> = {
   straight: 'Straight',
@@ -36,7 +29,7 @@ export function ShotShapePie({ distribution }: ShotShapePieProps) {
 
   if (data.length === 0) {
     return (
-      <div className="flex h-40 items-center justify-center text-sm text-gray-500">
+      <div className="flex h-40 items-center justify-center text-sm text-text-muted">
         No shape data
       </div>
     );
@@ -63,7 +56,7 @@ export function ShotShapePie({ distribution }: ShotShapePieProps) {
         <Legend
           verticalAlign="bottom"
           height={36}
-          formatter={(value) => <span className="text-xs text-gray-400">{value}</span>}
+          formatter={(value) => <span className="text-xs text-text-medium">{value}</span>}
         />
       </PieChart>
     </ResponsiveContainer>

@@ -1,5 +1,51 @@
 @import "tailwindcss";
 
+@theme {
+  /* Typography */
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Background colors */
+  --color-surface: #F3F0EB;
+  --color-card: #FFFFFF;
+
+  /* Primary green palette */
+  --color-primary: #2D6A4F;
+  --color-primary-light: #40916C;
+  --color-primary-pale: #D8F3DC;
+
+  /* Gold palette */
+  --color-gold: #D4A843;
+  --color-gold-light: #F5E6C8;
+  --color-gold-dark: #8A6D2B;
+
+  /* Coral/warning */
+  --color-coral: #E76F51;
+  --color-coral-light: #FDEAE4;
+
+  /* Soft blue */
+  --color-soft-blue: #7EB8DA;
+
+  /* Text hierarchy */
+  --color-text-dark: #1A1A2E;
+  --color-text-medium: #4A4A5A;
+  --color-text-muted: #9B9B9B;
+  --color-text-faint: #C5C5C5;
+
+  /* Borders */
+  --color-border: #E8E4DF;
+  --color-border-light: #F0EDE8;
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
+  --shadow-card-hover: 0 2px 8px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.05);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
 /* Flight arc draw animation */
 .flight-arc-animate {
   stroke-dasharray: 1000;

@@ -25,7 +25,7 @@ export function SessionSummaryPage() {
     return (
       <>
         <TopBar title="Session Summary" showBack />
-        <div className="px-4 py-8 text-center text-sm text-gray-500">Loading...</div>
+        <div className="px-4 py-8 text-center text-sm text-text-muted">Loading...</div>
       </>
     );
   }
@@ -60,7 +60,7 @@ export function SessionSummaryPage() {
         {/* Header */}
         <div className="mb-4">
           <h2 className="text-xl font-bold">{club.name}</h2>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-text-medium">
             {dateStr} &middot; {summary.shotCount} shots
             {session.location && ` at ${session.location}`}
           </p>
@@ -86,20 +86,20 @@ export function SessionSummaryPage() {
         </div>
 
         {/* Distance Range */}
-        <div className="mb-6 rounded-xl border border-gray-800 bg-gray-900 p-3">
-          <div className="mb-2 text-xs font-medium uppercase text-gray-500">Carry Range</div>
+        <div className="mb-6 rounded-2xl border border-border bg-card shadow-sm p-3">
+          <div className="mb-2 text-xs font-medium uppercase text-text-muted">Carry Range</div>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-400">Min: <strong className="text-white">{summary.minCarry}</strong></span>
-            <span className="text-gray-400">Median: <strong className="text-white">{summary.medianCarry}</strong></span>
-            <span className="text-gray-400">Max: <strong className="text-white">{summary.maxCarry}</strong></span>
+            <span className="text-text-muted">Min: <strong className="text-text-dark">{summary.minCarry}</strong></span>
+            <span className="text-text-muted">Median: <strong className="text-text-dark">{summary.medianCarry}</strong></span>
+            <span className="text-text-muted">Max: <strong className="text-text-dark">{summary.maxCarry}</strong></span>
           </div>
-          <div className="mt-1 text-xs text-gray-500">Std Dev: {summary.stdDevCarry} yds</div>
+          <div className="mt-1 text-xs text-text-muted">Std Dev: {summary.stdDevCarry} yds</div>
         </div>
 
         {/* Launch Stats */}
         {(summary.avgBallSpeed || summary.avgClubHeadSpeed || summary.avgLaunchAngle || summary.avgSpinRate) && (
           <div className="mb-6">
-            <h3 className="mb-2 text-sm font-medium text-gray-400 uppercase">Launch Data</h3>
+            <h3 className="mb-2 text-sm font-medium text-text-medium uppercase">Launch Data</h3>
             <div className="grid grid-cols-2 gap-2">
               {summary.avgBallSpeed && <StatCard label="Ball Speed" value={summary.avgBallSpeed} unit="mph" />}
               {summary.avgClubHeadSpeed && <StatCard label="Club Speed" value={summary.avgClubHeadSpeed} unit="mph" />}
@@ -111,28 +111,28 @@ export function SessionSummaryPage() {
 
         {/* Shot Shape */}
         <div className="mb-6">
-          <h3 className="mb-2 text-sm font-medium text-gray-400 uppercase">
+          <h3 className="mb-2 text-sm font-medium text-text-medium uppercase">
             Shot Shape
             {summary.dominantShape && (
-              <span className="ml-2 text-white capitalize">({summary.dominantShape})</span>
+              <span className="ml-2 text-text-dark capitalize">({summary.dominantShape})</span>
             )}
           </h3>
-          <div className="rounded-xl border border-gray-800 bg-gray-900 p-3">
+          <div className="rounded-2xl border border-border bg-card shadow-sm p-3">
             <ShotShapePie distribution={summary.shapeDistribution} />
           </div>
         </div>
 
         {/* Quality */}
         <div className="mb-6">
-          <h3 className="mb-2 text-sm font-medium text-gray-400 uppercase">Shot Quality</h3>
-          <div className="rounded-xl border border-gray-800 bg-gray-900 p-3">
+          <h3 className="mb-2 text-sm font-medium text-text-medium uppercase">Shot Quality</h3>
+          <div className="rounded-2xl border border-border bg-card shadow-sm p-3">
             <QualityBar distribution={summary.qualityDistribution} total={summary.shotCount} />
           </div>
         </div>
 
         {/* Shot-by-Shot Data */}
         <div className="mb-6">
-          <h3 className="mb-2 text-sm font-medium text-gray-400 uppercase">All Shots</h3>
+          <h3 className="mb-2 text-sm font-medium text-text-medium uppercase">All Shots</h3>
           <ShotTable
             shots={shotRows}
             onChange={() => {}}

@@ -66,9 +66,9 @@ function ShotRowCard({
     if (readOnly) {
       return (
         <div key={field.key} className="flex flex-col">
-          <span className="text-[10px] text-gray-500">{field.label}</span>
-          <span className={`text-sm font-medium ${isInvalid ? 'text-amber-400' : 'text-white'}`}>
-            {value ?? '—'} <span className="text-gray-600">{field.unit}</span>
+          <span className="text-[10px] text-text-muted">{field.label}</span>
+          <span className={`text-sm font-medium ${isInvalid ? 'text-amber-400' : 'text-text-dark'}`}>
+            {value ?? '—'} <span className="text-text-faint">{field.unit}</span>
           </span>
         </div>
       );
@@ -76,7 +76,7 @@ function ShotRowCard({
 
     return (
       <div key={field.key} className="flex flex-col gap-0.5">
-        <span className="text-[10px] text-gray-500">{field.label}</span>
+        <span className="text-[10px] text-text-muted">{field.label}</span>
         <div className="relative">
           <input
             type="number"
@@ -84,13 +84,13 @@ function ShotRowCard({
             onChange={(e) => onChange(index, field.key, e.target.value)}
             placeholder={field.placeholder}
             step="0.1"
-            className={`w-full rounded border bg-gray-800 px-2 py-1 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 ${
+            className={`w-full rounded border bg-card px-2 py-1 text-sm text-text-dark placeholder-text-muted focus:outline-none focus:ring-1 ${
               isInvalid
                 ? 'border-amber-500 focus:ring-amber-500'
-                : 'border-gray-700 focus:ring-green-500'
+                : 'border-border focus:ring-primary'
             }`}
           />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-600">
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-text-faint">
             {field.unit}
           </span>
         </div>
@@ -99,14 +99,14 @@ function ShotRowCard({
   };
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900 p-3">
+    <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] p-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-gray-400">Shot {shot.shotNumber}</span>
+        <span className="text-xs font-medium text-text-medium">Shot {shot.shotNumber}</span>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
-            className="rounded p-1 text-gray-500 hover:text-gray-300"
+            className="rounded p-1 text-text-muted hover:text-text-dark"
           >
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
@@ -114,7 +114,7 @@ function ShotRowCard({
             <button
               type="button"
               onClick={() => onDelete(index)}
-              className="rounded p-1 text-gray-500 hover:text-red-400"
+              className="rounded p-1 text-text-muted hover:text-coral"
             >
               <Trash2 size={14} />
             </button>
@@ -127,7 +127,7 @@ function ShotRowCard({
       </div>
 
       {expanded && (
-        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-gray-800 pt-3">
+        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3">
           {ADVANCED_FIELDS.map(renderField)}
         </div>
       )}

@@ -14,8 +14,8 @@ interface SessionFlightViewProps {
 
 export function SessionFlightView({
   shots,
-  clubName,
-  sessionDate,
+  clubName: _clubName,
+  sessionDate: _sessionDate,
   highlightedShotId: externalHighlight,
 }: SessionFlightViewProps) {
   const [highlightedId, setHighlightedId] = useState<string | null>(
@@ -39,7 +39,7 @@ export function SessionFlightView({
   const xScale = useMemo(() => computeXScale(shots), [shots]);
 
   return (
-    <div className="mb-4 rounded-xl border border-gray-800 bg-[#0d0d0d] overflow-hidden">
+    <div className="mb-4 rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] overflow-hidden">
       {/* Metrics Bar */}
       <div
         className={`transition-opacity duration-500 ${animated ? 'opacity-100' : 'opacity-0'}`}
@@ -79,10 +79,10 @@ export function SessionFlightView({
         </>
       ) : (
         <div className="px-4 py-6 text-center">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-text-muted">
             Trajectory data not available for this session.
           </p>
-          <p className="mt-1 text-[10px] text-gray-600">
+          <p className="mt-1 text-[10px] text-text-faint">
             Import data with launch angle and apex height to see flight paths.
           </p>
         </div>

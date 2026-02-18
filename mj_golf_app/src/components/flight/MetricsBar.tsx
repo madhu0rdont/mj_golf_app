@@ -1,5 +1,6 @@
 import type { Shot } from '../../models/session';
 import { mean } from '../../services/stats';
+import { THEME } from '../../theme/colors';
 
 interface MetricsBarProps {
   shots: Shot[];
@@ -46,13 +47,13 @@ export function MetricsBar({ shots, highlightedShotId }: MetricsBarProps) {
     : shots[shots.length - 1]; // last shot
 
   return (
-    <div className="overflow-x-auto scrollbar-none border-b border-gray-800/50">
+    <div className="overflow-x-auto scrollbar-none border-b border-border">
       <div className="flex min-w-max">
         {/* Row labels */}
         <div className="flex flex-col justify-center gap-0.5 px-2 py-2 shrink-0">
-          <span className="text-[8px] text-gray-600 uppercase tracking-wider">&nbsp;</span>
-          <span className="text-[9px] text-gray-500 font-medium">LAST</span>
-          <span className="text-[9px] text-gray-600 font-medium">AVG</span>
+          <span className="text-[8px] text-text-faint uppercase tracking-wider">&nbsp;</span>
+          <span className="text-[9px] text-text-muted font-medium">LAST</span>
+          <span className="text-[9px] text-text-faint font-medium">AVG</span>
         </div>
 
         {METRICS.map((metric) => {
@@ -65,16 +66,16 @@ export function MetricsBar({ shots, highlightedShotId }: MetricsBarProps) {
               className="flex flex-col items-center px-2.5 py-2 min-w-[62px]"
               style={metric.accent ? { borderBottom: '2px solid #d4a843' } : undefined}
             >
-              <span className="text-[8px] text-gray-500 uppercase tracking-wider leading-none mb-1">
+              <span className="text-[8px] text-text-muted uppercase tracking-wider leading-none mb-1">
                 {metric.label}
               </span>
               <span
                 className="text-sm font-bold tabular-nums leading-none"
-                style={{ color: metric.accent ? '#d4a843' : '#ffffff' }}
+                style={{ color: metric.accent ? THEME.gold : THEME.textDark }}
               >
                 {formatValue(lastVal, metric)}
               </span>
-              <span className="text-[10px] text-gray-500 tabular-nums leading-none mt-0.5">
+              <span className="text-[10px] text-text-muted tabular-nums leading-none mt-0.5">
                 {formatValue(avgVal, metric)}
               </span>
             </div>

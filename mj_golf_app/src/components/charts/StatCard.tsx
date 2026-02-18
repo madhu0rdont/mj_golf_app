@@ -10,16 +10,16 @@ interface StatCardProps {
 
 export function StatCard({ label, value, unit, delta }: StatCardProps) {
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900 p-3">
-      <div className="text-[10px] font-medium uppercase tracking-wider text-gray-500">{label}</div>
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+      <div className="text-[10px] font-medium uppercase tracking-wider text-text-muted">{label}</div>
       <div className="mt-1 flex items-baseline gap-1">
-        <span className="text-2xl font-bold text-white">{value}</span>
-        {unit && <span className="text-sm text-gray-500">{unit}</span>}
+        <span className="text-2xl font-bold font-mono text-text-dark">{value}</span>
+        {unit && <span className="text-sm text-text-muted">{unit}</span>}
       </div>
       {delta && delta.direction !== 'neutral' && (
         <div
           className={`mt-1 flex items-center gap-1 text-xs ${
-            delta.improved ? 'text-green-400' : 'text-red-400'
+            delta.improved ? 'text-primary' : 'text-coral'
           }`}
         >
           {delta.direction === 'up' ? (

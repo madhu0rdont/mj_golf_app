@@ -31,7 +31,7 @@ export function SessionCsvPage() {
     return (
       <>
         <TopBar title="CSV Import" showBack />
-        <div className="px-4 py-8 text-center text-sm text-gray-500">
+        <div className="px-4 py-8 text-center text-sm text-text-muted">
           No club selected. Go back and select a club first.
         </div>
       </>
@@ -131,16 +131,16 @@ export function SessionCsvPage() {
       <div className="px-4 py-4">
         {!parseResult ? (
           <>
-            <p className="mb-4 text-sm text-gray-400">
+            <p className="mb-4 text-sm text-text-medium">
               Upload a CSV file exported from Foresight FSX 2020 or the Foresight app.
             </p>
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex w-full flex-col items-center gap-3 rounded-xl border-2 border-dashed border-gray-700 p-8 text-gray-400 transition-colors hover:border-green-600 hover:text-green-400"
+              className="flex w-full flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border p-8 text-text-muted transition-colors hover:border-primary hover:text-primary"
             >
               <Upload size={32} />
               <span className="font-medium">Select CSV File</span>
-              <span className="text-xs text-gray-600">.csv files from GC4/FSX exports</span>
+              <span className="text-xs text-text-faint">.csv files from GC4/FSX exports</span>
             </button>
             <input
               ref={fileInputRef}
@@ -150,7 +150,7 @@ export function SessionCsvPage() {
               className="hidden"
             />
             {error && (
-              <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-800 bg-red-950/50 p-3 text-sm text-red-300">
+              <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">
                 <AlertTriangle size={16} />
                 {error}
               </div>
@@ -158,23 +158,23 @@ export function SessionCsvPage() {
           </>
         ) : (
           <>
-            <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900 p-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-white">
-                <FileSpreadsheet size={16} className="text-green-400" />
+            <div className="mb-4 rounded-lg border border-border bg-card shadow-sm p-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-text-dark">
+                <FileSpreadsheet size={16} className="text-primary" />
                 {fileName}
               </div>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-text-muted">
                 Found {shots.length} shot{shots.length !== 1 ? 's' : ''} &middot;
                 Mapped {Object.keys(parseResult.mappings).length} of {parseResult.headers.length} columns
               </p>
               {parseResult.unmappedHeaders.length > 0 && (
-                <p className="mt-1 text-xs text-amber-400">
+                <p className="mt-1 text-xs text-amber-600">
                   Unmapped: {parseResult.unmappedHeaders.join(', ')}
                 </p>
               )}
             </div>
 
-            <p className="mb-3 text-xs text-gray-500">Review and edit the data below, then save.</p>
+            <p className="mb-3 text-xs text-text-muted">Review and edit the data below, then save.</p>
 
             <ShotTable shots={shots} onChange={handleChange} onDelete={handleDelete} />
 

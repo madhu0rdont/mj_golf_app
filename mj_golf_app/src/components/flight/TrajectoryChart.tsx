@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { Shot } from '../../models/session';
 import type { AxisScale } from './flight-math';
 import { computeFlightArc, flightPathToSvg } from './flight-math';
+import { THEME } from '../../theme/colors';
 
 interface TrajectoryChartProps {
   shots: Shot[];
@@ -53,7 +54,7 @@ export function TrajectoryChart({
       role="img"
       aria-label="Side-view trajectory chart"
     >
-      <rect width={WIDTH} height={HEIGHT} fill="#111" />
+      <rect width={WIDTH} height={HEIGHT} fill={THEME.sky} />
 
       {/* Grid lines */}
       {ticks.map((x) => (
@@ -63,7 +64,7 @@ export function TrajectoryChart({
           y1={MARGIN.top}
           x2={sx(x)}
           y2={HEIGHT - MARGIN.bottom}
-          stroke="#222"
+          stroke={THEME.skyGrid}
           strokeWidth="0.5"
         />
       ))}
@@ -74,7 +75,7 @@ export function TrajectoryChart({
         y1={sy(0)}
         x2={WIDTH - MARGIN.right}
         y2={sy(0)}
-        stroke="#2a2a2a"
+        stroke={THEME.skyGround}
         strokeWidth="1"
       />
 
@@ -85,7 +86,7 @@ export function TrajectoryChart({
           x={sx(x)}
           y={HEIGHT - 6}
           textAnchor="middle"
-          fill="#555"
+          fill={THEME.skyLabel}
           fontSize="10"
           fontFamily="system-ui"
         >
@@ -114,9 +115,9 @@ export function TrajectoryChart({
             <path
               d={svgPath}
               fill="none"
-              stroke={isHighlighted ? '#d4a843' : '#d4a843'}
+              stroke={THEME.gold}
               strokeWidth={isHighlighted ? 2.5 : 1.5}
-              strokeOpacity={isHighlighted ? 1 : 0.35}
+              strokeOpacity={isHighlighted ? 1 : 0.45}
               className={animated ? 'flight-arc-animate' : ''}
               style={animated ? { animationDelay: `${0.3 + i * 0.1}s` } : undefined}
             />
@@ -125,7 +126,8 @@ export function TrajectoryChart({
               cx={sx(arc.landingX)}
               cy={sy(0)}
               r={isHighlighted ? 3 : 2}
-              fill={isHighlighted ? '#d4a843' : '#d4a84366'}
+              fill={THEME.gold}
+              fillOpacity={isHighlighted ? 1 : 0.5}
             />
           </g>
         );

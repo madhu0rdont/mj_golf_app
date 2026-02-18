@@ -1,9 +1,9 @@
 import type { DataFreshness } from '../../models/yardage';
 
 const FRESHNESS_CONFIG: Record<DataFreshness, { dot: string; label: string; text: string }> = {
-  fresh: { dot: 'bg-green-400', label: 'Fresh', text: 'text-green-400' },
-  aging: { dot: 'bg-yellow-400', label: 'Aging', text: 'text-yellow-400' },
-  stale: { dot: 'bg-red-400', label: 'Stale', text: 'text-red-400' },
+  fresh: { dot: 'bg-primary', label: 'Fresh', text: 'text-primary' },
+  aging: { dot: 'bg-amber-500', label: 'Aging', text: 'text-amber-600' },
+  stale: { dot: 'bg-coral', label: 'Stale', text: 'text-coral' },
 };
 
 export function FreshnessBadge({ freshness }: { freshness: DataFreshness }) {

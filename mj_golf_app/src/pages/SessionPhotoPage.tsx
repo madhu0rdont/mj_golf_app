@@ -53,7 +53,7 @@ export function SessionPhotoPage() {
     return (
       <>
         <TopBar title="Photo Capture" showBack />
-        <div className="px-4 py-8 text-center text-sm text-gray-500">
+        <div className="px-4 py-8 text-center text-sm text-text-muted">
           No club selected. Go back and select a club first.
         </div>
       </>
@@ -67,7 +67,7 @@ export function SessionPhotoPage() {
         <div className="px-4 py-8 text-center">
           <AlertCircle size={40} className="mx-auto mb-3 text-amber-400" />
           <p className="mb-2 font-medium">API Key Required</p>
-          <p className="mb-4 text-sm text-gray-400">
+          <p className="mb-4 text-sm text-text-medium">
             Set your Claude API key in Settings to use photo extraction.
           </p>
           <Button onClick={() => navigate('/settings')}>Go to Settings</Button>
@@ -160,9 +160,9 @@ export function SessionPhotoPage() {
 
         {step === 'extracting' && (
           <div className="flex flex-col items-center gap-4 py-16">
-            <Loader2 size={40} className="animate-spin text-green-400" />
+            <Loader2 size={40} className="animate-spin text-primary" />
             <p className="font-medium">Analyzing image...</p>
-            <p className="text-sm text-gray-500">This usually takes 5-10 seconds</p>
+            <p className="text-sm text-text-muted">This usually takes 5-10 seconds</p>
           </div>
         )}
 
@@ -182,9 +182,9 @@ export function SessionPhotoPage() {
 
         {step === 'error' && (
           <div className="flex flex-col items-center gap-4 py-8">
-            <AlertCircle size={40} className="text-red-400" />
+            <AlertCircle size={40} className="text-coral" />
             <p className="font-medium">Extraction Failed</p>
-            <p className="max-w-xs text-center text-sm text-gray-400">{errorMsg}</p>
+            <p className="max-w-xs text-center text-sm text-text-medium">{errorMsg}</p>
             <div className="flex gap-3">
               <Button onClick={handleRetry}>Try Again</Button>
               <Button
@@ -199,8 +199,8 @@ export function SessionPhotoPage() {
 
         {saving && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="flex items-center gap-3 rounded-xl bg-gray-900 px-6 py-4">
-              <Loader2 size={20} className="animate-spin text-green-400" />
+            <div className="flex items-center gap-3 rounded-xl bg-card px-6 py-4">
+              <Loader2 size={20} className="animate-spin text-primary" />
               <span>Saving session...</span>
             </div>
           </div>

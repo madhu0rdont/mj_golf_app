@@ -25,11 +25,11 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="w-full max-w-lg rounded-xl border border-gray-700 bg-gray-900 p-0 text-white backdrop:bg-black/60"
+      className="w-full max-w-lg rounded-2xl border border-border bg-card p-0 text-text-dark shadow-[var(--shadow-card)] backdrop:bg-black/30"
     >
-      <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:text-white">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <h2 className="text-lg font-semibold text-text-dark">{title}</h2>
+        <button onClick={onClose} className="rounded-lg p-1 text-text-muted hover:text-text-dark">
           <X size={20} />
         </button>
       </div>

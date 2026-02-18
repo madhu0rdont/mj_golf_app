@@ -50,7 +50,7 @@ export function ClubEditPage() {
         onClose={() => setShowDeleteConfirm(false)}
         title="Delete Club"
       >
-        <p className="mb-4 text-sm text-gray-400">
+        <p className="mb-4 text-sm text-text-medium">
           Are you sure you want to delete <strong>{club?.name}</strong>? Session data for this club
           will be preserved.
         </p>
