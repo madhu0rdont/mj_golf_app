@@ -1,18 +1,18 @@
 import type { Shot, ShotShape, ShotQuality, SessionSummary } from '../models/session';
 
-function mean(values: number[]): number {
+export function mean(values: number[]): number {
   if (values.length === 0) return 0;
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
-function median(values: number[]): number {
+export function median(values: number[]): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-function stddev(values: number[]): number {
+export function stddev(values: number[]): number {
   if (values.length <= 1) return 0;
   const avg = mean(values);
   const variance = values.reduce((sum, v) => sum + (v - avg) ** 2, 0) / values.length;

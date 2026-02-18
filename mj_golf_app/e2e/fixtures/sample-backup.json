@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "exportedAt": "2025-06-15T12:00:00.000Z",
+  "clubs": [
+    {
+      "id": "backup-club-1",
+      "name": "7 Iron",
+      "category": "iron",
+      "loft": 32,
+      "manualCarry": 155,
+      "sortOrder": 0,
+      "createdAt": 1718452800000,
+      "updatedAt": 1718452800000
+    }
+  ],
+  "sessions": [
+    {
+      "id": "backup-sess-1",
+      "clubId": "backup-club-1",
+      "date": 1718452800000,
+      "source": "manual",
+      "shotCount": 2,
+      "createdAt": 1718452800000,
+      "updatedAt": 1718452800000
+    }
+  ],
+  "shots": [
+    {
+      "id": "backup-shot-1",
+      "sessionId": "backup-sess-1",
+      "clubId": "backup-club-1",
+      "shotNumber": 1,
+      "carryYards": 155,
+      "totalYards": 168,
+      "shape": "draw",
+      "quality": "pure",
+      "timestamp": 1718452800000
+    },
+    {
+      "id": "backup-shot-2",
+      "sessionId": "backup-sess-1",
+      "clubId": "backup-club-1",
+      "shotNumber": 2,
+      "carryYards": 152,
+      "totalYards": 165,
+      "shape": "straight",
+      "quality": "good",
+      "timestamp": 1718452800001
+    }
+  ]
+}

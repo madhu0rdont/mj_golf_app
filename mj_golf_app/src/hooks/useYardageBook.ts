@@ -6,30 +6,30 @@ import type { YardageBookEntry, DataFreshness } from '../models/yardage';
 
 const HALF_LIFE_DAYS = 30;
 
-function computeWeight(daysAgo: number): number {
+export function computeWeight(daysAgo: number): number {
   return Math.pow(0.5, daysAgo / HALF_LIFE_DAYS);
 }
 
-function getFreshness(lastSessionDate: number): DataFreshness {
+export function getFreshness(lastSessionDate: number): DataFreshness {
   const daysAgo = (Date.now() - lastSessionDate) / (1000 * 60 * 60 * 24);
   if (daysAgo < 14) return 'fresh';
   if (daysAgo < 45) return 'aging';
   return 'stale';
 }
 
-function weightedAvg(values: { value: number; weight: number }[]): number {
+export function weightedAvg(values: { value: number; weight: number }[]): number {
   if (values.length === 0) return 0;
   const totalWeight = values.reduce((sum, v) => sum + v.weight, 0);
   if (totalWeight === 0) return 0;
   return values.reduce((sum, v) => sum + v.value * v.weight, 0) / totalWeight;
 }
 
-interface SessionWithShots {
+export interface SessionWithShots {
   session: Session;
   shots: Shot[];
 }
 
-function computeBookEntry(
+export function computeBookEntry(
   club: Club,
   sessionsWithShots: SessionWithShots[]
 ): YardageBookEntry | null {

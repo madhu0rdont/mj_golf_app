@@ -26,20 +26,22 @@ const DEFAULT_BAG: DefaultClub[] = [
 ];
 
 export async function seedDefaultBag(): Promise<void> {
-  const count = await db.clubs.count();
-  if (count > 0) return;
+  await db.transaction('rw', db.clubs, async () => {
+    const count = await db.clubs.count();
+    if (count > 0) return;
 
-  const now = Date.now();
-  const clubs: Club[] = DEFAULT_BAG.map((club, index) => ({
-    id: crypto.randomUUID(),
-    name: club.name,
-    category: club.category,
-    loft: club.loft,
-    manualCarry: club.defaultCarry,
-    sortOrder: index,
-    createdAt: now,
-    updatedAt: now,
-  }));
+    const now = Date.now();
+    const clubs: Club[] = DEFAULT_BAG.map((club, index) => ({
+      id: crypto.randomUUID(),
+      name: club.name,
+      category: club.category,
+      loft: club.loft,
+      manualCarry: club.defaultCarry,
+      sortOrder: index,
+      createdAt: now,
+      updatedAt: now,
+    }));
 
-  await db.clubs.bulkAdd(clubs);
+    await db.clubs.bulkAdd(clubs);
+  });
 }
