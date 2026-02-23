@@ -1,4 +1,3 @@
-import { mutate } from 'swr';
 import { api } from '../lib/api';
 
 interface BackupData {
@@ -37,14 +36,13 @@ export async function importAllData(file: File): Promise<{ clubs: number; sessio
     data
   );
 
-  // Revalidate all SWR caches
-  await mutate(() => true, undefined, { revalidate: true });
+  // Force full reload to clear all SWR caches
+  window.location.reload();
 
   return result;
 }
 
 export async function clearAllData(): Promise<void> {
-  // Import with empty arrays to clear
   await api.post('/backup/import', { version: 1, clubs: [], sessions: [], shots: [] });
-  await mutate(() => true, undefined, { revalidate: true });
+  window.location.reload();
 }
