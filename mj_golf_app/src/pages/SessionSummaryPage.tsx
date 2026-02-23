@@ -67,8 +67,12 @@ export function SessionSummaryPage() {
   // Flight visualization state
   const [highlightedShotId, setHighlightedShotId] = useState<string | null>(null);
   const [animated, setAnimated] = useState(false);
-  const xScale = useMemo(() => (shots ? computeXScale(shots) : { min: 0, max: 200, step: 50 }), [shots]);
-  const hasTrajectoryData = shots?.some((s) => s.launchAngle != null && s.apexHeight != null) ?? false;
+  const flightShots = useMemo(
+    () => (excludeMishits ? (shots ?? []).filter((s) => s.quality !== 'mishit') : shots ?? []),
+    [shots, excludeMishits]
+  );
+  const xScale = useMemo(() => computeXScale(flightShots), [flightShots]);
+  const hasTrajectoryData = flightShots.some((s) => s.launchAngle != null && s.apexHeight != null);
 
   useEffect(() => {
     const timer = setTimeout(() => setAnimated(true), 100);
@@ -181,14 +185,14 @@ export function SessionSummaryPage() {
         {hasTrajectoryData && (
           <div className="mt-4 rounded-2xl border border-border overflow-hidden shadow-[var(--shadow-card)]">
             <TrajectoryChart
-              shots={shots}
+              shots={flightShots}
               highlightedShotId={highlightedShotId}
               onShotTap={setHighlightedShotId}
               xScale={xScale}
               animated={animated}
             />
             <DispersionChart
-              shots={shots}
+              shots={flightShots}
               highlightedShotId={highlightedShotId}
               onShotTap={setHighlightedShotId}
               xScale={xScale}
