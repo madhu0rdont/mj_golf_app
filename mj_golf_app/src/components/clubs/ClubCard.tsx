@@ -18,7 +18,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export function ClubCard({ club, dragHandleProps }: ClubCardProps) {
   const navigate = useNavigate();
-  const carry = club.computedCarry ?? club.manualCarry;
+  const carry = club.computedCarry;
 
   return (
     <div
@@ -38,10 +38,9 @@ export function ClubCard({ club, dragHandleProps }: ClubCardProps) {
             {club.category}
           </span>
         </div>
-        <div className="mt-0.5 flex items-center gap-2 text-xs text-text-muted">
-          {club.brand && <span>{club.brand}</span>}
-          {club.loft && <span>{club.loft}&deg;</span>}
-          {club.shaft && <span>{club.shaft}</span>}
+        <div className="mt-0.5 text-xs text-text-muted">
+          {[club.brand, club.model, club.name].filter(Boolean).join(' ')}
+          {(club.flex || club.shaft) && ` with ${[club.flex, club.shaft].filter(Boolean).join(' ')}`}
         </div>
       </div>
 

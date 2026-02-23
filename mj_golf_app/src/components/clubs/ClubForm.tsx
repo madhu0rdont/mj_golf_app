@@ -108,25 +108,6 @@ export function ClubForm({ initial, onSave, onDelete, onCancel }: ClubFormProps)
         placeholder="e.g. Project X 6.0"
       />
 
-      <div className="grid grid-cols-2 gap-3">
-        <Input
-          label="Manual Carry"
-          type="number"
-          value={manualCarry}
-          onChange={(e) => setManualCarry(e.target.value)}
-          placeholder="e.g. 155"
-          suffix="yds"
-        />
-        <Input
-          label="Manual Total"
-          type="number"
-          value={manualTotal}
-          onChange={(e) => setManualTotal(e.target.value)}
-          placeholder="e.g. 167"
-          suffix="yds"
-        />
-      </div>
-
       <div className="flex gap-3 pt-2">
         <Button type="submit" className="flex-1">
           {initial ? 'Save Changes' : 'Add Club'}
