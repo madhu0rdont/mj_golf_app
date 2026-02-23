@@ -1,5 +1,9 @@
 import pg from 'pg';
 
+// Parse BIGINT (OID 20) as JavaScript numbers instead of strings.
+// Our BIGINT columns are epoch-ms timestamps, safely within Number.MAX_SAFE_INTEGER.
+pg.types.setTypeParser(20, (val: string) => parseInt(val, 10));
+
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
 });
