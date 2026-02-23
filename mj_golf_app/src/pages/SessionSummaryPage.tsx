@@ -22,6 +22,7 @@ export function SessionSummaryPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editClubId, setEditClubId] = useState('');
   const [editDate, setEditDate] = useState('');
+  const [excludeMishits, setExcludeMishits] = useState(false);
 
   const openEditModal = () => {
     if (!session) return;
@@ -48,13 +49,25 @@ export function SessionSummaryPage() {
     return computeSessionSummary(shots, club.name, session.id, session.clubId, session.date);
   }, [shots, session, club]);
 
+  const mishitCount = useMemo(
+    () => shots?.filter((s) => s.quality === 'mishit').length ?? 0,
+    [shots]
+  );
+
+  const heroSummary = useMemo(() => {
+    if (!shots || shots.length === 0 || !session || !club) return null;
+    const filtered = excludeMishits ? shots.filter((s) => s.quality !== 'mishit') : shots;
+    if (filtered.length === 0) return null;
+    return computeSessionSummary(filtered, club.name, session.id, session.clubId, session.date);
+  }, [shots, session, club, excludeMishits]);
+
   // Offline label with L/R
   const offlineLabel = useMemo(() => {
-    if (summary?.avgOffline == null) return undefined;
-    const abs = Math.abs(summary.avgOffline);
+    if (heroSummary?.avgOffline == null) return undefined;
+    const abs = Math.abs(heroSummary.avgOffline);
     if (abs < 0.5) return '0';
-    return `${abs.toFixed(1)} ${summary.avgOffline < 0 ? 'L' : 'R'}`;
-  }, [summary]);
+    return `${abs.toFixed(1)} ${heroSummary.avgOffline < 0 ? 'L' : 'R'}`;
+  }, [heroSummary]);
 
   if (!session || !shots || !club || !summary) {
     return (
@@ -115,20 +128,44 @@ export function SessionSummaryPage() {
           </div>
         </Modal>
 
+        {/* Mishit Toggle */}
+        {mishitCount > 0 && (
+          <div className="mb-3 flex items-center gap-2">
+            <button
+              onClick={() => setExcludeMishits(!excludeMishits)}
+              className={`relative h-5 w-9 rounded-full transition-colors ${
+                excludeMishits ? 'bg-primary' : 'bg-border'
+              }`}
+              aria-label="Exclude mishits"
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                  excludeMishits ? 'translate-x-4' : ''
+                }`}
+              />
+            </button>
+            <span className="text-xs text-text-medium">
+              Exclude mishits ({mishitCount})
+            </span>
+          </div>
+        )}
+
         {/* Hero Metrics */}
-        <div className="grid grid-cols-4 gap-2">
-          <HeroStat compact label="Carry" value={summary.avgCarry} unit="yds" accent="gold" />
-          <HeroStat compact label="Total" value={summary.avgTotal ?? '—'} unit={summary.avgTotal ? 'yds' : ''} accent="gold" />
-          <HeroStat compact label="Speed" value={summary.avgBallSpeed ?? '—'} unit={summary.avgBallSpeed ? 'mph' : ''} />
-          <HeroStat compact label="Launch" value={summary.avgLaunchAngle != null ? summary.avgLaunchAngle.toFixed(1) : '—'} unit={summary.avgLaunchAngle != null ? '°' : ''} />
-          <HeroStat compact label="Descent" value={summary.avgDescentAngle != null ? summary.avgDescentAngle.toFixed(1) : '—'} unit={summary.avgDescentAngle != null ? '°' : ''} />
-          <HeroStat compact label="Peak Ht" value={summary.avgApexHeight ?? '—'} unit={summary.avgApexHeight ? 'yds' : ''} />
-          <HeroStat compact label="Offline" value={offlineLabel ?? '—'} unit="yds" accent="primary" />
-        </div>
+        {heroSummary && (
+          <div className="grid grid-cols-4 gap-2">
+            <HeroStat compact label="Carry" value={heroSummary.avgCarry} unit="yds" accent="gold" />
+            <HeroStat compact label="Total" value={heroSummary.avgTotal ?? '—'} unit={heroSummary.avgTotal ? 'yds' : ''} accent="gold" />
+            <HeroStat compact label="Speed" value={heroSummary.avgBallSpeed ?? '—'} unit={heroSummary.avgBallSpeed ? 'mph' : ''} />
+            <HeroStat compact label="Launch" value={heroSummary.avgLaunchAngle != null ? heroSummary.avgLaunchAngle.toFixed(1) : '—'} unit={heroSummary.avgLaunchAngle != null ? '°' : ''} />
+            <HeroStat compact label="Descent" value={heroSummary.avgDescentAngle != null ? heroSummary.avgDescentAngle.toFixed(1) : '—'} unit={heroSummary.avgDescentAngle != null ? '°' : ''} />
+            <HeroStat compact label="Peak Ht" value={heroSummary.avgApexHeight ?? '—'} unit={heroSummary.avgApexHeight ? 'yds' : ''} />
+            <HeroStat compact label="Offline" value={offlineLabel ?? '—'} unit="yds" accent="primary" />
+          </div>
+        )}
 
         {/* Shot Data Table */}
         <div className="mt-4">
-          <TrackmanTable shots={shots} />
+          <TrackmanTable shots={shots} excludeMishits={excludeMishits} />
         </div>
 
         {/* Bottom spacer */}

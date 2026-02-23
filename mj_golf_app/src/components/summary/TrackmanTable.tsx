@@ -6,6 +6,7 @@ import { THEME } from '../../theme/colors';
 
 interface TrackmanTableProps {
   shots: Shot[];
+  excludeMishits?: boolean;
 }
 
 const COLUMNS = [
@@ -44,7 +45,7 @@ function formatVal(value: number | undefined, decimals: number, locale = false):
   return locale ? rounded.toLocaleString() : rounded.toString();
 }
 
-export function TrackmanTable({ shots }: TrackmanTableProps) {
+export function TrackmanTable({ shots, excludeMishits = false }: TrackmanTableProps) {
   const stats = useMemo(() => {
     const result: Record<ColKey, { avg: number | undefined; sd: number | undefined }> = {} as any;
     for (const col of COLUMNS) {
@@ -109,12 +110,15 @@ export function TrackmanTable({ shots }: TrackmanTableProps) {
             </tr>
           </thead>
           <tbody>
-            {shots.map((shot, i) => (
+            {shots.map((shot, i) => {
+              const isMishit = shot.quality === 'mishit';
+              const dimmed = excludeMishits && isMishit;
+              return (
               <tr
                 key={shot.shotNumber}
                 className={`border-b border-border-light last:border-0 ${
                   i % 2 === 1 ? 'bg-surface/50' : ''
-                }`}
+                } ${dimmed ? 'opacity-30' : ''}`}
               >
                 <td className="sticky left-0 z-5 bg-card px-2 py-1.5 font-mono text-text-muted">
                   {shot.shotNumber}
@@ -165,7 +169,8 @@ export function TrackmanTable({ shots }: TrackmanTableProps) {
                   )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-border bg-surface/30">
