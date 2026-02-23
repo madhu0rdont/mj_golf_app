@@ -183,21 +183,25 @@ export function SessionSummaryPage() {
 
         {/* Flight Visualization */}
         {hasTrajectoryData && (
-          <div className="mt-4 rounded-2xl border border-border overflow-hidden shadow-[var(--shadow-card)]">
-            <TrajectoryChart
-              shots={flightShots}
-              highlightedShotId={highlightedShotId}
-              onShotTap={setHighlightedShotId}
-              xScale={xScale}
-              animated={animated}
-            />
-            <DispersionChart
-              shots={flightShots}
-              highlightedShotId={highlightedShotId}
-              onShotTap={setHighlightedShotId}
-              xScale={xScale}
-              animated={animated}
-            />
+          <div className="mt-4 flex gap-2">
+            <div className="flex-1 rounded-2xl border border-border overflow-hidden shadow-[var(--shadow-card)]">
+              <TrajectoryChart
+                shots={flightShots}
+                highlightedShotId={highlightedShotId}
+                onShotTap={setHighlightedShotId}
+                xScale={xScale}
+                animated={animated}
+              />
+            </div>
+            <div className="flex-1 rounded-2xl border border-border overflow-hidden shadow-[var(--shadow-card)]">
+              <DispersionChart
+                shots={flightShots}
+                highlightedShotId={highlightedShotId}
+                onShotTap={setHighlightedShotId}
+                xScale={xScale}
+                animated={animated}
+              />
+            </div>
           </div>
         )}
 

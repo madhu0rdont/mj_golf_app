@@ -12,8 +12,8 @@ interface DispersionChartProps {
   animated: boolean;
 }
 
-const WIDTH = 600;
-const HEIGHT = 130;
+const WIDTH = 400;
+const HEIGHT = 220;
 const MARGIN = { top: 8, right: 10, bottom: 8, left: 10 };
 const PLOT_W = WIDTH - MARGIN.left - MARGIN.right;
 const PLOT_H = HEIGHT - MARGIN.top - MARGIN.bottom;
@@ -59,7 +59,7 @@ export function DispersionChart({
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       className="w-full"
-      style={{ height: '130px', overflow: 'hidden' }}
+      style={{ height: '220px', overflow: 'hidden' }}
       role="img"
       aria-label="Top-down dispersion chart"
     >
