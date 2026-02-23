@@ -1,5 +1,5 @@
 import { db } from '../index';
-import { seedDefaultBag } from '../seed';
+import { seedFromBackup } from '../seed';
 
 beforeEach(async () => {
   await db.clubs.clear();
@@ -7,37 +7,22 @@ beforeEach(async () => {
   await db.shots.clear();
 });
 
-describe('seedDefaultBag', () => {
-  it('creates 14 default clubs when database is empty', async () => {
-    await seedDefaultBag();
-    const count = await db.clubs.count();
-    expect(count).toBe(14);
+describe('seedFromBackup', () => {
+  it('seeds clubs, sessions, and shots when database is empty', async () => {
+    await seedFromBackup();
+    const clubs = await db.clubs.count();
+    const sessions = await db.sessions.count();
+    const shots = await db.shots.count();
+    expect(clubs).toBeGreaterThan(0);
+    expect(sessions).toBeGreaterThan(0);
+    expect(shots).toBeGreaterThan(0);
   });
 
-  it('does not create clubs when clubs already exist (idempotent)', async () => {
-    await seedDefaultBag();
-    await seedDefaultBag(); // second call
-    const count = await db.clubs.count();
-    expect(count).toBe(14);
-  });
-
-  it('assigns correct categories', async () => {
-    await seedDefaultBag();
-    const clubs = await db.clubs.toArray();
-    const categories = clubs.map((c) => c.category);
-    expect(categories.filter((c) => c === 'driver')).toHaveLength(1);
-    expect(categories.filter((c) => c === 'wood')).toHaveLength(2);
-    expect(categories.filter((c) => c === 'hybrid')).toHaveLength(1);
-    expect(categories.filter((c) => c === 'iron')).toHaveLength(5);
-    expect(categories.filter((c) => c === 'wedge')).toHaveLength(4);
-    expect(categories.filter((c) => c === 'putter')).toHaveLength(1);
-  });
-
-  it('assigns sequential sortOrder starting from 0', async () => {
-    await seedDefaultBag();
-    const clubs = await db.clubs.orderBy('sortOrder').toArray();
-    clubs.forEach((club, index) => {
-      expect(club.sortOrder).toBe(index);
-    });
+  it('does not overwrite when clubs already exist (idempotent)', async () => {
+    await seedFromBackup();
+    const countBefore = await db.clubs.count();
+    await seedFromBackup(); // second call
+    const countAfter = await db.clubs.count();
+    expect(countAfter).toBe(countBefore);
   });
 });

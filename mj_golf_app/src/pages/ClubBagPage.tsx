@@ -5,7 +5,7 @@ import { ClubList } from '../components/clubs/ClubList';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Button } from '../components/ui/Button';
 import { useAllClubs } from '../hooks/useClubs';
-import { seedDefaultBag } from '../db/seed';
+import { seedFromBackup } from '../db/seed';
 
 export function ClubBagPage() {
   const clubs = useAllClubs();
@@ -31,7 +31,7 @@ export function ClubBagPage() {
             description="Add clubs to get started, or load the default 14-club bag."
             action={
               <div className="flex gap-2">
-                <Button onClick={() => seedDefaultBag()} size="sm">
+                <Button onClick={() => seedFromBackup()} size="sm">
                   Load Default Bag
                 </Button>
                 <Link to="/bag/new">
