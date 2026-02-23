@@ -9,6 +9,7 @@ import shotsRouter from './routes/shots.js';
 import backupRouter from './routes/backup.js';
 import yardageRouter from './routes/yardage.js';
 import seedRouter from './routes/seed.js';
+import extractRouter from './routes/extract.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -23,6 +24,7 @@ app.use('/api/shots', shotsRouter);
 app.use('/api/backup', backupRouter);
 app.use('/api/yardage', yardageRouter);
 app.use('/api/seed', seedRouter);
+app.use('/api/extract', extractRouter);
 
 // Serve static SPA files
 const distPath = join(__dirname, '..', 'dist');

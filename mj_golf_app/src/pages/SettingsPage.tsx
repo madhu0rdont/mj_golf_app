@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Download, Upload, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Download, Upload, Trash2 } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
@@ -9,16 +9,10 @@ import { api } from '../lib/api';
 import { mutate } from 'swr';
 
 export function SettingsPage() {
-  const { apiKey, setApiKey, handedness, setHandedness } = useSettings();
-  const [showKey, setShowKey] = useState(false);
-  const [keyInput, setKeyInput] = useState(apiKey);
+  const { handedness, setHandedness } = useSettings();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [importStatus, setImportStatus] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleSaveKey = () => {
-    setApiKey(keyInput.trim());
-  };
 
   const handleExport = async () => {
     try {
@@ -53,35 +47,6 @@ export function SettingsPage() {
     <>
       <TopBar title="Settings" showBack />
       <div className="px-4 py-4">
-        {/* API Key */}
-        <section className="mb-6">
-          <h3 className="mb-2 text-sm font-medium text-text-medium uppercase">Claude API Key</h3>
-          <p className="mb-3 text-xs text-text-muted">
-            Required for photo extraction. Your key is stored locally and never sent anywhere except
-            the Anthropic API.
-          </p>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <input
-                type={showKey ? 'text' : 'password'}
-                value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
-                placeholder="sk-ant-..."
-                className="w-full rounded-lg border border-border bg-card px-3 py-2 pr-10 text-sm text-text-dark placeholder-text-muted focus:border-primary focus:outline-none"
-              />
-              <button
-                onClick={() => setShowKey(!showKey)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-dark"
-              >
-                {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-            <Button onClick={handleSaveKey} size="sm" disabled={keyInput.trim() === apiKey}>
-              Save
-            </Button>
-          </div>
-        </section>
-
         {/* Handedness */}
         <section className="mb-6">
           <h3 className="mb-2 text-sm font-medium text-text-medium uppercase">Handedness</h3>

@@ -1,19 +1,5 @@
 import { validateShotField } from '../utils/validation';
-
-const SYSTEM_PROMPT = `You are a data extraction assistant for golf launch monitor data.
-Extract shot data from Foresight GC4/GCQuad session screenshots.
-Return ONLY valid JSON — no other text, no markdown code fences.
-Return an array of shot objects with these fields:
-  shotNumber, carryYards, totalYards, ballSpeed, clubHeadSpeed,
-  launchAngle, spinRate, spinAxis, apexHeight, offlineYards,
-  pushPull, sideSpinRate, descentAngle
-Use null for any field not visible or not readable.
-Numbers should be plain numbers (no units, no symbols).
-For offlineYards: negative = left of target, positive = right.
-For spinAxis: negative = draw spin, positive = fade spin.
-For pushPull: positive = push (right), negative = pull (left).`;
-
-const USER_PROMPT = 'Extract all shot data from this Foresight GC4 session summary. Return only a JSON array of shot objects.';
+import { api } from '../lib/api';
 
 export interface ExtractedShot {
   shotNumber: number;
@@ -38,51 +24,15 @@ export interface ExtractionResult {
 
 export async function extractShotDataFromImage(
   imageBase64: string,
-  mediaType: string,
-  apiKey: string
+  mediaType: string
 ): Promise<ExtractionResult> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: mediaType,
-                data: imageBase64,
-              },
-            },
-            {
-              type: 'text',
-              text: USER_PROMPT,
-            },
-          ],
-        },
-      ],
-    }),
-  });
+  // Call our server proxy (API key is stored server-side)
+  const data = await api.post<{
+    content?: { type: string; text?: string }[];
+  }>('/extract', { imageBase64, mediaType });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`API error (${response.status}): ${error}`);
-  }
-
-  const data = await response.json();
   const textContent = data.content?.find(
-    (block: { type: string }) => block.type === 'text'
+    (block) => block.type === 'text'
   );
 
   if (!textContent?.text) {

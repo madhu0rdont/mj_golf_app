@@ -8,7 +8,6 @@ import { Button } from '../components/ui/Button';
 import { type ShotRow } from '../components/sessions/ShotTable';
 import { extractShotDataFromImage, imageFileToBase64, type ExtractedShot } from '../services/claude-vision';
 import { createSession } from '../hooks/useSessions';
-import { useSettings } from '../context/SettingsContext';
 
 type Step = 'capture' | 'extracting' | 'preview' | 'error';
 
@@ -39,7 +38,6 @@ function parseNum(val: string | number | undefined): number | undefined {
 export function SessionPhotoPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { apiKey } = useSettings();
   const state = location.state as { clubId: string; date: number; location?: string } | null;
 
   const [step, setStep] = useState<Step>('capture');
@@ -60,29 +58,13 @@ export function SessionPhotoPage() {
     );
   }
 
-  if (!apiKey) {
-    return (
-      <>
-        <TopBar title="Photo Capture" showBack />
-        <div className="px-4 py-8 text-center">
-          <AlertCircle size={40} className="mx-auto mb-3 text-amber-400" />
-          <p className="mb-2 font-medium">API Key Required</p>
-          <p className="mb-4 text-sm text-text-medium">
-            Set your Claude API key in Settings to use photo extraction.
-          </p>
-          <Button onClick={() => navigate('/settings')}>Go to Settings</Button>
-        </div>
-      </>
-    );
-  }
-
   const handleCapture = async (file: File) => {
     setCurrentFile(file);
     setStep('extracting');
     setErrorMsg('');
     try {
       const { base64, mediaType } = await imageFileToBase64(file);
-      const result = await extractShotDataFromImage(base64, mediaType, apiKey);
+      const result = await extractShotDataFromImage(base64, mediaType);
       setShots(toShotRows(result.shots));
       setWarnings(result.warnings);
       setStep('preview');
