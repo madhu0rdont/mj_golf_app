@@ -3,6 +3,7 @@ import { db } from '../db/index';
 import type { Club } from '../models/club';
 import type { Session, Shot, ShotShape } from '../models/session';
 import type { YardageBookEntry, DataFreshness } from '../models/yardage';
+import { CLUB_COLORS } from '../theme/colors';
 
 const HALF_LIFE_DAYS = 30;
 
@@ -161,6 +162,44 @@ export function useYardageBook(): YardageBookEntry[] | undefined {
     }
 
     return entries;
+  }, []);
+}
+
+export interface ClubShotGroup {
+  clubId: string;
+  clubName: string;
+  color: string;
+  shots: Shot[];
+}
+
+export function useYardageBookShots(): ClubShotGroup[] | undefined {
+  return useLiveQuery(async () => {
+    const clubs = await db.clubs.orderBy('sortOrder').toArray();
+    const allShots = await db.shots.toArray();
+
+    const shotsByClub = new Map<string, Shot[]>();
+    for (const shot of allShots) {
+      const list = shotsByClub.get(shot.clubId) || [];
+      list.push(shot);
+      shotsByClub.set(shot.clubId, list);
+    }
+
+    const groups: ClubShotGroup[] = [];
+    let colorIdx = 0;
+    for (const club of clubs) {
+      const shots = shotsByClub.get(club.id);
+      if (shots && shots.length > 0) {
+        groups.push({
+          clubId: club.id,
+          clubName: club.name,
+          color: CLUB_COLORS[colorIdx % CLUB_COLORS.length],
+          shots,
+        });
+        colorIdx++;
+      }
+    }
+
+    return groups;
   }, []);
 }
 

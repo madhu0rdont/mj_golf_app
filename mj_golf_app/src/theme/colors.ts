@@ -56,3 +56,17 @@ export const THEME = {
   tooltipBg: '#FFFFFF',
   tooltipBorder: '#E8E4DF',
 } as const;
+
+/** Distinct colors for multi-club charts. Clubs assigned by sort-order index. */
+export const CLUB_COLORS = [
+  '#E63946', // red
+  '#F4A261', // orange
+  '#E9C46A', // yellow
+  '#2A9D8F', // teal
+  '#4CC9F0', // sky blue
+  '#7209B7', // purple
+  '#F72585', // magenta
+  '#4361EE', // royal blue
+  '#80ED99', // mint
+  '#FF6B6B', // coral
+] as const;
