@@ -20,15 +20,15 @@ export const THEME = {
   border: '#E8E4DF',
   borderLight: '#F0EDE8',
 
-  // Flight visualizer
-  sky: '#C9E4F2',
-  skyGrid: '#A8D0E6',
-  skyGround: '#9AC5DB',
-  skyLabel: '#5A8FAD',
-  grass: '#B8D8BA',
-  grassGrid: '#9BC49D',
-  grassCenter: '#8AB88D',
-  grassLabel: '#5A8A5C',
+  // Flight visualizer (fairway green)
+  sky: '#1B4332',
+  skyGrid: '#2D6A4F',
+  skyGround: '#40916C',
+  skyLabel: '#95D5B2',
+  grass: '#1B4332',
+  grassGrid: '#2D6A4F',
+  grassCenter: '#40916C',
+  grassLabel: '#95D5B2',
 
   // Category colors (for GappingChart and ClubCard)
   category: {

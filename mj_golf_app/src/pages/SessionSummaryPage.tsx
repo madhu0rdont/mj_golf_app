@@ -1,10 +1,13 @@
 import { useParams } from 'react-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { useSession, useShotsForSession, updateSession } from '../hooks/useSessions';
 import { useClub, useAllClubs } from '../hooks/useClubs';
 import { computeSessionSummary } from '../services/stats';
+import { computeXScale } from '../components/flight/flight-math';
+import { TrajectoryChart } from '../components/flight/TrajectoryChart';
+import { DispersionChart } from '../components/flight/DispersionChart';
 import { HeroStat } from '../components/summary/HeroStat';
 import { TrackmanTable } from '../components/summary/TrackmanTable';
 import { Modal } from '../components/ui/Modal';
@@ -60,6 +63,17 @@ export function SessionSummaryPage() {
     if (filtered.length === 0) return null;
     return computeSessionSummary(filtered, club.name, session.id, session.clubId, session.date);
   }, [shots, session, club, excludeMishits]);
+
+  // Flight visualization state
+  const [highlightedShotId, setHighlightedShotId] = useState<string | null>(null);
+  const [animated, setAnimated] = useState(false);
+  const xScale = useMemo(() => (shots ? computeXScale(shots) : { min: 0, max: 200, step: 50 }), [shots]);
+  const hasTrajectoryData = shots?.some((s) => s.launchAngle != null && s.apexHeight != null) ?? false;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAnimated(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Offline label with L/R
   const offlineLabel = useMemo(() => {
@@ -160,6 +174,26 @@ export function SessionSummaryPage() {
             <HeroStat compact label="Descent" value={heroSummary.avgDescentAngle != null ? heroSummary.avgDescentAngle.toFixed(1) : '—'} unit={heroSummary.avgDescentAngle != null ? '°' : ''} />
             <HeroStat compact label="Peak Ht" value={heroSummary.avgApexHeight ?? '—'} unit={heroSummary.avgApexHeight ? 'yds' : ''} />
             <HeroStat compact label="Offline" value={offlineLabel ?? '—'} unit="yds" accent="primary" />
+          </div>
+        )}
+
+        {/* Flight Visualization */}
+        {hasTrajectoryData && (
+          <div className="mt-4 rounded-2xl border border-border overflow-hidden shadow-[var(--shadow-card)]">
+            <TrajectoryChart
+              shots={shots}
+              highlightedShotId={highlightedShotId}
+              onShotTap={setHighlightedShotId}
+              xScale={xScale}
+              animated={animated}
+            />
+            <DispersionChart
+              shots={shots}
+              highlightedShotId={highlightedShotId}
+              onShotTap={setHighlightedShotId}
+              xScale={xScale}
+              animated={animated}
+            />
           </div>
         )}
 
