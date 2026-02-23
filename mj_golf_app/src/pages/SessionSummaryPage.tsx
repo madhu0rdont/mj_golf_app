@@ -179,7 +179,7 @@ export function SessionSummaryPage() {
 
         {/* Flight Visualization */}
         {hasTrajectoryData && (
-          <div className="mt-4 rounded-2xl border border-border overflow-hidden shadow-[var(--shadow-card)]">
+          <div className="mt-4 rounded-2xl border border-border overflow-hidden shadow-[var(--shadow-card)]" style={{ backgroundColor: '#1B4332' }}>
             <TrajectoryChart
               shots={shots}
               highlightedShotId={highlightedShotId}

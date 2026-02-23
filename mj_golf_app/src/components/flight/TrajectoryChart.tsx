@@ -57,7 +57,7 @@ export function TrajectoryChart({
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       className="w-full"
-      style={{ height: '220px' }}
+      style={{ height: '220px', overflow: 'hidden' }}
       role="img"
       aria-label="Side-view trajectory chart"
     >

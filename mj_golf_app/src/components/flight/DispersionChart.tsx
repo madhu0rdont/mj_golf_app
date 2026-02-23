@@ -59,7 +59,7 @@ export function DispersionChart({
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       className="w-full"
-      style={{ height: '130px' }}
+      style={{ height: '130px', overflow: 'hidden' }}
       role="img"
       aria-label="Top-down dispersion chart"
     >
