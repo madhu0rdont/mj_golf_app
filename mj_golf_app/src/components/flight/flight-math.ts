@@ -42,7 +42,7 @@ export function computeXScale(shots: Shot[]): AxisScale {
   const minCarry = Math.min(...carries);
   const maxCarry = Math.max(...carries);
 
-  const min = Math.max(0, Math.floor(minCarry / 50) * 50 - 50);
+  const min = 0;
   const max = Math.ceil(maxCarry / 50) * 50 + 50;
 
   return { min, max, step: 50 };
