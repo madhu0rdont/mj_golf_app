@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { Shot } from '../../models/session';
 import type { AxisScale } from './flight-math';
-import { computeFlightArc, flightPathToSvg } from './flight-math';
+import { computeFlightArc, flightArcToPolyline } from './flight-math';
 import { THEME } from '../../theme/colors';
 
 interface TrajectoryChartProps {
@@ -41,9 +41,16 @@ export function TrajectoryChart({
     MARGIN.top + (1 - y / maxApex) * PLOT_H;
 
   // X-axis tick positions
-  const ticks: number[] = [];
+  const xTicks: number[] = [];
   for (let x = xScale.min + xScale.step; x < xScale.max; x += xScale.step) {
-    ticks.push(x);
+    xTicks.push(x);
+  }
+
+  // Y-axis horizontal grid lines
+  const yStep = maxApex > 40 ? 20 : 10;
+  const yTicks: number[] = [];
+  for (let y = yStep; y < maxApex; y += yStep) {
+    yTicks.push(y);
   }
 
   return (
@@ -56,14 +63,27 @@ export function TrajectoryChart({
     >
       <rect width={WIDTH} height={HEIGHT} fill={THEME.sky} />
 
-      {/* Grid lines */}
-      {ticks.map((x) => (
+      {/* Vertical grid lines */}
+      {xTicks.map((x) => (
         <line
           key={x}
           x1={sx(x)}
           y1={MARGIN.top}
           x2={sx(x)}
           y2={HEIGHT - MARGIN.bottom}
+          stroke={THEME.skyGrid}
+          strokeWidth="0.5"
+        />
+      ))}
+
+      {/* Horizontal grid lines */}
+      {yTicks.map((y) => (
+        <line
+          key={`h-${y}`}
+          x1={MARGIN.left}
+          y1={sy(y)}
+          x2={WIDTH - MARGIN.right}
+          y2={sy(y)}
           stroke={THEME.skyGrid}
           strokeWidth="0.5"
         />
@@ -80,7 +100,7 @@ export function TrajectoryChart({
       />
 
       {/* X-axis labels */}
-      {ticks.map((x) => (
+      {xTicks.map((x) => (
         <text
           key={`label-${x}`}
           x={sx(x)}
@@ -97,14 +117,13 @@ export function TrajectoryChart({
       {/* Flight arcs */}
       {arcs.map((arc, i) => {
         const isHighlighted = arc.shotId === highlightedShotId;
-        const svgPath = flightPathToSvg(arc, sx, sy);
-        if (!svgPath) return null;
+        const polyPoints = flightArcToPolyline(arc, sx, sy);
 
         return (
           <g key={arc.shotId}>
             {/* Invisible wider hit area */}
-            <path
-              d={svgPath}
+            <polyline
+              points={polyPoints}
               fill="none"
               stroke="transparent"
               strokeWidth="12"
@@ -112,12 +131,14 @@ export function TrajectoryChart({
               onClick={() => onShotTap(arc.shotId)}
             />
             {/* Visible arc */}
-            <path
-              d={svgPath}
+            <polyline
+              points={polyPoints}
               fill="none"
               stroke={THEME.gold}
               strokeWidth={isHighlighted ? 2.5 : 1.5}
-              strokeOpacity={isHighlighted ? 1 : 0.45}
+              strokeOpacity={isHighlighted ? 1 : 0.55}
+              strokeLinejoin="round"
+              strokeLinecap="round"
               className={animated ? 'flight-arc-animate' : ''}
               style={animated ? { animationDelay: `${0.3 + i * 0.1}s` } : undefined}
             />
@@ -127,7 +148,7 @@ export function TrajectoryChart({
               cy={sy(0)}
               r={isHighlighted ? 3 : 2}
               fill={THEME.gold}
-              fillOpacity={isHighlighted ? 1 : 0.5}
+              fillOpacity={isHighlighted ? 1 : 0.6}
             />
           </g>
         );

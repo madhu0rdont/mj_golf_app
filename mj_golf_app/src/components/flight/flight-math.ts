@@ -1,8 +1,13 @@
 import type { Shot } from '../../models/session';
 
+export interface FlightPoint {
+  x: number;
+  y: number;
+}
+
 export interface FlightArc {
   shotId: string;
-  path: string; // SVG path d attribute
+  points: FlightPoint[];
   landingX: number;
   apexY: number;
 }
@@ -43,12 +48,20 @@ export function computeXScale(shots: Shot[]): AxisScale {
   return { min, max, step: 50 };
 }
 
+const NUM_POINTS = 60;
+
 /**
- * Generate an SVG path string for a ball flight arc using two cubic bezier segments.
+ * Evaluate a cubic bezier at parameter t.
+ */
+function cubicBezier(p0: number, p1: number, p2: number, p3: number, t: number): number {
+  const u = 1 - t;
+  return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
+}
+
+/**
+ * Generate sampled points for a ball flight arc.
  * Returns null if the shot lacks launchAngle or apexHeight.
- *
- * The path is in "data space" (yards), not SVG coordinates.
- * The caller is responsible for applying coordinate transforms.
+ * Points are in data space (yards, Y up).
  */
 export function computeFlightArc(shot: Shot): FlightArc | null {
   if (shot.launchAngle == null || shot.apexHeight == null) return null;
@@ -60,16 +73,14 @@ export function computeFlightArc(shot: Shot): FlightArc | null {
 
   if (carry <= 0 || apex <= 0) return null;
 
-  // Apex is typically at ~55% of carry distance
   const apexX = carry * 0.55;
-
   const launchRad = (launchAngle * Math.PI) / 180;
   const descentRad = (descentAngle * Math.PI) / 180;
 
   // Segment 1: ground (0,0) → apex (apexX, apex)
   const cp1x = apexX * 0.4;
   const cp1y = cp1x * Math.tan(launchRad);
-  const cp2x = apexX - apexX * 0.3;
+  const cp2x = apexX * 0.7;
   const cp2y = apex;
 
   // Segment 2: apex (apexX, apex) → landing (carry, 0)
@@ -79,37 +90,39 @@ export function computeFlightArc(shot: Shot): FlightArc | null {
   const cp4x = carry - tailLen * 0.15;
   const cp4y = tailLen * 0.15 * Math.tan(descentRad);
 
-  // Build SVG path in data coordinates (Y up)
-  const path =
-    `M 0 0 ` +
-    `C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${apexX} ${apex} ` +
-    `C ${cp3x} ${cp3y}, ${cp4x} ${cp4y}, ${carry} 0`;
+  const half = Math.floor(NUM_POINTS / 2);
+  const points: FlightPoint[] = [];
 
-  return { shotId: shot.id, path, landingX: carry, apexY: apex };
+  // Sample segment 1
+  for (let i = 0; i <= half; i++) {
+    const t = i / half;
+    points.push({
+      x: cubicBezier(0, cp1x, cp2x, apexX, t),
+      y: cubicBezier(0, cp1y, cp2y, apex, t),
+    });
+  }
+
+  // Sample segment 2 (skip t=0 to avoid duplicate apex point)
+  for (let i = 1; i <= half; i++) {
+    const t = i / half;
+    points.push({
+      x: cubicBezier(apexX, cp3x, cp4x, carry, t),
+      y: cubicBezier(apex, cp3y, cp4y, 0, t),
+    });
+  }
+
+  return { shotId: shot.id, points, landingX: carry, apexY: apex };
 }
 
 /**
- * Convert a flight arc in data coordinates to SVG coordinates.
- * SVG has Y inverted (0 at top).
+ * Convert flight arc points to an SVG polyline points string.
  */
-export function flightPathToSvg(
+export function flightArcToPolyline(
   arc: FlightArc,
   sx: (x: number) => number,
   sy: (y: number) => number
 ): string {
-  // Parse the data-space path and transform to SVG coordinates
-  const { path } = arc;
-  // path format: "M 0 0 C cp1x cp1y, cp2x cp2y, ax ay C cp3x cp3y, cp4x cp4y, cx 0"
-  const nums = path.match(/-?\d+\.?\d*/g)?.map(Number);
-  if (!nums || nums.length !== 14) return '';
-
-  const [, , , c1x, c1y, c2x, c2y, ax, ay, c3x, c3y, c4x, c4y, ex] = nums;
-
-  return (
-    `M ${sx(0)} ${sy(0)} ` +
-    `C ${sx(c1x)} ${sy(c1y)}, ${sx(c2x)} ${sy(c2y)}, ${sx(ax)} ${sy(ay)} ` +
-    `C ${sx(c3x)} ${sy(c3y)}, ${sx(c4x)} ${sy(c4y)}, ${sx(ex)} ${sy(0)}`
-  );
+  return arc.points.map((p) => `${sx(p.x)},${sy(p.y)}`).join(' ');
 }
 
 /**
