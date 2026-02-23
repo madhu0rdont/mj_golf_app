@@ -15,6 +15,7 @@ const COLUMNS = [
   { key: 'ballSpeed' as const, label: 'Ball Speed', unit: 'mph', decimals: 0 },
   { key: 'launchAngle' as const, label: 'Launch', unit: '°', decimals: 1 },
   { key: 'descentAngle' as const, label: 'Descent', unit: '°', decimals: 1 },
+  { key: 'apexHeight' as const, label: 'Max Ht', unit: 'yds', decimals: 0 },
   { key: 'spinRate' as const, label: 'Total Spin', unit: 'rpm', decimals: 0 },
   { key: 'spinAxis' as const, label: 'Side Angle', unit: '°', decimals: 1 },
 ];
