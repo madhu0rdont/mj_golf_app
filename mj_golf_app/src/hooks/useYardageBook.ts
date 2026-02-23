@@ -125,7 +125,7 @@ export function computeBookEntry(
   };
 }
 
-export function useYardageBook(): YardageBookEntry[] | undefined {
+export function useYardageBook(excludeMishits = false): YardageBookEntry[] | undefined {
   return useLiveQuery(async () => {
     const clubs = await db.clubs.orderBy('sortOrder').toArray();
     const allSessions = await db.sessions.toArray();
@@ -134,6 +134,7 @@ export function useYardageBook(): YardageBookEntry[] | undefined {
     // Group shots by sessionId
     const shotsBySession = new Map<string, Shot[]>();
     for (const shot of allShots) {
+      if (excludeMishits && shot.quality === 'mishit') continue;
       const list = shotsBySession.get(shot.sessionId) || [];
       list.push(shot);
       shotsBySession.set(shot.sessionId, list);
@@ -163,7 +164,7 @@ export function useYardageBook(): YardageBookEntry[] | undefined {
     }
 
     return entries;
-  }, []);
+  }, [excludeMishits]);
 }
 
 export interface ClubShotGroup {
