@@ -104,11 +104,11 @@ export function DispersionChart({
           cy={sy(ellipse.cy)}
           rx={Math.max(ellipseRxPx, 8)}
           ry={Math.max(ellipseRyPx, 4)}
-          fill="none"
+          fill={THEME.gold}
+          fillOpacity="0.08"
           stroke={THEME.gold}
-          strokeOpacity="0.4"
-          strokeWidth="1"
-          strokeDasharray="4 3"
+          strokeOpacity="0.6"
+          strokeWidth="1.5"
           className={animated ? 'ellipse-animate' : ''}
         />
       )}
