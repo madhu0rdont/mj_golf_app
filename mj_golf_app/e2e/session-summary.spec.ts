@@ -38,16 +38,17 @@ test.describe('session summary', () => {
     await expect(page).toHaveURL(/\/session\/.+/);
   });
 
-  test('displays stat cards with key numbers', async ({ page }) => {
-    await expect(page.getByText(/avg carry/i)).toBeVisible();
-    await expect(page.getByText(/dispersion/i)).toBeVisible();
+  test('displays hero metrics', async ({ page }) => {
+    await expect(page.getByText('CARRY', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('TOTAL', { exact: true }).first()).toBeVisible();
   });
 
   test('displays shot count', async ({ page }) => {
     await expect(page.getByText(/3 shots/i)).toBeVisible();
   });
 
-  test('shows all shots section', async ({ page }) => {
-    await expect(page.getByText(/all shots/i)).toBeVisible();
+  test('shows shot data table with avg row', async ({ page }) => {
+    await expect(page.getByText('Avg')).toBeVisible();
+    await expect(page.getByText('Std. Dev.')).toBeVisible();
   });
 });

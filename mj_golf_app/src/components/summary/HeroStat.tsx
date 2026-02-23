@@ -7,6 +7,7 @@ interface HeroStatProps {
   unit: string;
   delta?: ProgressDelta;
   accent?: 'primary' | 'gold' | 'coral';
+  compact?: boolean;
 }
 
 const ACCENT_COLORS = {
@@ -15,17 +16,17 @@ const ACCENT_COLORS = {
   coral: 'text-coral',
 } as const;
 
-export function HeroStat({ label, value, unit, delta, accent }: HeroStatProps) {
+export function HeroStat({ label, value, unit, delta, accent, compact }: HeroStatProps) {
   const valueColor = accent ? ACCENT_COLORS[accent] : 'text-text-dark';
 
   return (
-    <div className="flex-1 rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
-      <div className="text-[10px] font-medium uppercase tracking-wider text-text-muted">
+    <div className={`flex-1 rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] ${compact ? 'p-3' : 'p-4'}`}>
+      <div className={`font-medium uppercase tracking-wider text-text-muted ${compact ? 'text-[9px]' : 'text-[10px]'}`}>
         {label}
       </div>
       <div className="mt-1 flex items-baseline gap-1">
-        <span className={`text-3xl font-bold font-mono ${valueColor}`}>{value}</span>
-        {unit && <span className="text-sm text-text-muted">{unit}</span>}
+        <span className={`font-bold font-mono ${valueColor} ${compact ? 'text-2xl' : 'text-3xl'}`}>{value}</span>
+        {unit && <span className={`text-text-muted ${compact ? 'text-xs' : 'text-sm'}`}>{unit}</span>}
       </div>
       {delta && delta.direction !== 'neutral' && (
         <div
