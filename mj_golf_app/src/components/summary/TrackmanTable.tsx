@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import type { Shot } from '../../models/session';
+import type { Shot, ShotShape, ShotQuality } from '../../models/session';
 import { mean, stddev } from '../../services/stats';
+import { THEME } from '../../theme/colors';
 
 interface TrackmanTableProps {
   shots: Shot[];
@@ -16,6 +17,23 @@ const COLUMNS = [
 ];
 
 type ColKey = (typeof COLUMNS)[number]['key'];
+
+const SHAPE_ABBR: Record<ShotShape, string> = {
+  straight: 'S',
+  draw: 'D',
+  fade: 'F',
+  hook: 'H',
+  slice: 'Sl',
+  pull: 'Pu',
+  push: 'Ps',
+};
+
+const QUALITY_COLOR: Record<ShotQuality, string> = {
+  pure: 'text-primary',
+  good: 'text-soft-blue',
+  acceptable: 'text-gold',
+  mishit: 'text-coral',
+};
 
 function formatVal(value: number | undefined, decimals: number, locale = false): string {
   if (value == null) return '\u2014';
@@ -39,10 +57,30 @@ export function TrackmanTable({ shots }: TrackmanTableProps) {
     return result;
   }, [shots]);
 
+  const dominantShape = useMemo(() => {
+    const counts: Partial<Record<ShotShape, number>> = {};
+    for (const s of shots) {
+      if (s.shape) counts[s.shape] = (counts[s.shape] || 0) + 1;
+    }
+    let best: ShotShape | undefined;
+    let max = 0;
+    for (const [shape, count] of Object.entries(counts) as [ShotShape, number][]) {
+      if (count > max) { max = count; best = shape; }
+    }
+    return best;
+  }, [shots]);
+
+  const pureRate = useMemo(() => {
+    const graded = shots.filter((s) => s.quality);
+    if (graded.length === 0) return undefined;
+    const good = graded.filter((s) => s.quality === 'pure' || s.quality === 'good').length;
+    return Math.round((good / graded.length) * 100);
+  }, [shots]);
+
   return (
     <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[520px] text-xs">
+        <table className="w-full min-w-[640px] text-xs">
           <thead>
             <tr className="border-b border-border bg-surface">
               <th className="sticky left-0 z-10 bg-surface px-2 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted w-8">
@@ -60,6 +98,12 @@ export function TrackmanTable({ shots }: TrackmanTableProps) {
                   </span>
                 </th>
               ))}
+              <th className="px-2 py-2 text-center text-[10px] font-medium uppercase tracking-wider text-text-muted">
+                Shape
+              </th>
+              <th className="px-2 py-2 text-center text-[10px] font-medium uppercase tracking-wider text-text-muted">
+                Grade
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -85,6 +129,28 @@ export function TrackmanTable({ shots }: TrackmanTableProps) {
                     )}
                   </td>
                 ))}
+                <td className="px-2 py-1.5 text-center">
+                  {shot.shape ? (
+                    <span className="inline-flex items-center gap-1">
+                      <span
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ backgroundColor: THEME.shotShape[shot.shape] }}
+                      />
+                      <span className="text-text-medium">{SHAPE_ABBR[shot.shape]}</span>
+                    </span>
+                  ) : (
+                    <span className="text-text-faint">{'\u2014'}</span>
+                  )}
+                </td>
+                <td className="px-2 py-1.5 text-center">
+                  {shot.quality ? (
+                    <span className={`font-medium capitalize ${QUALITY_COLOR[shot.quality]}`}>
+                      {shot.quality}
+                    </span>
+                  ) : (
+                    <span className="text-text-faint">{'\u2014'}</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -101,6 +167,20 @@ export function TrackmanTable({ shots }: TrackmanTableProps) {
                   {formatVal(stats[col.key].avg, col.decimals, col.key === 'spinRate')}
                 </td>
               ))}
+              <td className="px-2 py-1.5 text-center font-semibold text-text-dark capitalize">
+                {dominantShape ? (
+                  <span className="inline-flex items-center gap-1">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full"
+                      style={{ backgroundColor: THEME.shotShape[dominantShape] }}
+                    />
+                    {dominantShape}
+                  </span>
+                ) : '\u2014'}
+              </td>
+              <td className="px-2 py-1.5 text-center font-semibold text-text-dark">
+                {pureRate != null ? `${pureRate}%` : '\u2014'}
+              </td>
             </tr>
             <tr className="border-t border-border-light">
               <td className="sticky left-0 z-10 bg-card px-2 py-1.5 text-text-muted">
@@ -114,6 +194,8 @@ export function TrackmanTable({ shots }: TrackmanTableProps) {
                   {formatVal(stats[col.key].sd, col.decimals, col.key === 'spinRate')}
                 </td>
               ))}
+              <td />
+              <td />
             </tr>
           </tfoot>
         </table>
