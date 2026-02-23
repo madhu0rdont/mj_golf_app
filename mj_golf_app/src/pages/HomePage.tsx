@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router';
-import { Plus, BookOpen, Target, AlertTriangle } from 'lucide-react';
+import { Plus, BookOpen, AlertTriangle } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { useRecentSessions } from '../hooks/useSessions';
 import { useAllClubs } from '../hooks/useClubs';
@@ -27,7 +27,7 @@ export function HomePage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="mb-6 grid grid-cols-3 gap-2">
+        <div className="mb-6 grid grid-cols-2 gap-2">
           <Link
             to="/session/new"
             className="flex flex-col items-center gap-1.5 rounded-xl bg-primary p-3 text-center text-sm font-medium text-white transition-colors hover:bg-primary-light"
@@ -41,13 +41,6 @@ export function HomePage() {
           >
             <BookOpen size={20} />
             <span>Yardage</span>
-          </Link>
-          <Link
-            to="/course"
-            className="flex flex-col items-center gap-1.5 rounded-xl bg-card border border-border shadow-sm p-3 text-center text-sm font-medium transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
-          >
-            <Target size={20} />
-            <span>Course</span>
           </Link>
         </div>
 
