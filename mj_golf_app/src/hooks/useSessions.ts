@@ -21,6 +21,10 @@ export function useRecentSessions(limit: number = 10) {
   );
 }
 
+export function useAllSessions() {
+  return useLiveQuery(() => db.sessions.orderBy('date').reverse().toArray());
+}
+
 export function useSession(id: string | undefined) {
   return useLiveQuery(() => (id ? db.sessions.get(id) : undefined), [id]);
 }

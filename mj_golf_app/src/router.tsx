@@ -8,6 +8,7 @@ import { SessionPhotoPage } from './pages/SessionPhotoPage';
 import { SessionManualPage } from './pages/SessionManualPage';
 import { SessionCsvPage } from './pages/SessionCsvPage';
 import { SessionSummaryPage } from './pages/SessionSummaryPage';
+import { SessionsListPage } from './pages/SessionsListPage';
 import { YardageBookPage } from './pages/YardageBookPage';
 import { ClubDetailPage } from './pages/ClubDetailPage';
 import { GappingPage } from './pages/GappingPage';
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
       { path: 'session/new/photo', element: <SessionPhotoPage /> },
       { path: 'session/new/manual', element: <SessionManualPage /> },
       { path: 'session/new/csv', element: <SessionCsvPage /> },
+      { path: 'sessions', element: <SessionsListPage /> },
       { path: 'session/:sessionId', element: <SessionSummaryPage /> },
       { path: 'yardage', element: <YardageBookPage /> },
       { path: 'yardage/gapping', element: <GappingPage /> },

@@ -84,7 +84,14 @@ export function HomePage() {
 
         {/* Recent Sessions */}
         <div>
-          <h3 className="mb-3 text-sm font-medium text-text-medium uppercase">Recent Sessions</h3>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-medium text-text-medium uppercase">Recent Sessions</h3>
+            {recentSessions && recentSessions.length > 0 && (
+              <Link to="/sessions" className="text-xs font-medium text-primary">
+                View All
+              </Link>
+            )}
+          </div>
           {!recentSessions || recentSessions.length === 0 ? (
             <div className="rounded-2xl border border-border p-8 text-center text-sm text-text-muted">
               No sessions yet. Tap "Session" to get started.
