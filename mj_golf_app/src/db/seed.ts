@@ -149,19 +149,47 @@ const SIMULATOR_DATA: RawShotRow[] = [
   { club:'3i', shotNumber:6, ballSpeed:121.8, launchAngle:14, sideAngle:0.6, totalSpin:2174, spinAxis:29.7, descentAngle:29.5, offlineYards:37.5, peak:19, carry:184, total:209 },
 ];
 
+const SIMULATOR_SEEDED_KEY = 'mj-golf-simulator-seeded';
+
 /**
  * Seed the database with simulator shot data.
- * Creates one session per club with all shots, classifies shots,
+ * Creates one session per club with all shots, classifies shots (left-handed),
  * and updates club computed carry/total distances.
- * Skips if sessions already exist.
+ * Uses localStorage flag to run exactly once, cleans up any partial previous attempts.
  */
 export async function seedSimulatorData(): Promise<void> {
-  const sessionCount = await db.sessions.count();
-  if (sessionCount > 0) return;
+  if (localStorage.getItem(SIMULATOR_SEEDED_KEY)) return;
+
+  // Clean up any partial previous attempts
+  const oldSimSessions = await db.sessions.filter((s) => s.location === 'Simulator').toArray();
+  if (oldSimSessions.length > 0) {
+    const oldIds = oldSimSessions.map((s) => s.id);
+    await db.shots.where('sessionId').anyOf(oldIds).delete();
+    await db.sessions.bulkDelete(oldIds);
+  }
+
+  // Ensure missing clubs (3 Iron, 4 Iron) exist in the bag
+  const now = Date.now();
+  const existingClubs = await db.clubs.toArray();
+  if (existingClubs.length === 0) return;
+  const existingNames = new Set(existingClubs.map((c) => c.name));
+  const missingClubs = DEFAULT_BAG.filter((c) => !existingNames.has(c.name));
+  if (missingClubs.length > 0) {
+    const maxSort = Math.max(...existingClubs.map((c) => c.sortOrder));
+    const newClubs: Club[] = missingClubs.map((club, i) => ({
+      id: crypto.randomUUID(),
+      name: club.name,
+      category: club.category,
+      loft: club.loft,
+      manualCarry: club.defaultCarry,
+      sortOrder: maxSort + 1 + i,
+      createdAt: now,
+      updatedAt: now,
+    }));
+    await db.clubs.bulkAdd(newClubs);
+  }
 
   const clubs = await db.clubs.toArray();
-  if (clubs.length === 0) return;
-
   const clubByName = new Map(clubs.map((c) => [c.name, c]));
 
   // Group raw data by club
@@ -173,7 +201,6 @@ export async function seedSimulatorData(): Promise<void> {
     grouped.get(clubName)!.push(row);
   }
 
-  const now = Date.now();
   // Spread sessions across recent days
   const baseDate = new Date('2026-02-20T12:00:00').getTime();
   let dayOffset = 0;
@@ -217,8 +244,8 @@ export async function seedSimulatorData(): Promise<void> {
       timestamp: sessionDate + row.shotNumber * 60_000,
     }));
 
-    // Classify shapes and quality
-    const classified = classifyAllShots(rawShots);
+    // Classify shapes and quality (left-handed)
+    const classified = classifyAllShots(rawShots, 'left');
     allShots = allShots.concat(classified);
 
     // Update club computed distances
@@ -233,4 +260,26 @@ export async function seedSimulatorData(): Promise<void> {
 
   await db.sessions.bulkAdd(sessions);
   await db.shots.bulkAdd(allShots);
+
+  localStorage.setItem(SIMULATOR_SEEDED_KEY, '1');
+}
+
+const RECLASSIFY_KEY = 'mj-golf-shots-reclassified-left';
+
+/**
+ * Re-classify all existing shots with left-handed handedness.
+ * Runs once to fix any shots that were originally classified as right-handed.
+ */
+export async function reclassifyShotsLeftHanded(): Promise<void> {
+  if (localStorage.getItem(RECLASSIFY_KEY)) return;
+
+  const sessions = await db.sessions.toArray();
+  for (const session of sessions) {
+    const shots = await db.shots.where('sessionId').equals(session.id).toArray();
+    if (shots.length === 0) continue;
+    const reclassified = classifyAllShots(shots, 'left');
+    await db.shots.bulkPut(reclassified);
+  }
+
+  localStorage.setItem(RECLASSIFY_KEY, '1');
 }
