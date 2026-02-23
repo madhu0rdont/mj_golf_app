@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Check } from 'lucide-react';
 import type { Shot, ShotShape, ShotQuality } from '../../models/session';
 import { mean, stddev } from '../../services/stats';
 import { THEME } from '../../theme/colors';
@@ -118,18 +119,29 @@ export function TrackmanTable({ shots }: TrackmanTableProps) {
                 <td className="sticky left-0 z-5 bg-card px-2 py-1.5 font-mono text-text-muted">
                   {shot.shotNumber}
                 </td>
-                {COLUMNS.map((col) => (
-                  <td
-                    key={col.key}
-                    className="px-2 py-1.5 text-right font-mono text-text-dark"
-                  >
-                    {formatVal(
-                      shot[col.key] as number | undefined,
-                      col.decimals,
-                      col.key === 'spinRate'
-                    )}
-                  </td>
-                ))}
+                {COLUMNS.map((col) => {
+                  const val = shot[col.key] as number | undefined;
+                  const isCheckCol = col.key === 'spinRate' || col.key === 'descentAngle';
+                  const colStats = stats[col.key];
+                  const withinOneSd =
+                    isCheckCol &&
+                    val != null &&
+                    colStats.avg != null &&
+                    colStats.sd != null &&
+                    colStats.sd > 0 &&
+                    Math.abs(val - colStats.avg) <= colStats.sd;
+                  return (
+                    <td
+                      key={col.key}
+                      className="px-2 py-1.5 text-right font-mono text-text-dark"
+                    >
+                      <span className="inline-flex items-center justify-end gap-1">
+                        {withinOneSd && <Check size={12} className="text-primary" />}
+                        {formatVal(val, col.decimals, col.key === 'spinRate')}
+                      </span>
+                    </td>
+                  );
+                })}
                 <td className="px-2 py-1.5 text-center">
                   {shot.shape ? (
                     <span className="inline-flex items-center gap-1">
