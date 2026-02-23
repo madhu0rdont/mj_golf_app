@@ -86,6 +86,13 @@ body {
   100% { transform: scale(1); }
 }
 
+/* CarryStripChart dot entrance */
+.strip-dot-animate {
+  transform-origin: center;
+  transform: scale(0);
+  animation: pop-dot 0.25s ease-out forwards;
+}
+
 /* Hide scrollbar on metrics bar */
 .scrollbar-none::-webkit-scrollbar {
   display: none;

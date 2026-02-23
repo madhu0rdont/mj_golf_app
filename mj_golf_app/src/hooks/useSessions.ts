@@ -80,6 +80,21 @@ export async function createSession(input: CreateSessionInput, handedness: Hande
   return sessionId;
 }
 
+export async function updateSession(
+  id: string,
+  updates: { clubId?: string; date?: number }
+): Promise<void> {
+  await db.transaction('rw', db.sessions, db.shots, async () => {
+    await db.sessions.update(id, { ...updates, updatedAt: Date.now() });
+    if (updates.clubId) {
+      const shots = await db.shots.where('sessionId').equals(id).toArray();
+      await db.shots.bulkPut(
+        shots.map((s) => ({ ...s, clubId: updates.clubId! }))
+      );
+    }
+  });
+}
+
 export async function deleteSession(id: string): Promise<void> {
   await db.transaction('rw', db.sessions, db.shots, async () => {
     await db.shots.where('sessionId').equals(id).delete();
