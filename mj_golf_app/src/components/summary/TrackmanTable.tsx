@@ -18,14 +18,14 @@ const COLUMNS = [
 
 type ColKey = (typeof COLUMNS)[number]['key'];
 
-const SHAPE_ABBR: Record<ShotShape, string> = {
-  straight: 'S',
-  draw: 'D',
-  fade: 'F',
-  hook: 'H',
-  slice: 'Sl',
-  pull: 'Pu',
-  push: 'Ps',
+const SHAPE_LABEL: Record<ShotShape, string> = {
+  straight: 'Straight',
+  draw: 'Draw',
+  fade: 'Fade',
+  hook: 'Hook',
+  slice: 'Slice',
+  pull: 'Pull',
+  push: 'Push',
 };
 
 const QUALITY_COLOR: Record<ShotQuality, string> = {
@@ -136,7 +136,7 @@ export function TrackmanTable({ shots }: TrackmanTableProps) {
                         className="inline-block h-2 w-2 rounded-full"
                         style={{ backgroundColor: THEME.shotShape[shot.shape] }}
                       />
-                      <span className="text-text-medium">{SHAPE_ABBR[shot.shape]}</span>
+                      <span className="text-text-medium">{SHAPE_LABEL[shot.shape]}</span>
                     </span>
                   ) : (
                     <span className="text-text-faint">{'\u2014'}</span>
