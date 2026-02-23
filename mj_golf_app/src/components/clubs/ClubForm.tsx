@@ -31,8 +31,8 @@ export function ClubForm({ initial, onSave, onDelete, onCancel }: ClubFormProps)
   const [loft, setLoft] = useState(initial?.loft?.toString() || '');
   const [shaft, setShaft] = useState(initial?.shaft || '');
   const [flex, setFlex] = useState<ShaftFlex | ''>(initial?.flex || '');
-  const [manualCarry, setManualCarry] = useState(initial?.manualCarry?.toString() || '');
-  const [manualTotal, setManualTotal] = useState(initial?.manualTotal?.toString() || '');
+  const manualCarry = initial?.manualCarry?.toString() || '';
+  const manualTotal = initial?.manualTotal?.toString() || '';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

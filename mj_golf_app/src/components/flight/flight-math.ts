@@ -39,7 +39,6 @@ export function computeXScale(shots: Shot[]): AxisScale {
   if (shots.length === 0) return { min: 0, max: 200, step: 50 };
 
   const carries = shots.map((s) => s.carryYards);
-  const minCarry = Math.min(...carries);
   const maxCarry = Math.max(...carries);
 
   const min = 0;
