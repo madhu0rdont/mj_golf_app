@@ -116,13 +116,28 @@ export function computeFlightArc(shot: Shot): FlightArc | null {
 
 /**
  * Convert flight arc points to an SVG polyline points string.
+ * Clips points to the visible x range and interpolates the entry edge.
  */
 export function flightArcToPolyline(
   arc: FlightArc,
   sx: (x: number) => number,
-  sy: (y: number) => number
+  sy: (y: number) => number,
+  xMin: number = 0
 ): string {
-  return arc.points.map((p) => `${sx(p.x)},${sy(p.y)}`).join(' ');
+  const clipped: FlightPoint[] = [];
+  for (let i = 0; i < arc.points.length; i++) {
+    const p = arc.points[i];
+    if (p.x >= xMin) {
+      // Interpolate entry point at the clipping edge
+      if (clipped.length === 0 && i > 0) {
+        const prev = arc.points[i - 1];
+        const frac = (xMin - prev.x) / (p.x - prev.x);
+        clipped.push({ x: xMin, y: prev.y + frac * (p.y - prev.y) });
+      }
+      clipped.push(p);
+    }
+  }
+  return clipped.map((p) => `${sx(p.x)},${sy(p.y)}`).join(' ');
 }
 
 /**

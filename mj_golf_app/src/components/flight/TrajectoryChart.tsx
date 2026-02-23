@@ -117,7 +117,7 @@ export function TrajectoryChart({
       {/* Flight arcs */}
       {arcs.map((arc, i) => {
         const isHighlighted = arc.shotId === highlightedShotId;
-        const polyPoints = flightArcToPolyline(arc, sx, sy);
+        const polyPoints = flightArcToPolyline(arc, sx, sy, xScale.min);
 
         return (
           <g key={arc.shotId}>
