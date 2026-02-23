@@ -1,0 +1,31 @@
+import pg from 'pg';
+
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+export function query(text: string, params?: unknown[]) {
+  return pool.query(text, params);
+}
+
+export { pool };
+
+/** Convert snake_case DB row to camelCase object */
+export function toCamel<T = Record<string, unknown>>(row: Record<string, unknown>): T {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    const camel = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+    result[camel] = value;
+  }
+  return result as T;
+}
+
+/** Convert camelCase object to snake_case for DB inserts */
+export function toSnake(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const snake = key.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
+    result[snake] = value;
+  }
+  return result;
+}

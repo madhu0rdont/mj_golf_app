@@ -5,7 +5,8 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useSettings } from '../context/SettingsContext';
 import { exportAllData, importAllData, clearAllData } from '../db/backup';
-import { seedFromBackup } from '../db/seed';
+import { api } from '../lib/api';
+import { mutate } from 'swr';
 
 export function SettingsPage() {
   const { apiKey, setApiKey, handedness, setHandedness } = useSettings();
@@ -43,7 +44,8 @@ export function SettingsPage() {
 
   const handleResetBag = async () => {
     await clearAllData();
-    await seedFromBackup();
+    await api.post('/seed', {});
+    await mutate(() => true, undefined, { revalidate: true });
     setShowClearConfirm(false);
   };
 

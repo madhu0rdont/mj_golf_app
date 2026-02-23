@@ -1,5 +1,6 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/index';
+import { useMemo } from 'react';
+import useSWR from 'swr';
+import { fetcher } from '../lib/fetcher';
 import type { Club } from '../models/club';
 import type { Session, Shot, ShotShape } from '../models/session';
 import type { YardageBookEntry, DataFreshness } from '../models/yardage';
@@ -52,7 +53,6 @@ export function computeBookEntry(
     const daysAgo = (now - session.date) / (1000 * 60 * 60 * 24);
     const weight = computeWeight(daysAgo);
 
-    // Session-level averages (prevents sessions with more shots from dominating)
     const carries = shots.map((s) => s.carryYards);
     const avgCarry = carries.reduce((a, b) => a + b, 0) / carries.length;
     carryValues.push({ value: avgCarry, weight });
@@ -62,26 +62,22 @@ export function computeBookEntry(
       totalValues.push({ value: totals.reduce((a, b) => a + b, 0) / totals.length, weight });
     }
 
-    // Dispersion as range within session
     const maxCarry = Math.max(...carries);
     const minCarry = Math.min(...carries);
     if (carries.length > 1) {
       dispersionValues.push({ value: maxCarry - minCarry, weight });
     }
 
-    // Spin rate average
     const spins = shots.filter((s) => s.spinRate != null).map((s) => s.spinRate!);
     if (spins.length > 0) {
       spinValues.push({ value: spins.reduce((a, b) => a + b, 0) / spins.length, weight });
     }
 
-    // Launch angle average
     const launches = shots.filter((s) => s.launchAngle != null).map((s) => s.launchAngle!);
     if (launches.length > 0) {
       launchValues.push({ value: launches.reduce((a, b) => a + b, 0) / launches.length, weight });
     }
 
-    // Shape distribution (unweighted count for simplicity)
     for (const shot of shots) {
       if (shot.shape) {
         shapeCounts[shot.shape] = (shapeCounts[shot.shape] || 0) + 1;
@@ -95,7 +91,6 @@ export function computeBookEntry(
   const bookTotal = totalValues.length > 0 ? weightedAvg(totalValues) : undefined;
   const dispersion = dispersionValues.length > 0 ? weightedAvg(dispersionValues) : 0;
 
-  // Dominant shape
   let dominantShape: ShotShape | undefined;
   let maxCount = 0;
   for (const [shape, count] of Object.entries(shapeCounts)) {
@@ -125,46 +120,53 @@ export function computeBookEntry(
   };
 }
 
+function computeYardageBook(
+  clubs: Club[],
+  allSessions: Session[],
+  allShots: Shot[],
+  excludeMishits: boolean
+): YardageBookEntry[] {
+  const shotsBySession = new Map<string, Shot[]>();
+  for (const shot of allShots) {
+    if (excludeMishits && shot.quality === 'mishit') continue;
+    const list = shotsBySession.get(shot.sessionId) || [];
+    list.push(shot);
+    shotsBySession.set(shot.sessionId, list);
+  }
+
+  const sessionsByClub = new Map<string, SessionWithShots[]>();
+  for (const session of allSessions) {
+    const shots = shotsBySession.get(session.id) || [];
+    const list = sessionsByClub.get(session.clubId) || [];
+    list.push({ session, shots });
+    sessionsByClub.set(session.clubId, list);
+  }
+
+  for (const [, sessions] of sessionsByClub) {
+    sessions.sort((a, b) => b.session.date - a.session.date);
+  }
+
+  const entries: YardageBookEntry[] = [];
+  for (const club of clubs) {
+    const sessionsWithShots = sessionsByClub.get(club.id) || [];
+    const entry = computeBookEntry(club, sessionsWithShots);
+    if (entry) {
+      entries.push(entry);
+    }
+  }
+
+  return entries;
+}
+
 export function useYardageBook(excludeMishits = false): YardageBookEntry[] | undefined {
-  return useLiveQuery(async () => {
-    const clubs = await db.clubs.orderBy('sortOrder').toArray();
-    const allSessions = await db.sessions.toArray();
-    const allShots = await db.shots.toArray();
+  const { data: clubs } = useSWR<Club[]>('/api/clubs', fetcher);
+  const { data: allSessions } = useSWR<Session[]>('/api/sessions?all=true', fetcher);
+  const { data: allShots } = useSWR<Shot[]>('/api/shots', fetcher);
 
-    // Group shots by sessionId
-    const shotsBySession = new Map<string, Shot[]>();
-    for (const shot of allShots) {
-      if (excludeMishits && shot.quality === 'mishit') continue;
-      const list = shotsBySession.get(shot.sessionId) || [];
-      list.push(shot);
-      shotsBySession.set(shot.sessionId, list);
-    }
-
-    // Group sessions by clubId, sorted by date desc
-    const sessionsByClub = new Map<string, SessionWithShots[]>();
-    for (const session of allSessions) {
-      const shots = shotsBySession.get(session.id) || [];
-      const list = sessionsByClub.get(session.clubId) || [];
-      list.push({ session, shots });
-      sessionsByClub.set(session.clubId, list);
-    }
-
-    // Sort each club's sessions by date descending
-    for (const [, sessions] of sessionsByClub) {
-      sessions.sort((a, b) => b.session.date - a.session.date);
-    }
-
-    const entries: YardageBookEntry[] = [];
-    for (const club of clubs) {
-      const sessionsWithShots = sessionsByClub.get(club.id) || [];
-      const entry = computeBookEntry(club, sessionsWithShots);
-      if (entry) {
-        entries.push(entry);
-      }
-    }
-
-    return entries;
-  }, [excludeMishits]);
+  return useMemo(() => {
+    if (!clubs || !allSessions || !allShots) return undefined;
+    return computeYardageBook(clubs, allSessions, allShots, excludeMishits);
+  }, [clubs, allSessions, allShots, excludeMishits]);
 }
 
 export interface ClubShotGroup {
@@ -175,74 +177,89 @@ export interface ClubShotGroup {
   imputed?: boolean;
 }
 
-export function useYardageBookShots(): ClubShotGroup[] | undefined {
-  return useLiveQuery(async () => {
-    const clubs = await db.clubs.orderBy('sortOrder').toArray();
-    const allShots = await db.shots.toArray();
+function computeClubShotGroups(clubs: Club[], allShots: Shot[]): ClubShotGroup[] {
+  const shotsByClub = new Map<string, Shot[]>();
+  for (const shot of allShots) {
+    const list = shotsByClub.get(shot.clubId) || [];
+    list.push(shot);
+    shotsByClub.set(shot.clubId, list);
+  }
 
-    const shotsByClub = new Map<string, Shot[]>();
-    for (const shot of allShots) {
-      const list = shotsByClub.get(shot.clubId) || [];
-      list.push(shot);
-      shotsByClub.set(shot.clubId, list);
-    }
+  const knownAvgs = clubs
+    .map((club) => buildKnownClubAvg(club, shotsByClub.get(club.id) || []))
+    .filter((a): a is NonNullable<typeof a> => a != null);
 
-    // Build known club averages for imputation
-    const knownAvgs = clubs
-      .map((club) => buildKnownClubAvg(club, shotsByClub.get(club.id) || []))
-      .filter((a): a is NonNullable<typeof a> => a != null);
-
-    const groups: ClubShotGroup[] = [];
-    let colorIdx = 0;
-    for (const club of clubs) {
-      const shots = shotsByClub.get(club.id);
-      if (shots && shots.length > 0) {
+  const groups: ClubShotGroup[] = [];
+  let colorIdx = 0;
+  for (const club of clubs) {
+    const shots = shotsByClub.get(club.id);
+    if (shots && shots.length > 0) {
+      groups.push({
+        clubId: club.id,
+        clubName: club.name,
+        color: CLUB_COLORS[colorIdx % CLUB_COLORS.length],
+        shots,
+      });
+      colorIdx++;
+    } else if (club.category !== 'putter' && club.loft && knownAvgs.length >= 2) {
+      const metrics = imputeClubMetrics(knownAvgs, club.loft);
+      if (metrics.carry > 0) {
         groups.push({
           clubId: club.id,
           clubName: club.name,
           color: CLUB_COLORS[colorIdx % CLUB_COLORS.length],
-          shots,
+          shots: [syntheticShot(club.id, metrics)],
+          imputed: true,
         });
         colorIdx++;
-      } else if (club.category !== 'putter' && club.loft && knownAvgs.length >= 2) {
-        const metrics = imputeClubMetrics(knownAvgs, club.loft);
-        if (metrics.carry > 0) {
-          groups.push({
-            clubId: club.id,
-            clubName: club.name,
-            color: CLUB_COLORS[colorIdx % CLUB_COLORS.length],
-            shots: [syntheticShot(club.id, metrics)],
-            imputed: true,
-          });
-          colorIdx++;
-        }
       }
     }
+  }
 
-    return groups;
-  }, []);
+  return groups;
+}
+
+export function useYardageBookShots(): ClubShotGroup[] | undefined {
+  const { data: clubs } = useSWR<Club[]>('/api/clubs', fetcher);
+  const { data: allShots } = useSWR<Shot[]>('/api/shots', fetcher);
+
+  return useMemo(() => {
+    if (!clubs || !allShots) return undefined;
+    return computeClubShotGroups(clubs, allShots);
+  }, [clubs, allShots]);
 }
 
 export function useClubHistory(clubId: string | undefined) {
-  return useLiveQuery(async () => {
-    if (!clubId) return [];
-    const sessions = await db.sessions.where('clubId').equals(clubId).reverse().sortBy('date');
-    const result = [];
-    for (const session of sessions) {
-      const shots = await db.shots.where('sessionId').equals(session.id).toArray();
+  const { data: sessions } = useSWR<Session[]>(
+    clubId ? `/api/sessions?clubId=${clubId}` : null,
+    fetcher
+  );
+  const { data: allShots } = useSWR<Shot[]>('/api/shots', fetcher);
+
+  return useMemo(() => {
+    if (!sessions || !allShots) return undefined;
+
+    const shotsBySession = new Map<string, Shot[]>();
+    for (const shot of allShots) {
+      const list = shotsBySession.get(shot.sessionId) || [];
+      list.push(shot);
+      shotsBySession.set(shot.sessionId, list);
+    }
+
+    return sessions.map((session) => {
+      const shots = shotsBySession.get(session.id) || [];
       const carries = shots.map((s) => s.carryYards);
       const avgCarry = carries.length > 0 ? carries.reduce((a, b) => a + b, 0) / carries.length : 0;
       const totals = shots.filter((s) => s.totalYards != null).map((s) => s.totalYards!);
       const avgTotal = totals.length > 0 ? totals.reduce((a, b) => a + b, 0) / totals.length : undefined;
-      result.push({
+      return {
         sessionId: session.id,
         date: session.date,
         shotCount: shots.length,
         avgCarry: Math.round(avgCarry * 10) / 10,
         avgTotal: avgTotal ? Math.round(avgTotal * 10) / 10 : undefined,
         dispersion: carries.length > 1 ? Math.round((Math.max(...carries) - Math.min(...carries)) * 10) / 10 : 0,
-      });
-    }
-    return result;
-  }, [clubId]);
+      };
+    });
+  }, [sessions, allShots]);
 }

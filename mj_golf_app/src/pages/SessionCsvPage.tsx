@@ -6,7 +6,6 @@ import { ShotTable, type ShotRow } from '../components/sessions/ShotTable';
 import { Button } from '../components/ui/Button';
 import { parseCsvFile, readFileAsText, type CsvParseResult } from '../services/csv-parser';
 import { createSession } from '../hooks/useSessions';
-import { useSettings } from '../context/SettingsContext';
 
 function parseNum(val: string | number | undefined): number | undefined {
   if (val == null || val === '') return undefined;
@@ -17,7 +16,6 @@ function parseNum(val: string | number | undefined): number | undefined {
 export function SessionCsvPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { handedness } = useSettings();
   const state = location.state as { clubId: string; date: number; location?: string } | null;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -118,7 +116,7 @@ export function SessionCsvPage() {
           sideSpinRate: parseNum(s.sideSpinRate),
           descentAngle: parseNum(s.descentAngle),
         })),
-      }, handedness);
+      });
       navigate(`/session/${sessionId}`, { replace: true });
     } finally {
       setSaving(false);

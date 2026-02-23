@@ -5,7 +5,8 @@ import { ClubList } from '../components/clubs/ClubList';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Button } from '../components/ui/Button';
 import { useAllClubs } from '../hooks/useClubs';
-import { seedFromBackup } from '../db/seed';
+import { api } from '../lib/api';
+import { mutate } from 'swr';
 
 export function ClubBagPage() {
   const clubs = useAllClubs();
@@ -31,7 +32,7 @@ export function ClubBagPage() {
             description="Add clubs to get started, or load the default 14-club bag."
             action={
               <div className="flex gap-2">
-                <Button onClick={() => seedFromBackup()} size="sm">
+                <Button onClick={async () => { await api.post('/seed', {}); await mutate(() => true, undefined, { revalidate: true }); }} size="sm">
                   Load Default Bag
                 </Button>
                 <Link to="/bag/new">

@@ -1,4 +1,5 @@
-import { db } from './index';
+import { mutate } from 'swr';
+import { api } from '../lib/api';
 
 interface BackupData {
   version: number;
@@ -9,17 +10,7 @@ interface BackupData {
 }
 
 export async function exportAllData(): Promise<void> {
-  const clubs = await db.clubs.toArray();
-  const sessions = await db.sessions.toArray();
-  const shots = await db.shots.toArray();
-
-  const backup: BackupData = {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    clubs,
-    sessions,
-    shots,
-  };
+  const backup = await api.get<BackupData>('/backup/export');
 
   const json = JSON.stringify(backup, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
@@ -41,27 +32,19 @@ export async function importAllData(file: File): Promise<{ clubs: number; sessio
     throw new Error('Invalid backup file format');
   }
 
-  await db.transaction('rw', db.clubs, db.sessions, db.shots, async () => {
-    await db.clubs.clear();
-    await db.sessions.clear();
-    await db.shots.clear();
+  const result = await api.post<{ clubs: number; sessions: number; shots: number }>(
+    '/backup/import',
+    data
+  );
 
-    if (data.clubs.length > 0) await db.clubs.bulkAdd(data.clubs as never[]);
-    if (data.sessions.length > 0) await db.sessions.bulkAdd(data.sessions as never[]);
-    if (data.shots.length > 0) await db.shots.bulkAdd(data.shots as never[]);
-  });
+  // Revalidate all SWR caches
+  await mutate(() => true, undefined, { revalidate: true });
 
-  return {
-    clubs: data.clubs.length,
-    sessions: data.sessions.length,
-    shots: data.shots.length,
-  };
+  return result;
 }
 
 export async function clearAllData(): Promise<void> {
-  await db.transaction('rw', db.clubs, db.sessions, db.shots, async () => {
-    await db.clubs.clear();
-    await db.sessions.clear();
-    await db.shots.clear();
-  });
+  // Import with empty arrays to clear
+  await api.post('/backup/import', { version: 1, clubs: [], sessions: [], shots: [] });
+  await mutate(() => true, undefined, { revalidate: true });
 }

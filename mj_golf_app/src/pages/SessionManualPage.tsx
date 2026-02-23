@@ -5,7 +5,6 @@ import { TopBar } from '../components/layout/TopBar';
 import { ShotTable, type ShotRow } from '../components/sessions/ShotTable';
 import { Button } from '../components/ui/Button';
 import { createSession } from '../hooks/useSessions';
-import { useSettings } from '../context/SettingsContext';
 
 function emptyShot(shotNumber: number): ShotRow {
   return {
@@ -34,7 +33,6 @@ function parseNum(val: string | number | undefined): number | undefined {
 export function SessionManualPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { handedness } = useSettings();
   const state = location.state as { clubId: string; date: number; location?: string } | null;
 
   const [shots, setShots] = useState<ShotRow[]>([emptyShot(1)]);
@@ -100,7 +98,7 @@ export function SessionManualPage() {
           sideSpinRate: parseNum(s.sideSpinRate),
           descentAngle: parseNum(s.descentAngle),
         })),
-      }, handedness);
+      });
       navigate(`/session/${sessionId}`, { replace: true });
     } finally {
       setSaving(false);

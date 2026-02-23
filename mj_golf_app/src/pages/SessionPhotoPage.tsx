@@ -39,7 +39,7 @@ function parseNum(val: string | number | undefined): number | undefined {
 export function SessionPhotoPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { apiKey, handedness } = useSettings();
+  const { apiKey } = useSettings();
   const state = location.state as { clubId: string; date: number; location?: string } | null;
 
   const [step, setStep] = useState<Step>('capture');
@@ -145,7 +145,7 @@ export function SessionPhotoPage() {
           sideSpinRate: parseNum(s.sideSpinRate),
           descentAngle: parseNum(s.descentAngle),
         })),
-      }, handedness);
+      });
       navigate(`/session/${sessionId}`, { replace: true });
     } finally {
       setSaving(false);
