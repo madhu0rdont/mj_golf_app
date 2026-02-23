@@ -8,12 +8,13 @@ interface TrackmanTableProps {
 }
 
 const COLUMNS = [
-  { key: 'ballSpeed' as const, label: 'Ball Speed', unit: 'mph', decimals: 0 },
-  { key: 'launchAngle' as const, label: 'Launch', unit: '°', decimals: 1 },
-  { key: 'spinRate' as const, label: 'Total Spin', unit: 'rpm', decimals: 0 },
-  { key: 'spinAxis' as const, label: 'Side Angle', unit: '°', decimals: 1 },
   { key: 'carryYards' as const, label: 'Carry', unit: 'yds', decimals: 0 },
   { key: 'totalYards' as const, label: 'Total', unit: 'yds', decimals: 0 },
+  { key: 'ballSpeed' as const, label: 'Ball Speed', unit: 'mph', decimals: 0 },
+  { key: 'launchAngle' as const, label: 'Launch', unit: '°', decimals: 1 },
+  { key: 'descentAngle' as const, label: 'Descent', unit: '°', decimals: 1 },
+  { key: 'spinRate' as const, label: 'Total Spin', unit: 'rpm', decimals: 0 },
+  { key: 'spinAxis' as const, label: 'Side Angle', unit: '°', decimals: 1 },
 ];
 
 type ColKey = (typeof COLUMNS)[number]['key'];
