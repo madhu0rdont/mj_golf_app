@@ -18,11 +18,13 @@ const PLOT_H = HEIGHT - MARGIN.top - MARGIN.bottom;
 export function MultiClubDispersionChart({ clubs, xScale }: MultiClubDispersionChartProps) {
   const clubData = useMemo(
     () =>
-      clubs.map((c) => {
-        const dots = computeLandingDots(c.shots);
-        const ellipse = computeDispersionEllipse(dots);
-        return { color: c.color, clubName: c.clubName, dots, ellipse };
-      }),
+      clubs
+        .filter((c) => !c.imputed)
+        .map((c) => {
+          const dots = computeLandingDots(c.shots);
+          const ellipse = computeDispersionEllipse(dots);
+          return { color: c.color, clubName: c.clubName, dots, ellipse };
+        }),
     [clubs]
   );
 

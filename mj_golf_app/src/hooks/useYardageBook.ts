@@ -4,6 +4,7 @@ import type { Club } from '../models/club';
 import type { Session, Shot, ShotShape } from '../models/session';
 import type { YardageBookEntry, DataFreshness } from '../models/yardage';
 import { CLUB_COLORS } from '../theme/colors';
+import { buildKnownClubAvg, imputeClubMetrics, syntheticShot } from '../services/impute';
 
 const HALF_LIFE_DAYS = 30;
 
@@ -170,6 +171,7 @@ export interface ClubShotGroup {
   clubName: string;
   color: string;
   shots: Shot[];
+  imputed?: boolean;
 }
 
 export function useYardageBookShots(): ClubShotGroup[] | undefined {
@@ -184,6 +186,11 @@ export function useYardageBookShots(): ClubShotGroup[] | undefined {
       shotsByClub.set(shot.clubId, list);
     }
 
+    // Build known club averages for imputation
+    const knownAvgs = clubs
+      .map((club) => buildKnownClubAvg(club, shotsByClub.get(club.id) || []))
+      .filter((a): a is NonNullable<typeof a> => a != null);
+
     const groups: ClubShotGroup[] = [];
     let colorIdx = 0;
     for (const club of clubs) {
@@ -196,6 +203,18 @@ export function useYardageBookShots(): ClubShotGroup[] | undefined {
           shots,
         });
         colorIdx++;
+      } else if (club.category !== 'putter' && club.loft && knownAvgs.length >= 2) {
+        const metrics = imputeClubMetrics(knownAvgs, club.loft);
+        if (metrics.carry > 0) {
+          groups.push({
+            clubId: club.id,
+            clubName: club.name,
+            color: CLUB_COLORS[colorIdx % CLUB_COLORS.length],
+            shots: [syntheticShot(club.id, metrics)],
+            imputed: true,
+          });
+          colorIdx++;
+        }
       }
     }
 

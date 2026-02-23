@@ -45,8 +45,8 @@ export function MultiClubTrajectoryChart({ clubs, xScale }: MultiClubTrajectoryC
   const clubArcs = useMemo(
     () =>
       clubs
-        .map((c) => ({ color: c.color, clubName: c.clubName, arc: averageArc(c.shots) }))
-        .filter((c): c is { color: string; clubName: string; arc: FlightArc } => c.arc != null),
+        .map((c) => ({ color: c.color, clubName: c.clubName, arc: averageArc(c.shots), imputed: !!c.imputed }))
+        .filter((c): c is { color: string; clubName: string; arc: FlightArc; imputed: boolean } => c.arc != null),
     [clubs]
   );
 
@@ -121,7 +121,7 @@ export function MultiClubTrajectoryChart({ clubs, xScale }: MultiClubTrajectoryC
       ))}
 
       {/* Club arcs */}
-      {clubArcs.map(({ color, clubName, arc }) => {
+      {clubArcs.map(({ color, clubName, arc, imputed }) => {
         const polyPoints = flightArcToPolyline(arc, sx, sy, xScale.min);
         return (
           <g key={clubName}>
@@ -129,17 +129,18 @@ export function MultiClubTrajectoryChart({ clubs, xScale }: MultiClubTrajectoryC
               points={polyPoints}
               fill="none"
               stroke={color}
-              strokeWidth={2}
-              strokeOpacity={0.85}
+              strokeWidth={imputed ? 1.5 : 2}
+              strokeOpacity={imputed ? 0.5 : 0.85}
+              strokeDasharray={imputed ? '6 3' : undefined}
               strokeLinejoin="round"
               strokeLinecap="round"
             />
             <circle
               cx={sx(arc.landingX)}
               cy={sy(0)}
-              r={3}
+              r={imputed ? 2.5 : 3}
               fill={color}
-              fillOpacity={0.9}
+              fillOpacity={imputed ? 0.5 : 0.9}
             />
           </g>
         );

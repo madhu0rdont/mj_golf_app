@@ -14,9 +14,14 @@ export function YardageBookPage() {
   const clubs = useYardageBookShots();
   const [excludeMishits, setExcludeMishits] = useState(false);
 
-  const mishitCount = useMemo(
-    () => (clubs ?? []).flatMap((c) => c.shots).filter((s) => s.quality === 'mishit').length,
+  const realClubs = useMemo(
+    () => (clubs ?? []).filter((c) => !c.imputed),
     [clubs]
+  );
+
+  const mishitCount = useMemo(
+    () => realClubs.flatMap((c) => c.shots).filter((s) => s.quality === 'mishit').length,
+    [realClubs]
   );
 
   const filteredClubs = useMemo(
@@ -24,10 +29,15 @@ export function YardageBookPage() {
       (clubs ?? [])
         .map((c) => ({
           ...c,
-          shots: excludeMishits ? c.shots.filter((s) => s.quality !== 'mishit') : c.shots,
+          shots: !c.imputed && excludeMishits ? c.shots.filter((s) => s.quality !== 'mishit') : c.shots,
         }))
         .filter((c) => c.shots.length > 0),
     [clubs, excludeMishits]
+  );
+
+  const realShotCount = useMemo(
+    () => filteredClubs.filter((c) => !c.imputed).flatMap((c) => c.shots).length,
+    [filteredClubs]
   );
 
   const allShots = useMemo(
@@ -36,6 +46,9 @@ export function YardageBookPage() {
   );
 
   const xScale = useMemo(() => computeXScale(allShots), [allShots]);
+
+  const realClubCount = filteredClubs.filter((c) => !c.imputed).length;
+  const imputedClubCount = filteredClubs.filter((c) => c.imputed).length;
 
   if (clubs === undefined) return null;
 
@@ -68,7 +81,8 @@ export function YardageBookPage() {
           <>
             <div className="mb-3 flex items-center justify-between">
               <p className="text-xs text-text-muted">
-                {filteredClubs.length} club{filteredClubs.length !== 1 ? 's' : ''} &middot; {allShots.length} total shots
+                {realClubCount} club{realClubCount !== 1 ? 's' : ''} &middot; {realShotCount} shots
+                {imputedClubCount > 0 && ` · ${imputedClubCount} estimated`}
               </p>
 
               {mishitCount > 0 && (
