@@ -13,7 +13,6 @@ import { SessionSummaryPage } from './pages/SessionSummaryPage';
 import { SessionsListPage } from './pages/SessionsListPage';
 import { YardageBookPage } from './pages/YardageBookPage';
 import { ClubDetailPage } from './pages/ClubDetailPage';
-import { GappingPage } from './pages/GappingPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AboutPage } from './pages/AboutPage';
 
@@ -36,7 +35,7 @@ export const router = createBrowserRouter([
       { path: 'yardage', element: <YardageBookPage /> },
       { path: 'yardage/wedge-matrix', element: <YardageBookPage /> },
       { path: 'yardage/details', element: <YardageBookPage /> },
-      { path: 'yardage/gapping', element: <GappingPage /> },
+      { path: 'yardage/gapping', element: <YardageBookPage /> },
       { path: 'yardage/:clubId', element: <ClubDetailPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'about', element: <AboutPage /> },

@@ -1,15 +1,16 @@
-import { Link, useLocation } from 'react-router';
-import { BarChart3 } from 'lucide-react';
+import { useLocation } from 'react-router';
 import { TopBar } from '../components/layout/TopBar';
 import { TabBar } from '../components/ui/TabBar';
 import { YardagesTab } from '../components/yardage/YardagesTab';
 import { WedgeMatrixTab } from '../components/yardage/WedgeMatrixTab';
 import { DetailsTab } from '../components/yardage/DetailsTab';
+import { GappingTab } from '../components/yardage/GappingTab';
 
 const TABS = [
   { key: 'yardages', label: 'Yardages', to: '/yardage' },
   { key: 'wedge-matrix', label: 'Wedge Matrix', to: '/yardage/wedge-matrix' },
   { key: 'details', label: 'Details', to: '/yardage/details' },
+  { key: 'gapping', label: 'Gapping', to: '/yardage/gapping' },
 ];
 
 export function YardageBookPage() {
@@ -18,26 +19,19 @@ export function YardageBookPage() {
     ? 'wedge-matrix'
     : pathname.endsWith('/details')
       ? 'details'
-      : 'yardages';
+      : pathname.endsWith('/gapping')
+        ? 'gapping'
+        : 'yardages';
 
   return (
     <>
-      <TopBar
-        title="Yardage Book"
-        showSettings
-        rightAction={
-          activeTab === 'details' ? (
-            <Link to="/yardage/gapping" className="rounded-lg p-1.5 text-text-muted hover:text-text-dark">
-              <BarChart3 size={20} />
-            </Link>
-          ) : undefined
-        }
-      />
+      <TopBar title="Yardage Book" showSettings />
       <TabBar tabs={TABS} activeTab={activeTab} />
       <div className="px-4 py-4">
         {activeTab === 'yardages' && <YardagesTab />}
         {activeTab === 'wedge-matrix' && <WedgeMatrixTab />}
         {activeTab === 'details' && <DetailsTab />}
+        {activeTab === 'gapping' && <GappingTab />}
       </div>
     </>
   );

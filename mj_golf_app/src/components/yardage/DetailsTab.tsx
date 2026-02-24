@@ -1,10 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router';
-import { BarChart3, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { MultiClubTrajectoryChart } from './MultiClubTrajectoryChart';
 import { MultiClubDispersionChart } from './MultiClubDispersionChart';
 import { YardageSummaryTable } from './YardageSummaryTable';
-import { Button } from '../ui/Button';
 import { useYardageBookShots } from '../../hooks/useYardageBook';
 import { computeXScale } from '../flight/flight-math';
 
@@ -113,12 +111,6 @@ export function DetailsTab() {
 
       {/* Summary table */}
       <YardageSummaryTable clubs={filteredClubs} />
-
-      <Link to="/yardage/gapping" className="mt-4 block">
-        <Button variant="secondary" className="w-full">
-          <BarChart3 size={16} /> View Gapping Chart
-        </Button>
-      </Link>
     </>
   );
 }
