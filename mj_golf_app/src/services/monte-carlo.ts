@@ -76,6 +76,11 @@ function simulateStrategy(
   allClubs: ClubDistribution[],
   trials: number,
 ): number {
+  // Below this distance, assume a chip-on in 1 stroke instead of simulating
+  // full-swing clubs that would wildly overshoot and oscillate.
+  const minClubCarry = Math.min(...allClubs.map((c) => c.meanCarry));
+  const chipThreshold = Math.max(HOLE_THRESHOLD, minClubCarry * 0.5);
+
   let totalStrokes = 0;
 
   for (let t = 0; t < trials; t++) {
@@ -89,11 +94,11 @@ function simulateStrategy(
       const forward = trueRemaining - carry;
       trueRemaining = Math.sqrt(forward ** 2 + offline ** 2);
       strokes++;
-      if (trueRemaining <= HOLE_THRESHOLD) break;
+      if (trueRemaining <= chipThreshold) break;
     }
 
     // Greedy continuation if not on the green yet
-    while (trueRemaining > HOLE_THRESHOLD && strokes < MAX_SHOTS_PER_HOLE) {
+    while (trueRemaining > chipThreshold && strokes < MAX_SHOTS_PER_HOLE) {
       const club = greedyClub(trueRemaining, allClubs);
       const carry = gaussianSample(club.meanCarry, club.stdCarry);
       const offline = gaussianSample(club.meanOffline, club.stdOffline);
@@ -102,10 +107,19 @@ function simulateStrategy(
       strokes++;
     }
 
+    // If we stopped in chip range (> 10 yds but < chipThreshold), add 1 chip stroke
+    if (trueRemaining > HOLE_THRESHOLD && trueRemaining <= chipThreshold) {
+      strokes++;
+    }
+
     totalStrokes += strokes + 2; // +2 putts
   }
 
   return totalStrokes / trials;
+}
+
+function clubLabel(c: ClubDistribution): string {
+  return `${c.clubName} (${Math.round(c.meanCarry)})`;
 }
 
 /** Find the best multi-club approach strategies for a given distance */
@@ -128,7 +142,7 @@ export function findBestApproaches(
       if (Math.abs(c.meanCarry - distance) < 40) {
         candidates.push({
           plan: [c],
-          label: c.clubName,
+          label: clubLabel(c),
         });
       }
     }
@@ -141,7 +155,7 @@ export function findBestApproaches(
         if (Math.abs(sumCarry - distance) < 60) {
           candidates.push({
             plan: [c1, c2],
-            label: `${c1.clubName} → ${c2.clubName}`,
+            label: `${clubLabel(c1)} → ${clubLabel(c2)}`,
           });
         }
       }
@@ -157,7 +171,7 @@ export function findBestApproaches(
         if (Math.abs(sum2 - distance) < 80) {
           candidates.push({
             plan: [c1, c2],
-            label: `${c1.clubName} → ${c2.clubName}`,
+            label: `${clubLabel(c1)} → ${clubLabel(c2)}`,
           });
         }
       }
@@ -171,7 +185,7 @@ export function findBestApproaches(
           if (Math.abs(sum3 - distance) < 80) {
             candidates.push({
               plan: [c1, c2, c3],
-              label: `${c1.clubName} → ${c2.clubName} → ${c3.clubName}`,
+              label: `${clubLabel(c1)} → ${clubLabel(c2)} → ${clubLabel(c3)}`,
             });
           }
         }
