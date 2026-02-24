@@ -16,7 +16,6 @@ export function ClubBagPage() {
     <>
       <TopBar
         title="My Bag"
-        showSettings
         rightAction={
           <Link to="/bag/new" className="rounded-lg p-1.5 text-primary hover:text-primary-light">
             <Plus size={20} />

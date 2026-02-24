@@ -27,7 +27,7 @@ export function YardageBookPage() {
 
   return (
     <>
-      <TopBar title="Yardage Book" showSettings />
+      <TopBar title="Yardage Book" />
       <div className="px-4 pt-3 pb-4">
         {/* View picker */}
         <div className="relative mb-4">

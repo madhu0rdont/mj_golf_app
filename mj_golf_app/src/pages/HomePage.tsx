@@ -19,7 +19,7 @@ export function HomePage() {
 
   return (
     <>
-      <TopBar title="MJ Golf" showSettings />
+      <TopBar title="MJ Golf" />
       <div className="px-4 py-6">
         <div className="mb-6">
           <h2 className="mb-1 text-2xl font-bold">Welcome back</h2>

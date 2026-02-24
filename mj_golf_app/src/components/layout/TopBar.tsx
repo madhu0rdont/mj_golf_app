@@ -13,11 +13,10 @@ const NAV_LINKS = [
 interface TopBarProps {
   title: string;
   showBack?: boolean;
-  showSettings?: boolean;
   rightAction?: React.ReactNode;
 }
 
-export function TopBar({ title, showBack, showSettings, rightAction }: TopBarProps) {
+export function TopBar({ title, showBack, rightAction }: TopBarProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -45,14 +44,6 @@ export function TopBar({ title, showBack, showSettings, rightAction }: TopBarPro
         </div>
         <h1 className="flex-1 text-center text-lg font-semibold text-text-dark">{title}</h1>
         <div className="flex w-10 justify-end">
-          {showSettings && (
-            <button
-              onClick={() => navigate('/settings')}
-              className="rounded-lg p-1.5 text-text-muted hover:text-text-dark"
-            >
-              <Settings size={20} />
-            </button>
-          )}
           {rightAction}
         </div>
       </header>

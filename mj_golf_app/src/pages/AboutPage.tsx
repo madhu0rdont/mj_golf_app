@@ -226,12 +226,12 @@ export function AboutPage() {
               GitHub
             </a>
             <a
-              href="https://twitter.com/madhu0rdie"
+              href="https://x.com/madhuOrDie"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-pale transition"
             >
-              Twitter
+              X
             </a>
           </div>
         </div>
