@@ -43,7 +43,7 @@ function YardageRow({ club, entry }: { club: Club; entry?: YardageBookEntry }) {
   const handleSave = async () => {
     if (!editing) return;
     const num = parseFloat(editing.value);
-    await updateClub(club.id, { manualCarry: isNaN(num) ? undefined : num });
+    await updateClub(club.id, { manualCarry: isNaN(num) ? undefined : num, manualTotal: null });
     setEditing(null);
   };
 

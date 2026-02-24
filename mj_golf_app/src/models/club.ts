@@ -10,8 +10,8 @@ export interface Club {
   loft?: number;
   shaft?: string;
   flex?: ShaftFlex;
-  manualCarry?: number;
-  manualTotal?: number;
+  manualCarry?: number | null;
+  manualTotal?: number | null;
   computedCarry?: number;
   computedTotal?: number;
   sortOrder: number;
