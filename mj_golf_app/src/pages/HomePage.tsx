@@ -33,7 +33,7 @@ export function HomePage() {
             className="flex flex-col items-center gap-1.5 rounded-xl bg-primary p-3 text-center text-sm font-medium text-white transition-colors hover:bg-primary-light"
           >
             <Plus size={20} />
-            <span>Session</span>
+            <span>Start Practice</span>
           </Link>
           <Link
             to="/yardage"
@@ -78,7 +78,7 @@ export function HomePage() {
         {/* Recent Sessions */}
         <div>
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-medium text-text-medium uppercase">Recent Sessions</h3>
+            <h3 className="text-sm font-medium text-text-medium uppercase">Practice Rounds</h3>
             {recentSessions && recentSessions.length > 0 && (
               <Link to="/sessions" className="text-xs font-medium text-primary">
                 View All
@@ -87,7 +87,7 @@ export function HomePage() {
           </div>
           {!recentSessions || recentSessions.length === 0 ? (
             <div className="rounded-2xl border border-border p-8 text-center text-sm text-text-muted">
-              No sessions yet. Tap "Session" to get started.
+              No sessions yet. Tap "Start Practice" to get started.
             </div>
           ) : (
             <div className="flex flex-col gap-2">
