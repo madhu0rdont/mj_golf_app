@@ -136,6 +136,7 @@ function computeYardageBook(
 
   const sessionsByClub = new Map<string, SessionWithShots[]>();
   for (const session of allSessions) {
+    if (!session.clubId) continue; // Skip multi-club sessions (wedge-distance)
     const shots = shotsBySession.get(session.id) || [];
     const list = sessionsByClub.get(session.clubId) || [];
     list.push({ session, shots });

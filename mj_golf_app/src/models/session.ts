@@ -1,10 +1,13 @@
 export type ShotShape = 'straight' | 'draw' | 'fade' | 'hook' | 'slice' | 'pull' | 'push';
 export type ShotQuality = 'pure' | 'good' | 'acceptable' | 'mishit';
 export type IngestionMethod = 'photo' | 'csv' | 'manual';
+export type SessionType = 'block' | 'wedge-distance';
+export type SwingPosition = 'full' | 'shoulder' | 'hip';
 
 export interface Session {
   id: string;
-  clubId: string;
+  clubId: string | null;
+  type: SessionType;
   date: number;
   location?: string;
   notes?: string;
@@ -33,6 +36,7 @@ export interface Shot {
   descentAngle?: number;
   shape?: ShotShape;
   quality?: ShotQuality;
+  position?: SwingPosition;
   timestamp: number;
 }
 

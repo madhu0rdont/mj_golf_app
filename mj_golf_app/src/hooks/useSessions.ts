@@ -1,7 +1,7 @@
 import useSWR, { mutate } from 'swr';
 import { fetcher } from '../lib/fetcher';
 import { api } from '../lib/api';
-import type { Session, Shot, IngestionMethod } from '../models/session';
+import type { Session, Shot, IngestionMethod, SessionType, SwingPosition } from '../models/session';
 
 export function useSessionsForClub(clubId: string | undefined) {
   const { data } = useSWR<Session[]>(
@@ -35,12 +35,16 @@ export function useShotsForSession(sessionId: string | undefined) {
 }
 
 export interface CreateSessionInput {
-  clubId: string;
+  clubId?: string | null;
+  type?: SessionType;
   date: number;
   location?: string;
   notes?: string;
   source: IngestionMethod;
-  shots: Omit<Shot, 'id' | 'sessionId' | 'clubId' | 'shape' | 'quality' | 'timestamp'>[];
+  shots: (Omit<Shot, 'id' | 'sessionId' | 'clubId' | 'shape' | 'quality' | 'timestamp'> & {
+    clubId?: string;
+    position?: SwingPosition;
+  })[];
 }
 
 export async function createSession(input: CreateSessionInput): Promise<string> {

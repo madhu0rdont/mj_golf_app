@@ -24,6 +24,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
   return {
     id: 'sess-1',
     clubId: 'club-1',
+    type: 'block',
     date: Date.now(),
     source: 'manual',
     shotCount: 5,

@@ -29,7 +29,7 @@ export function usePreviousSessionSummary(
       data.shots,
       data.clubName,
       data.session.id,
-      data.session.clubId,
+      data.session.clubId ?? '',
       data.session.date
     );
   }, [data]);

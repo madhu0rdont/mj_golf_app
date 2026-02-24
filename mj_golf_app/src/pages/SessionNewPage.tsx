@@ -1,14 +1,21 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Camera, FileSpreadsheet, PenLine } from 'lucide-react';
+import { Camera, FileSpreadsheet, PenLine, Target } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { Select } from '../components/ui/Select';
 import { Input } from '../components/ui/Input';
 import { useAllClubs } from '../hooks/useClubs';
+import type { SessionType } from '../models/session';
+
+const SESSION_TYPES: { key: SessionType; label: string; desc: string; icon: typeof Target }[] = [
+  { key: 'block', label: 'Block Practice', desc: 'Hit one club repeatedly', icon: PenLine },
+  { key: 'wedge-distance', label: 'Wedge Distance', desc: 'Go through your wedge matrix', icon: Target },
+];
 
 export function SessionNewPage() {
   const navigate = useNavigate();
   const clubs = useAllClubs();
+  const [sessionType, setSessionType] = useState<SessionType>('block');
   const [clubId, setClubId] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [location, setLocation] = useState('');
@@ -16,7 +23,6 @@ export function SessionNewPage() {
   if (clubs === undefined) return null;
 
   const clubOptions = clubs.map((c) => ({ value: c.id, label: c.name }));
-
   const selectedClub = clubId || (clubs.length > 0 ? clubs[0].id : '');
 
   const buildState = () => ({
@@ -50,46 +56,84 @@ export function SessionNewPage() {
     <>
       <TopBar title="New Session" showBack />
       <div className="px-4 py-4">
-        <div className="flex flex-col gap-4 mb-6">
-          <Select
-            label="Club"
-            value={selectedClub}
-            onChange={(e) => setClubId(e.target.value)}
-            options={[{ value: '', label: 'Select a club...' }, ...clubOptions]}
-          />
-          <Input
-            label="Date"
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-          <Input
-            label="Location (optional)"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="e.g. Claremont Range"
-          />
-        </div>
-
-        <h3 className="mb-3 text-sm font-medium text-text-medium uppercase">Add Data</h3>
-        <div className="flex flex-col gap-2">
-          {methods.map(({ icon: Icon, label, desc, path }) => (
+        {/* Session type selector */}
+        <div className="flex gap-2 mb-5">
+          {SESSION_TYPES.map(({ key, label, desc, icon: Icon }) => (
             <button
-              key={path}
-              onClick={() => navigate(path, { state: buildState() })}
-              disabled={!selectedClub}
-              className="flex items-center gap-4 rounded-2xl border border-border bg-card shadow-sm p-4 text-left transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px disabled:opacity-40"
+              key={key}
+              onClick={() => setSessionType(key)}
+              className={`flex-1 flex flex-col items-center gap-1.5 rounded-xl border p-3 transition ${
+                sessionType === key
+                  ? 'border-primary bg-primary/5 text-primary'
+                  : 'border-border bg-card text-text-muted hover:border-primary/30'
+              }`}
             >
-              <div className="rounded-lg bg-primary-pale p-2.5">
-                <Icon size={20} className="text-primary" />
-              </div>
-              <div>
-                <div className="font-medium text-text-dark">{label}</div>
-                <div className="text-xs text-text-muted">{desc}</div>
-              </div>
+              <Icon size={20} />
+              <span className="text-sm font-medium">{label}</span>
+              <span className="text-[10px] text-text-muted leading-tight">{desc}</span>
             </button>
           ))}
         </div>
+
+        {sessionType === 'wedge-distance' ? (
+          /* Wedge distance — just navigate to the practice page */
+          <button
+            onClick={() => navigate('/session/new/wedge-practice')}
+            className="w-full flex items-center gap-4 rounded-2xl border border-border bg-card shadow-sm p-4 text-left transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
+          >
+            <div className="rounded-lg bg-primary-pale p-2.5">
+              <Target size={20} className="text-primary" />
+            </div>
+            <div>
+              <div className="font-medium text-text-dark">Start Wedge Practice</div>
+              <div className="text-xs text-text-muted">Go through your wedge matrix</div>
+            </div>
+          </button>
+        ) : (
+          /* Block practice — existing flow */
+          <>
+            <div className="flex flex-col gap-4 mb-6">
+              <Select
+                label="Club"
+                value={selectedClub}
+                onChange={(e) => setClubId(e.target.value)}
+                options={[{ value: '', label: 'Select a club...' }, ...clubOptions]}
+              />
+              <Input
+                label="Date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+              <Input
+                label="Location (optional)"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g. Claremont Range"
+              />
+            </div>
+
+            <h3 className="mb-3 text-sm font-medium text-text-medium uppercase">Add Data</h3>
+            <div className="flex flex-col gap-2">
+              {methods.map(({ icon: Icon, label, desc, path }) => (
+                <button
+                  key={path}
+                  onClick={() => navigate(path, { state: buildState() })}
+                  disabled={!selectedClub}
+                  className="flex items-center gap-4 rounded-2xl border border-border bg-card shadow-sm p-4 text-left transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px disabled:opacity-40"
+                >
+                  <div className="rounded-lg bg-primary-pale p-2.5">
+                    <Icon size={20} className="text-primary" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-text-dark">{label}</div>
+                    <div className="text-xs text-text-muted">{desc}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </>
   );

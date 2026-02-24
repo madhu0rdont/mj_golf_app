@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react';
-import { useYardageBook } from '../../hooks/useYardageBook';
+import useSWR from 'swr';
+import { fetcher } from '../../lib/fetcher';
+import { useYardageBook, computeWeight } from '../../hooks/useYardageBook';
 import { useAllClubs } from '../../hooks/useClubs';
 import { useWedgeOverrides, setWedgeOverride, removeWedgeOverride } from '../../hooks/useWedgeOverrides';
 import type { Club } from '../../models/club';
+import type { Session, Shot } from '../../models/session';
 
 const SWING_POSITIONS = [
   { key: 'full', label: 'Full', multiplier: 1.0 },
@@ -20,6 +23,8 @@ export function WedgeMatrixTab() {
   const entries = useYardageBook();
   const clubs = useAllClubs();
   const overrides = useWedgeOverrides();
+  const { data: allSessions } = useSWR<Session[]>('/api/sessions?all=true', fetcher);
+  const { data: allShots } = useSWR<Shot[]>('/api/shots', fetcher);
   const [editing, setEditing] = useState<EditingCell | null>(null);
 
   const wedges = useMemo(() => {
@@ -47,11 +52,56 @@ export function WedgeMatrixTab() {
     return map;
   }, [overrides]);
 
+  // Compute weighted averages from wedge-distance practice sessions
+  const practiceAvgs = useMemo(() => {
+    if (!allSessions || !allShots) return new Map<string, number>();
+
+    const now = Date.now();
+    const wedgeSessions = new Set(
+      allSessions.filter((s) => s.type === 'wedge-distance').map((s) => s.id)
+    );
+    const sessionDateMap = new Map(allSessions.map((s) => [s.id, s.date]));
+
+    // Group practice shots by club+position, with session date for weighting
+    const grouped = new Map<string, { carry: number; date: number }[]>();
+    for (const shot of allShots) {
+      if (!wedgeSessions.has(shot.sessionId) || !shot.position) continue;
+      const key = `${shot.clubId}:${shot.position}`;
+      const list = grouped.get(key) || [];
+      list.push({ carry: shot.carryYards, date: sessionDateMap.get(shot.sessionId) ?? now });
+      grouped.set(key, list);
+    }
+
+    // Weighted average using exponential decay (30-day half-life)
+    const avgs = new Map<string, number>();
+    for (const [key, dataPoints] of grouped.entries()) {
+      let totalWeight = 0;
+      let weightedSum = 0;
+      for (const { carry, date } of dataPoints) {
+        const daysAgo = (now - date) / (1000 * 60 * 60 * 24);
+        const weight = computeWeight(daysAgo);
+        weightedSum += carry * weight;
+        totalWeight += weight;
+      }
+      if (totalWeight > 0) {
+        avgs.set(key, Math.round(weightedSum / totalWeight));
+      }
+    }
+
+    return avgs;
+  }, [allSessions, allShots]);
+
+  // Distance priority: practice avg > override > multiplier × full carry
   const getDistance = (clubId: string, fullCarry: number, position: typeof SWING_POSITIONS[number]) => {
     const key = `${clubId}:${position.key}`;
+
+    const practiceAvg = practiceAvgs.get(key);
+    if (practiceAvg != null) return { value: practiceAvg, source: 'practice' as const };
+
     const override = overrideMap.get(key);
-    if (override != null) return { value: Math.round(override), isOverride: true };
-    return { value: Math.round(fullCarry * position.multiplier), isOverride: false };
+    if (override != null) return { value: Math.round(override), source: 'override' as const };
+
+    return { value: Math.round(fullCarry * position.multiplier), source: 'calculated' as const };
   };
 
   const handleCellTap = (clubId: string, position: string, currentValue: number) => {
@@ -108,7 +158,7 @@ export function WedgeMatrixTab() {
                 {club.name}
               </td>
               {SWING_POSITIONS.map((pos) => {
-                const { value, isOverride } = getDistance(club.id, fullCarry, pos);
+                const { value, source } = getDistance(club.id, fullCarry, pos);
                 const isEditing = editing?.clubId === club.id && editing?.position === pos.key;
 
                 return (
@@ -129,15 +179,23 @@ export function WedgeMatrixTab() {
                     ) : (
                       <button
                         onClick={() => handleCellTap(club.id, pos.key, value)}
-                        onDoubleClick={() => isOverride && handleReset(club.id, pos.key)}
+                        onDoubleClick={() => source !== 'calculated' && handleReset(club.id, pos.key)}
                         className={`inline-block min-w-[3rem] rounded px-2 py-1 transition ${
                           pos.key === 'full'
                             ? 'font-bold text-primary'
-                            : isOverride
-                              ? 'font-semibold text-gold-dark underline decoration-gold/40 decoration-1 underline-offset-2'
-                              : 'text-text-dark'
+                            : source === 'practice'
+                              ? 'font-semibold text-primary'
+                              : source === 'override'
+                                ? 'font-semibold text-gold-dark underline decoration-gold/40 decoration-1 underline-offset-2'
+                                : 'text-text-dark'
                         } hover:bg-surface`}
-                        title={isOverride ? 'Double-tap to reset to auto' : 'Tap to override'}
+                        title={
+                          source === 'practice'
+                            ? 'From practice data (tap to override)'
+                            : source === 'override'
+                              ? 'Manual override (double-tap to reset)'
+                              : 'Auto-calculated (tap to override)'
+                        }
                       >
                         {value}
                       </button>
@@ -151,7 +209,7 @@ export function WedgeMatrixTab() {
       </table>
 
       <p className="mt-3 text-xs text-text-faint">
-        Tap a distance to override. Double-tap an override to reset.
+        Distances from practice are weighted by recency. Tap to override, double-tap to reset.
       </p>
     </div>
   );

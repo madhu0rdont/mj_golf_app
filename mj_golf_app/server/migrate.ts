@@ -94,5 +94,12 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "user_sessions" ("expire")
   `);
 
+  // Session type + multi-club support for wedge-distance sessions
+  await query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'block'`);
+  await query(`ALTER TABLE sessions ALTER COLUMN club_id DROP NOT NULL`);
+
+  // Shot position for wedge practice (full / shoulder / hip)
+  await query(`ALTER TABLE shots ADD COLUMN IF NOT EXISTS position TEXT`);
+
   console.log('Database migration complete');
 }

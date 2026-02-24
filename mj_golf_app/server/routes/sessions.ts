@@ -38,28 +38,46 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/sessions — create session with shots
-// Body: { clubId, date, location?, notes?, source, shots: [...] }
+// Body: { clubId?, type?, date, location?, notes?, source, shots: [...] }
 router.post('/', async (req, res) => {
-  const { clubId, date, location, notes, source, shots: rawShots } = req.body;
+  const { clubId, type = 'block', date, location, notes, source, shots: rawShots } = req.body;
   const sessionId = crypto.randomUUID();
   const now = Date.now();
+  const isWedge = type === 'wedge-distance';
 
   // Build shot objects
   const shotsWithIds = rawShots.map((s: Record<string, unknown>, i: number) => ({
     ...s,
     id: crypto.randomUUID(),
     sessionId,
-    clubId,
+    clubId: isWedge ? s.clubId : clubId,
+    position: s.position || null,
     shotNumber: s.shotNumber ?? i + 1,
     timestamp: now,
   }));
 
   // Classify shots (left-handed)
-  const classifiedShots = classifyAllShots(shotsWithIds, 'left');
+  // For wedge-distance sessions, classify per-club group so quality is relative to each club
+  let classifiedShots;
+  if (isWedge) {
+    const byClub = new Map<string, typeof shotsWithIds>();
+    for (const shot of shotsWithIds) {
+      const list = byClub.get(shot.clubId as string) || [];
+      list.push(shot);
+      byClub.set(shot.clubId as string, list);
+    }
+    classifiedShots = [];
+    for (const group of byClub.values()) {
+      classifiedShots.push(...classifyAllShots(group, 'left'));
+    }
+  } else {
+    classifiedShots = classifyAllShots(shotsWithIds, 'left');
+  }
 
   const session = {
     id: sessionId,
-    clubId,
+    clubId: isWedge ? null : clubId,
+    type,
     date,
     location: location || null,
     notes: notes || null,

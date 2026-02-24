@@ -99,7 +99,7 @@ export function HomePage() {
                 >
                   <div>
                     <div className="text-sm font-medium text-text-dark">
-                      {clubMap.get(session.clubId) || 'Unknown Club'}
+                      {session.type === 'wedge-distance' ? 'Wedge Practice' : clubMap.get(session.clubId ?? '') || 'Unknown Club'}
                     </div>
                     <div className="text-xs text-text-muted">
                       {new Date(session.date).toLocaleDateString('en-US', {

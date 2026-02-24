@@ -27,7 +27,7 @@ export function SessionsListPage() {
 
   const openEdit = (session: Session, e: React.MouseEvent) => {
     e.stopPropagation();
-    setEditClubId(session.clubId);
+    setEditClubId(session.clubId ?? '');
     setEditDate(new Date(session.date).toISOString().split('T')[0]);
     setEditSession(session);
   };
@@ -68,7 +68,7 @@ export function SessionsListPage() {
               >
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium text-text-dark">
-                    {clubMap.get(session.clubId) || 'Unknown Club'}
+                    {session.type === 'wedge-distance' ? 'Wedge Practice' : clubMap.get(session.clubId ?? '') || 'Unknown Club'}
                   </div>
                   <div className="text-xs text-text-muted">
                     {new Date(session.date).toLocaleDateString('en-US', {
@@ -134,7 +134,7 @@ export function SessionsListPage() {
         <p className="mb-4 text-sm text-text-medium">
           Delete the{' '}
           <span className="font-semibold text-text-dark">
-            {deleteTarget ? clubMap.get(deleteTarget.clubId) || 'Unknown Club' : ''}
+            {deleteTarget ? (deleteTarget.type === 'wedge-distance' ? 'Wedge Practice' : clubMap.get(deleteTarget.clubId ?? '') || 'Unknown Club') : ''}
           </span>{' '}
           session ({deleteTarget?.shotCount} shots)? This cannot be undone.
         </p>

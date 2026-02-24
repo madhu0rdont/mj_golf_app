@@ -10,6 +10,7 @@ import { TrajectoryChart } from '../components/flight/TrajectoryChart';
 import { DispersionChart } from '../components/flight/DispersionChart';
 import { HeroStat } from '../components/summary/HeroStat';
 import { TrackmanTable } from '../components/summary/TrackmanTable';
+import { WedgePracticeSummary } from '../components/wedge-practice/WedgePracticeSummary';
 import { Modal } from '../components/ui/Modal';
 import { Select } from '../components/ui/Select';
 import { Input } from '../components/ui/Input';
@@ -19,7 +20,7 @@ export function SessionSummaryPage() {
   const { sessionId } = useParams();
   const session = useSession(sessionId);
   const shots = useShotsForSession(sessionId);
-  const club = useClub(session?.clubId);
+  const club = useClub(session?.clubId ?? undefined);
   const allClubs = useAllClubs();
 
   const [editOpen, setEditOpen] = useState(false);
@@ -29,7 +30,7 @@ export function SessionSummaryPage() {
 
   const openEditModal = () => {
     if (!session) return;
-    setEditClubId(session.clubId);
+    setEditClubId(session.clubId ?? '');
     const d = new Date(session.date);
     setEditDate(d.toISOString().split('T')[0]);
     setEditOpen(true);
@@ -49,7 +50,7 @@ export function SessionSummaryPage() {
 
   const summary = useMemo(() => {
     if (!shots || shots.length === 0 || !session || !club) return null;
-    return computeSessionSummary(shots, club.name, session.id, session.clubId, session.date);
+    return computeSessionSummary(shots, club.name, session.id, session.clubId ?? '', session.date);
   }, [shots, session, club]);
 
   const mishitCount = useMemo(
@@ -61,7 +62,7 @@ export function SessionSummaryPage() {
     if (!shots || shots.length === 0 || !session || !club) return null;
     const filtered = excludeMishits ? shots.filter((s) => s.quality !== 'mishit') : shots;
     if (filtered.length === 0) return null;
-    return computeSessionSummary(filtered, club.name, session.id, session.clubId, session.date);
+    return computeSessionSummary(filtered, club.name, session.id, session.clubId ?? '', session.date);
   }, [shots, session, club, excludeMishits]);
 
   // Flight visualization state
@@ -86,6 +87,19 @@ export function SessionSummaryPage() {
     if (abs < 0.5) return '0';
     return `${abs.toFixed(1)} ${heroSummary.avgOffline < 0 ? 'L' : 'R'}`;
   }, [heroSummary]);
+
+  // Wedge-distance sessions don't have a single club
+  if (session?.type === 'wedge-distance' && shots) {
+    return (
+      <>
+        <TopBar title="Session Summary" showBack />
+        <div className="px-4 py-4">
+          <WedgePracticeSummary session={session} shots={shots} />
+          <div className="h-6" />
+        </div>
+      </>
+    );
+  }
 
   if (!session || !shots || !club || !summary) {
     return (
