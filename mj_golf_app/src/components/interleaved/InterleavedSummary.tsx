@@ -49,9 +49,8 @@ export function InterleavedSummary({ session, shots }: InterleavedSummaryProps) 
   const totalScore = scores.reduce((s, h) => s + h.total, 0);
   const totalToPar = scores.reduce((s, h) => s + h.toPar, 0);
   const totalPar = holes.reduce((s, h) => s + h.par, 0);
-  const approachPct = scores.length > 0
-    ? Math.round((scores.filter((s) => s.approachMade).length / scores.length) * 100)
-    : 0;
+  const szApplicable = scores.filter((s) => s.scoringZone.applicable);
+  const szTotal = szApplicable.reduce((s, h) => s + h.scoringZone.delta, 0);
   const avgStrokes = scores.length > 0
     ? Math.round((scores.reduce((s, h) => s + h.strokes, 0) / scores.length) * 10) / 10
     : 0;
@@ -89,8 +88,12 @@ export function InterleavedSummary({ session, shots }: InterleavedSummaryProps) 
           </p>
         </div>
         <div className="rounded-xl border border-border bg-card px-2 py-3 text-center">
-          <p className="text-[10px] text-text-muted uppercase">Approach</p>
-          <p className="text-lg font-bold text-primary">{approachPct}%</p>
+          <p className="text-[10px] text-text-muted uppercase">Zone</p>
+          <p className={`text-lg font-bold ${
+            szTotal < 0 ? 'text-primary' : szTotal === 0 ? 'text-text-dark' : 'text-coral'
+          }`}>
+            {szApplicable.length === 0 ? '—' : szTotal === 0 ? 'E' : szTotal > 0 ? `+${szTotal}` : szTotal}
+          </p>
         </div>
         <div className="rounded-xl border border-border bg-card px-2 py-3 text-center">
           <p className="text-[10px] text-text-muted uppercase">Avg Strk</p>
@@ -166,9 +169,12 @@ export function InterleavedSummary({ session, shots }: InterleavedSummaryProps) 
                       </div>
                     );
                   })}
-                  {score.approachMade && (
-                    <p className="text-[10px] text-primary mt-1">
-                      Approach: within 100 yds in {hole.par - 2} stroke{hole.par - 2 !== 1 ? 's' : ''}
+                  {score.scoringZone.applicable && (
+                    <p className={`text-[10px] mt-1 ${
+                      score.scoringZone.delta <= 0 ? 'text-primary' : 'text-coral'
+                    }`}>
+                      Scoring zone: {score.scoringZone.actual} stroke{score.scoringZone.actual !== 1 ? 's' : ''} to reach 100 yds
+                      {' '}(target: {score.scoringZone.target})
                     </p>
                   )}
                 </div>

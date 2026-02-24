@@ -445,28 +445,40 @@ export function InterleavedPracticePage() {
         )}
 
         {/* Running totals */}
-        {completedScores.length > 0 && (
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-xl border border-border bg-card px-2 py-3">
-              <p className="text-xs text-text-muted uppercase">Score</p>
-              <p className="text-lg font-bold text-text-dark">{totalScore}</p>
+        {completedScores.length > 0 && (() => {
+          const szApplicable = completedScores.filter((s) => s.scoringZone.applicable);
+          const szTotal = szApplicable.reduce((s, h) => s + h.scoringZone.delta, 0);
+          return (
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="rounded-xl border border-border bg-card px-2 py-3">
+                <p className="text-[10px] text-text-muted uppercase">Score</p>
+                <p className="text-lg font-bold text-text-dark">{totalScore}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-card px-2 py-3">
+                <p className="text-[10px] text-text-muted uppercase">vs Par</p>
+                <p className={`text-lg font-bold ${
+                  totalToPar < 0 ? 'text-primary' : totalToPar === 0 ? 'text-text-dark' : 'text-coral'
+                }`}>
+                  {totalToPar === 0 ? 'E' : totalToPar > 0 ? `+${totalToPar}` : totalToPar}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border bg-card px-2 py-3">
+                <p className="text-[10px] text-text-muted uppercase">Zone</p>
+                <p className={`text-lg font-bold ${
+                  szTotal < 0 ? 'text-primary' : szTotal === 0 ? 'text-text-dark' : 'text-coral'
+                }`}>
+                  {szApplicable.length === 0 ? '—' : szTotal === 0 ? 'E' : szTotal > 0 ? `+${szTotal}` : szTotal}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border bg-card px-2 py-3">
+                <p className="text-[10px] text-text-muted uppercase">Par</p>
+                <p className="text-lg font-bold text-text-dark">
+                  {holes.slice(0, currentHoleIndex + (holeComplete ? 1 : 0)).reduce((s, h) => s + h.par, 0)}
+                </p>
+              </div>
             </div>
-            <div className="rounded-xl border border-border bg-card px-2 py-3">
-              <p className="text-xs text-text-muted uppercase">vs Par</p>
-              <p className={`text-lg font-bold ${
-                totalToPar < 0 ? 'text-primary' : totalToPar === 0 ? 'text-text-dark' : 'text-coral'
-              }`}>
-                {totalToPar === 0 ? 'E' : totalToPar > 0 ? `+${totalToPar}` : totalToPar}
-              </p>
-            </div>
-            <div className="rounded-xl border border-border bg-card px-2 py-3">
-              <p className="text-xs text-text-muted uppercase">Par</p>
-              <p className="text-lg font-bold text-text-dark">
-                {holes.slice(0, currentHoleIndex + (holeComplete ? 1 : 0)).reduce((s, h) => s + h.par, 0)}
-              </p>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Early exit */}
         {!roundComplete && completedScores.length > 0 && (

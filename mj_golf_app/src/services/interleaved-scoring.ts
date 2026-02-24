@@ -6,6 +6,13 @@ export interface RemainingDistance {
   trueRemaining: number;
 }
 
+export interface ScoringZone {
+  target: number;       // par - 2: strokes to reach within 100 yds
+  actual: number;       // how many strokes it actually took (Infinity if never reached before holing out)
+  delta: number;        // actual - target (negative = ahead, positive = behind)
+  applicable: boolean;  // false for par 3s where hole distance ≤ 100
+}
+
 export interface HoleScore {
   strokes: number;
   putts: number;
@@ -13,6 +20,7 @@ export interface HoleScore {
   toPar: number;
   label: string;
   approachMade: boolean;
+  scoringZone: ScoringZone;
 }
 
 interface ShotData {
@@ -49,6 +57,27 @@ export function getScoreLabel(toPar: number): string {
   return `+${toPar}`;
 }
 
+export function computeScoringZone(hole: InterleavedHole, shots: ShotData[]): ScoringZone {
+  const target = hole.par - 2;
+
+  // Not applicable if the hole itself starts within 100 yards
+  if (hole.distanceYards <= 100) {
+    return { target, actual: 0, delta: 0, applicable: false };
+  }
+
+  // Find the first shot index where true remaining drops to ≤ 100
+  let actual = shots.length; // default: never reached (used all strokes)
+  for (let i = 1; i <= shots.length; i++) {
+    const { trueRemaining } = computeRemaining(hole.distanceYards, shots.slice(0, i));
+    if (trueRemaining <= 100) {
+      actual = i;
+      break;
+    }
+  }
+
+  return { target, actual, delta: actual - target, applicable: true };
+}
+
 export function computeHoleScore(hole: InterleavedHole, shots: ShotData[]): HoleScore {
   const strokes = shots.length;
   const putts = 2;
@@ -61,5 +90,6 @@ export function computeHoleScore(hole: InterleavedHole, shots: ShotData[]): Hole
     toPar,
     label: getScoreLabel(toPar),
     approachMade: checkApproachMilestone(hole, shots),
+    scoringZone: computeScoringZone(hole, shots),
   };
 }
