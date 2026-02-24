@@ -21,6 +21,9 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3001');
 const isProd = process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT;
 
+// Trust Railway's reverse proxy so secure cookies work behind TLS termination
+if (isProd) app.set('trust proxy', 1);
+
 app.use(express.json({ limit: '50mb' }));
 
 // Session middleware
