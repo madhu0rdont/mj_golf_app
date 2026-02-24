@@ -349,13 +349,7 @@ export function InterleavedPracticePage() {
             {currentShots.length > 0 && !holeComplete && (
               <div className="rounded-xl bg-surface p-3 mb-4 text-center">
                 <div className="text-lg font-bold text-primary">
-                  {Math.round(remaining.trueRemaining)} yds remaining
-                </div>
-                <div className="text-xs text-text-muted mt-0.5">
-                  {remaining.forwardRemaining} fwd
-                  {remaining.cumulativeOffline !== 0 && (
-                    <>, {Math.abs(remaining.cumulativeOffline)}{remaining.cumulativeOffline > 0 ? 'R' : 'L'} off</>
-                  )}
+                  {Math.round(remaining.trueRemaining)} yds to hole
                 </div>
               </div>
             )}

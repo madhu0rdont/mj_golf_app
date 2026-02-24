@@ -29,12 +29,16 @@ interface ShotData {
 }
 
 export function computeRemaining(holeDistance: number, shots: ShotData[]): RemainingDistance {
-  const totalCarry = shots.reduce((sum, s) => sum + s.carryYards, 0);
+  // Iterative model: each shot is aimed at the hole.
+  // Carry reduces the true remaining distance, offline creates new lateral displacement.
+  let trueRemaining = holeDistance;
+  for (const shot of shots) {
+    const forward = trueRemaining - shot.carryYards;
+    trueRemaining = Math.sqrt(forward ** 2 + shot.offlineYards ** 2);
+  }
+  trueRemaining = Math.round(trueRemaining * 10) / 10;
   const cumulativeOffline = shots.reduce((sum, s) => sum + s.offlineYards, 0);
-  const forwardRemaining = Math.max(0, holeDistance - totalCarry);
-  const trueRemaining = Math.round(
-    Math.sqrt(forwardRemaining ** 2 + cumulativeOffline ** 2) * 10
-  ) / 10;
+  const forwardRemaining = Math.max(0, holeDistance - shots.reduce((sum, s) => sum + s.carryYards, 0));
   return { forwardRemaining, cumulativeOffline, trueRemaining };
 }
 
