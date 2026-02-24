@@ -4,11 +4,10 @@ import { useAllClubs } from '../../hooks/useClubs';
 import { useWedgeOverrides, setWedgeOverride, removeWedgeOverride } from '../../hooks/useWedgeOverrides';
 import type { Club } from '../../models/club';
 
-const CLOCK_POSITIONS = [
+const SWING_POSITIONS = [
   { key: 'full', label: 'Full', multiplier: 1.0 },
-  { key: '10:30', label: '10:30', multiplier: 0.85 },
-  { key: '9:00', label: '9:00', multiplier: 0.75 },
-  { key: '7:30', label: '7:30', multiplier: 0.58 },
+  { key: 'shoulder', label: 'Shoulder', multiplier: 0.85 },
+  { key: 'hip', label: 'Hip', multiplier: 0.65 },
 ];
 
 interface EditingCell {
@@ -48,7 +47,7 @@ export function WedgeMatrixTab() {
     return map;
   }, [overrides]);
 
-  const getDistance = (clubId: string, fullCarry: number, position: typeof CLOCK_POSITIONS[number]) => {
+  const getDistance = (clubId: string, fullCarry: number, position: typeof SWING_POSITIONS[number]) => {
     const key = `${clubId}:${position.key}`;
     const override = overrideMap.get(key);
     if (override != null) return { value: Math.round(override), isOverride: true };
@@ -92,7 +91,7 @@ export function WedgeMatrixTab() {
             <th className="py-2.5 pl-1 pr-3 text-left text-xs font-medium text-text-muted uppercase">
               Club
             </th>
-            {CLOCK_POSITIONS.map((pos) => (
+            {SWING_POSITIONS.map((pos) => (
               <th
                 key={pos.key}
                 className="py-2.5 px-2 text-center text-xs font-medium text-text-muted uppercase"
@@ -108,7 +107,7 @@ export function WedgeMatrixTab() {
               <td className="py-3 pl-1 pr-3 font-medium text-text-dark">
                 {club.name}
               </td>
-              {CLOCK_POSITIONS.map((pos) => {
+              {SWING_POSITIONS.map((pos) => {
                 const { value, isOverride } = getDistance(club.id, fullCarry, pos);
                 const isEditing = editing?.clubId === club.id && editing?.position === pos.key;
 
