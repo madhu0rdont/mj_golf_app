@@ -8,15 +8,17 @@ interface ShotInputSheetProps {
   onClose: () => void;
   clubs: Club[];
   suggestedClubId?: string;
-  onAdd: (clubId: string, carryYards: number, offlineYards: number) => void;
+  defaultFullShot?: boolean;
+  onAdd: (clubId: string, carryYards: number, offlineYards: number, fullShot: boolean) => void;
 }
 
-export function ShotInputSheet({ open, onClose, clubs, suggestedClubId, onAdd }: ShotInputSheetProps) {
+export function ShotInputSheet({ open, onClose, clubs, suggestedClubId, defaultFullShot = true, onAdd }: ShotInputSheetProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const carryRef = useRef<HTMLInputElement>(null);
   const [clubId, setClubId] = useState('');
   const [carry, setCarry] = useState('');
   const [offline, setOffline] = useState('');
+  const [fullShot, setFullShot] = useState(true);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -24,6 +26,7 @@ export function ShotInputSheet({ open, onClose, clubs, suggestedClubId, onAdd }:
     if (open) {
       setCarry('');
       setOffline('');
+      setFullShot(defaultFullShot);
       // Pre-select suggested club, or keep current selection, or fall back to first club
       if (suggestedClubId) {
         setClubId(suggestedClubId);
@@ -35,7 +38,7 @@ export function ShotInputSheet({ open, onClose, clubs, suggestedClubId, onAdd }:
     } else {
       dialog.close();
     }
-  }, [open, clubs, suggestedClubId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, clubs, suggestedClubId, defaultFullShot]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const carryNum = parseFloat(carry);
   const offlineNum = parseFloat(offline) || 0;
@@ -43,7 +46,7 @@ export function ShotInputSheet({ open, onClose, clubs, suggestedClubId, onAdd }:
 
   const handleAdd = () => {
     if (!isValid) return;
-    onAdd(clubId, carryNum, offlineNum);
+    onAdd(clubId, carryNum, offlineNum, fullShot);
     onClose();
   };
 
@@ -113,6 +116,29 @@ export function ShotInputSheet({ open, onClose, clubs, suggestedClubId, onAdd }:
             />
             <p className="mt-1 text-[10px] text-text-faint">+ right, - left</p>
           </div>
+        </div>
+
+        {/* Full shot toggle */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setFullShot(!fullShot)}
+            className={`relative h-5 w-9 rounded-full transition-colors ${
+              fullShot ? 'bg-primary' : 'bg-border'
+            }`}
+            aria-label="Full shot"
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                fullShot ? 'translate-x-4' : ''
+              }`}
+            />
+          </button>
+          <span className="text-xs text-text-medium">
+            Full shot
+          </span>
+          <span className="text-[10px] text-text-faint">
+            (counts toward yardage book)
+          </span>
         </div>
       </div>
 

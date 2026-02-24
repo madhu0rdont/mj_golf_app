@@ -158,6 +158,9 @@ export function InterleavedSummary({ session, shots }: InterleavedSummaryProps) 
                           <span className="font-medium text-text-dark">
                             {clubMap.get(shot.clubId) ?? 'Unknown'}
                           </span>
+                          {shot.position === 'full' && (
+                            <span className="text-[10px] text-primary">full</span>
+                          )}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-text-muted">
                           <span>{Math.round(shot.carryYards)} carry</span>

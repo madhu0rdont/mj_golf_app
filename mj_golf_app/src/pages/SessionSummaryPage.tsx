@@ -1,8 +1,8 @@
-import { useParams } from 'react-router';
+import { useParams, useNavigate } from 'react-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pencil } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
-import { useSession, useShotsForSession, updateSession } from '../hooks/useSessions';
+import { useSession, useShotsForSession, updateSession, deleteSession } from '../hooks/useSessions';
 import { useClub, useAllClubs } from '../hooks/useClubs';
 import { computeSessionSummary } from '../services/stats';
 import { computeXScale } from '../components/flight/flight-math';
@@ -19,6 +19,7 @@ import { Button } from '../components/ui/Button';
 
 export function SessionSummaryPage() {
   const { sessionId } = useParams();
+  const navigate = useNavigate();
   const session = useSession(sessionId);
   const shots = useShotsForSession(sessionId);
   const club = useClub(session?.clubId ?? undefined);
@@ -28,6 +29,13 @@ export function SessionSummaryPage() {
   const [editClubId, setEditClubId] = useState('');
   const [editDate, setEditDate] = useState('');
   const [excludeMishits, setExcludeMishits] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const confirmDelete = async () => {
+    if (!session) return;
+    await deleteSession(session.id);
+    navigate('/sessions');
+  };
 
   const openEditModal = () => {
     if (!session) return;
@@ -95,9 +103,27 @@ export function SessionSummaryPage() {
       <>
         <TopBar title="Session Summary" showBack />
         <div className="px-4 py-4">
+          <div className="mb-2 flex justify-end">
+            <button
+              onClick={() => setDeleteOpen(true)}
+              className="rounded-lg p-1.5 text-text-muted hover:bg-surface hover:text-coral"
+              aria-label="Delete session"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
           <WedgePracticeSummary session={session} shots={shots} />
           <div className="h-6" />
         </div>
+        <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete Session">
+          <p className="mb-4 text-sm text-text-medium">
+            Delete this session ({session.shotCount} shots)? This cannot be undone.
+          </p>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)} className="flex-1">Cancel</Button>
+            <Button variant="danger" onClick={confirmDelete} className="flex-1">Delete</Button>
+          </div>
+        </Modal>
       </>
     );
   }
@@ -108,9 +134,27 @@ export function SessionSummaryPage() {
       <>
         <TopBar title="Session Summary" showBack />
         <div className="px-4 py-4">
+          <div className="mb-2 flex justify-end">
+            <button
+              onClick={() => setDeleteOpen(true)}
+              className="rounded-lg p-1.5 text-text-muted hover:bg-surface hover:text-coral"
+              aria-label="Delete session"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
           <InterleavedSummary session={session} shots={shots} />
           <div className="h-6" />
         </div>
+        <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete Session">
+          <p className="mb-4 text-sm text-text-medium">
+            Delete this session ({session.shotCount} shots)? This cannot be undone.
+          </p>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)} className="flex-1">Cancel</Button>
+            <Button variant="danger" onClick={confirmDelete} className="flex-1">Delete</Button>
+          </div>
+        </Modal>
       </>
     );
   }
@@ -144,13 +188,22 @@ export function SessionSummaryPage() {
               {session.location && ` at ${session.location}`}
             </p>
           </div>
-          <button
-            onClick={openEditModal}
-            className="mt-1 rounded-lg p-1.5 text-text-muted hover:bg-surface hover:text-text-dark"
-            aria-label="Edit session"
-          >
-            <Pencil size={18} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={openEditModal}
+              className="mt-1 rounded-lg p-1.5 text-text-muted hover:bg-surface hover:text-text-dark"
+              aria-label="Edit session"
+            >
+              <Pencil size={18} />
+            </button>
+            <button
+              onClick={() => setDeleteOpen(true)}
+              className="mt-1 rounded-lg p-1.5 text-text-muted hover:bg-surface hover:text-coral"
+              aria-label="Delete session"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Edit Session Modal */}
@@ -171,6 +224,17 @@ export function SessionSummaryPage() {
             <Button onClick={handleSave} className="w-full">
               Save
             </Button>
+          </div>
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete Session">
+          <p className="mb-4 text-sm text-text-medium">
+            Delete the <span className="font-semibold text-text-dark">{club.name}</span> session ({summary.shotCount} shots)? This cannot be undone.
+          </p>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)} className="flex-1">Cancel</Button>
+            <Button variant="danger" onClick={confirmDelete} className="flex-1">Delete</Button>
           </div>
         </Modal>
 

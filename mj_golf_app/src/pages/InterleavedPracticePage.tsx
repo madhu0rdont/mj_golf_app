@@ -17,6 +17,7 @@ interface HoleShotData {
   clubName: string;
   carryYards: number;
   offlineYards: number;
+  fullShot: boolean;
 }
 
 interface Recommendation {
@@ -202,7 +203,7 @@ export function InterleavedPracticePage() {
     setPhase('playing');
   };
 
-  const handleAddShot = (clubId: string, carryYards: number, offlineYards: number) => {
+  const handleAddShot = (clubId: string, carryYards: number, offlineYards: number, fullShot: boolean) => {
     if (!currentHole) return;
     const club = clubs?.find((c) => c.id === clubId);
     const shot: HoleShotData = {
@@ -210,6 +211,7 @@ export function InterleavedPracticePage() {
       clubName: club?.name ?? 'Unknown',
       carryYards,
       offlineYards,
+      fullShot,
     };
     const next = new Map(holeShots);
     const list = [...(next.get(currentHole.number) ?? []), shot];
@@ -238,6 +240,7 @@ export function InterleavedPracticePage() {
           offlineYards: s.offlineYards,
           holeNumber: hole.number,
           shotNumber: shotNumber++,
+          position: s.fullShot ? 'full' as const : undefined,
         }));
       });
 
@@ -365,6 +368,9 @@ export function InterleavedPracticePage() {
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-text-faint w-4">#{i + 1}</span>
                         <span className="font-medium text-text-dark">{shot.clubName}</span>
+                        {shot.fullShot && (
+                          <span className="text-[10px] text-primary">full</span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-text-muted">
                         <span>{shot.carryYards} carry</span>
@@ -496,6 +502,7 @@ export function InterleavedPracticePage() {
         onClose={() => setShotEntryOpen(false)}
         clubs={sortedClubs}
         suggestedClubId={suggestion?.clubId}
+        defaultFullShot={!suggestion?.tip}
         onAdd={handleAddShot}
       />
     </>

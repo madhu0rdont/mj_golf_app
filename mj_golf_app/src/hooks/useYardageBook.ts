@@ -136,11 +136,27 @@ function computeYardageBook(
 
   const sessionsByClub = new Map<string, SessionWithShots[]>();
   for (const session of allSessions) {
-    if (!session.clubId) continue; // Skip multi-club sessions (wedge-distance)
-    const shots = shotsBySession.get(session.id) || [];
-    const list = sessionsByClub.get(session.clubId) || [];
-    list.push({ session, shots });
-    sessionsByClub.set(session.clubId, list);
+    if (session.type === 'interleaved') {
+      // Include full shots from interleaved sessions, grouped by per-shot clubId
+      const sessionShots = shotsBySession.get(session.id) || [];
+      const fullByClub = new Map<string, Shot[]>();
+      for (const shot of sessionShots) {
+        if (shot.position !== 'full') continue;
+        const list = fullByClub.get(shot.clubId) || [];
+        list.push(shot);
+        fullByClub.set(shot.clubId, list);
+      }
+      for (const [clubId, shots] of fullByClub) {
+        const list = sessionsByClub.get(clubId) || [];
+        list.push({ session, shots });
+        sessionsByClub.set(clubId, list);
+      }
+    } else if (session.clubId) {
+      const shots = shotsBySession.get(session.id) || [];
+      const list = sessionsByClub.get(session.clubId) || [];
+      list.push({ session, shots });
+      sessionsByClub.set(session.clubId, list);
+    }
   }
 
   for (const [, sessions] of sessionsByClub) {
