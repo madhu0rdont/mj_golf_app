@@ -9,7 +9,7 @@ interface MultiClubDispersionChartProps {
   xScale: AxisScale;
 }
 
-const WIDTH = 400;
+const WIDTH = 600;
 const HEIGHT = 220;
 const MARGIN = { top: 8, right: 10, bottom: 8, left: 10 };
 const PLOT_W = WIDTH - MARGIN.left - MARGIN.right;
