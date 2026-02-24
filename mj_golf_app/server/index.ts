@@ -1,8 +1,13 @@
 import express from 'express';
+import session from 'express-session';
+import connectPgSimple from 'connect-pg-simple';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { migrate } from './migrate.js';
 import { seed } from './seed.js';
+import { pool } from './db.js';
+import { requireAuth } from './middleware/auth.js';
+import authRouter from './routes/auth.js';
 import clubsRouter from './routes/clubs.js';
 import sessionsRouter from './routes/sessions.js';
 import shotsRouter from './routes/shots.js';
@@ -14,10 +19,37 @@ import extractRouter from './routes/extract.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001');
+const isProd = process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT;
 
 app.use(express.json({ limit: '50mb' }));
 
-// API routes
+// Session middleware
+const PgStore = connectPgSimple(session);
+app.use(
+  session({
+    store: new PgStore({
+      pool,
+      tableName: 'user_sessions',
+    }),
+    secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: isProd,
+      httpOnly: true,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      sameSite: 'lax',
+    },
+  })
+);
+
+// Auth routes (unprotected)
+app.use('/api/auth', authRouter);
+
+// Auth middleware — protects all subsequent /api/* routes
+app.use('/api', requireAuth);
+
+// Protected API routes
 app.use('/api/clubs', clubsRouter);
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/shots', shotsRouter);

@@ -1,14 +1,16 @@
 import { useState, useRef } from 'react';
-import { Download, Upload, Trash2 } from 'lucide-react';
+import { Download, Upload, Trash2, LogOut } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
 import { exportAllData, importAllData, clearAllData } from '../db/backup';
 import { api } from '../lib/api';
 
 export function SettingsPage() {
   const { handedness, setHandedness } = useSettings();
+  const { logout } = useAuth();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [importStatus, setImportStatus] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -111,6 +113,13 @@ export function SettingsPage() {
             className="w-full justify-start"
           >
             <Trash2 size={16} /> Clear All Data
+          </Button>
+        </section>
+
+        {/* Log Out */}
+        <section className="mb-6">
+          <Button variant="secondary" onClick={logout} className="w-full justify-start">
+            <LogOut size={16} /> Log Out
           </Button>
         </section>
 

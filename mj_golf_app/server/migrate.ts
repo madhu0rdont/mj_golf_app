@@ -71,5 +71,18 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_shots_club ON shots(club_id)
   `);
 
+  // Session store table for connect-pg-simple
+  await query(`
+    CREATE TABLE IF NOT EXISTS "user_sessions" (
+      "sid" VARCHAR NOT NULL PRIMARY KEY,
+      "sess" JSON NOT NULL,
+      "expire" TIMESTAMP(6) NOT NULL
+    )
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "user_sessions" ("expire")
+  `);
+
   console.log('Database migration complete');
 }
