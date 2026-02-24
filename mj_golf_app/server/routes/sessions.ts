@@ -154,6 +154,15 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// GET /api/sessions/:id/shots — shots for a session
+router.get('/:id/shots', async (req, res) => {
+  const { rows } = await query(
+    'SELECT * FROM shots WHERE session_id = $1 ORDER BY shot_number',
+    [req.params.id]
+  );
+  res.json(rows.map(toCamel));
+});
+
 // DELETE /api/sessions/:id — delete session (shots cascade)
 router.delete('/:id', async (_req, res) => {
   await query('DELETE FROM sessions WHERE id = $1', [_req.params.id]);
