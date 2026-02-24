@@ -1,21 +1,24 @@
+import { Link } from 'react-router';
+
 interface Tab {
   key: string;
   label: string;
+  to: string;
 }
 
 interface TabBarProps {
   tabs: Tab[];
   activeTab: string;
-  onChange: (key: string) => void;
 }
 
-export function TabBar({ tabs, activeTab, onChange }: TabBarProps) {
+export function TabBar({ tabs, activeTab }: TabBarProps) {
   return (
     <div className="flex border-b border-border">
       {tabs.map((tab) => (
-        <button
+        <Link
           key={tab.key}
-          onClick={() => onChange(tab.key)}
+          to={tab.to}
+          replace
           className={`flex-1 py-2.5 text-center text-sm font-medium transition ${
             activeTab === tab.key
               ? 'border-b-2 border-primary text-primary'
@@ -23,7 +26,7 @@ export function TabBar({ tabs, activeTab, onChange }: TabBarProps) {
           }`}
         >
           {tab.label}
-        </button>
+        </Link>
       ))}
     </div>
   );

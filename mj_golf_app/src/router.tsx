@@ -29,6 +29,8 @@ export const router = createBrowserRouter([
       { path: 'sessions', element: <SessionsListPage /> },
       { path: 'session/:sessionId', element: <SessionSummaryPage /> },
       { path: 'yardage', element: <YardageBookPage /> },
+      { path: 'yardage/wedge-matrix', element: <YardageBookPage /> },
+      { path: 'yardage/details', element: <YardageBookPage /> },
       { path: 'yardage/gapping', element: <GappingPage /> },
       { path: 'yardage/:clubId', element: <ClubDetailPage /> },
       { path: 'settings', element: <SettingsPage /> },
