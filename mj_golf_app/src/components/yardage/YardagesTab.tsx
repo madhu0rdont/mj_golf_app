@@ -19,7 +19,7 @@ const CATEGORY_ORDER: ClubCategory[] = ['driver', 'wood', 'hybrid', 'iron', 'wed
 
 interface EditingState {
   clubId: string;
-  field: 'carry' | 'total';
+  field: 'carry';
   value: string;
 }
 
@@ -40,25 +40,14 @@ function YardageRow({ club, entry }: { club: Club; entry?: YardageBookEntry }) {
     setEditing({ clubId: club.id, field: 'carry', value: carry != null ? String(Math.round(carry)) : '' });
   };
 
-  const handleTapTotal = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setEditing({ clubId: club.id, field: 'total', value: total != null ? String(Math.round(total)) : '' });
-  };
-
   const handleSave = async () => {
     if (!editing) return;
     const num = parseFloat(editing.value);
-    if (editing.field === 'carry') {
-      await updateClub(club.id, { manualCarry: isNaN(num) ? undefined : num });
-    } else {
-      await updateClub(club.id, { manualTotal: isNaN(num) ? undefined : num });
-    }
+    await updateClub(club.id, { manualCarry: isNaN(num) ? undefined : num });
     setEditing(null);
   };
 
   const isEditingCarry = editing?.field === 'carry';
-  const isEditingTotal = editing?.field === 'total';
 
   return (
     <div className="flex items-center justify-between px-4 py-3">
@@ -96,28 +85,9 @@ function YardageRow({ club, entry }: { club: Club; entry?: YardageBookEntry }) {
 
         <span className="text-xs text-text-faint">/</span>
 
-        {isEditingTotal ? (
-          <input
-            type="number"
-            value={editing.value}
-            onChange={(e) => setEditing({ ...editing, value: e.target.value })}
-            onBlur={handleSave}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSave();
-              if (e.key === 'Escape') setEditing(null);
-            }}
-            className="w-14 rounded border border-primary bg-surface px-1.5 py-0.5 text-center text-xs text-primary outline-none"
-            autoFocus
-          />
-        ) : (
-          <button
-            onClick={handleTapTotal}
-            className="rounded px-1 py-0.5 text-xs text-text-muted transition hover:bg-surface"
-            title="Tap to edit total"
-          >
-            {total != null ? Math.round(total) : '—'}
-          </button>
-        )}
+        <span className="px-1 py-0.5 text-xs text-text-muted">
+          {total != null ? Math.round(total) : '—'}
+        </span>
       </div>
     </div>
   );
@@ -170,7 +140,7 @@ export function YardagesTab() {
       ))}
 
       <p className="text-xs text-text-faint text-center">
-        Tap any distance to edit. Tap club name for details.
+        Tap carry to edit. Total is auto-calculated. Tap club name for details.
       </p>
     </div>
   );
