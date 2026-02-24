@@ -15,6 +15,7 @@ import backupRouter from './routes/backup.js';
 import yardageRouter from './routes/yardage.js';
 import seedRouter from './routes/seed.js';
 import extractRouter from './routes/extract.js';
+import wedgeOverridesRouter from './routes/wedge-overrides.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -60,6 +61,7 @@ app.use('/api/backup', backupRouter);
 app.use('/api/yardage', yardageRouter);
 app.use('/api/seed', seedRouter);
 app.use('/api/extract', extractRouter);
+app.use('/api/wedge-overrides', wedgeOverridesRouter);
 
 // Serve static SPA files
 const distPath = join(__dirname, '..', 'dist');

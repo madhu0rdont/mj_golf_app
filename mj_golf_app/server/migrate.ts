@@ -71,6 +71,16 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_shots_club ON shots(club_id)
   `);
 
+  // Wedge matrix overrides
+  await query(`
+    CREATE TABLE IF NOT EXISTS wedge_overrides (
+      club_id    TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+      position   TEXT NOT NULL,
+      carry      REAL NOT NULL,
+      PRIMARY KEY (club_id, position)
+    )
+  `);
+
   // Session store table for connect-pg-simple
   await query(`
     CREATE TABLE IF NOT EXISTS "user_sessions" (
