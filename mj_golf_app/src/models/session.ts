@@ -1,8 +1,19 @@
 export type ShotShape = 'straight' | 'draw' | 'fade' | 'hook' | 'slice' | 'pull' | 'push';
 export type ShotQuality = 'pure' | 'good' | 'acceptable' | 'mishit';
 export type IngestionMethod = 'photo' | 'csv' | 'manual';
-export type SessionType = 'block' | 'wedge-distance';
+export type SessionType = 'block' | 'wedge-distance' | 'interleaved';
 export type SwingPosition = 'full' | 'shoulder' | 'hip';
+
+export interface InterleavedHole {
+  number: number;
+  distanceYards: number;
+  par: number;
+}
+
+export interface InterleavedMetadata {
+  holes: InterleavedHole[];
+  roundSize: 9 | 18;
+}
 
 export interface Session {
   id: string;
@@ -13,6 +24,7 @@ export interface Session {
   notes?: string;
   source: IngestionMethod;
   shotCount: number;
+  metadata?: InterleavedMetadata | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -37,6 +49,7 @@ export interface Shot {
   shape?: ShotShape;
   quality?: ShotQuality;
   position?: SwingPosition;
+  holeNumber?: number;
   timestamp: number;
 }
 

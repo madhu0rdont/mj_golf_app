@@ -101,5 +101,9 @@ export async function migrate() {
   // Shot position for wedge practice (full / shoulder / hip)
   await query(`ALTER TABLE shots ADD COLUMN IF NOT EXISTS position TEXT`);
 
+  // Interleaved practice: hole number per shot, session metadata (hole definitions)
+  await query(`ALTER TABLE shots ADD COLUMN IF NOT EXISTS hole_number INTEGER`);
+  await query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS metadata JSONB`);
+
   console.log('Database migration complete');
 }

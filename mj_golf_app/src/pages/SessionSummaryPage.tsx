@@ -11,6 +11,7 @@ import { DispersionChart } from '../components/flight/DispersionChart';
 import { HeroStat } from '../components/summary/HeroStat';
 import { TrackmanTable } from '../components/summary/TrackmanTable';
 import { WedgePracticeSummary } from '../components/wedge-practice/WedgePracticeSummary';
+import { InterleavedSummary } from '../components/interleaved/InterleavedSummary';
 import { Modal } from '../components/ui/Modal';
 import { Select } from '../components/ui/Select';
 import { Input } from '../components/ui/Input';
@@ -95,6 +96,19 @@ export function SessionSummaryPage() {
         <TopBar title="Session Summary" showBack />
         <div className="px-4 py-4">
           <WedgePracticeSummary session={session} shots={shots} />
+          <div className="h-6" />
+        </div>
+      </>
+    );
+  }
+
+  // Interleaved practice sessions
+  if (session?.type === 'interleaved' && shots) {
+    return (
+      <>
+        <TopBar title="Session Summary" showBack />
+        <div className="px-4 py-4">
+          <InterleavedSummary session={session} shots={shots} />
           <div className="h-6" />
         </div>
       </>

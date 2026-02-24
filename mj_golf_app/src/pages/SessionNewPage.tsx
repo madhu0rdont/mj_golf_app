@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Camera, FileSpreadsheet, PenLine, Target } from 'lucide-react';
+import { Camera, FileSpreadsheet, PenLine, Target, Shuffle } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { Select } from '../components/ui/Select';
 import { Input } from '../components/ui/Input';
@@ -10,6 +10,7 @@ import type { SessionType } from '../models/session';
 const SESSION_TYPES: { key: SessionType; label: string; desc: string; icon: typeof Target }[] = [
   { key: 'block', label: 'Block Practice', desc: 'Hit one club repeatedly', icon: PenLine },
   { key: 'wedge-distance', label: 'Wedge Distance', desc: 'Go through your wedge matrix', icon: Target },
+  { key: 'interleaved', label: 'Interleaved', desc: 'Simulated round at the range', icon: Shuffle },
 ];
 
 export function SessionNewPage() {
@@ -76,7 +77,6 @@ export function SessionNewPage() {
         </div>
 
         {sessionType === 'wedge-distance' ? (
-          /* Wedge distance — just navigate to the practice page */
           <button
             onClick={() => navigate('/session/new/wedge-practice')}
             className="w-full flex items-center gap-4 rounded-2xl border border-border bg-card shadow-sm p-4 text-left transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
@@ -87,6 +87,19 @@ export function SessionNewPage() {
             <div>
               <div className="font-medium text-text-dark">Start Wedge Practice</div>
               <div className="text-xs text-text-muted">Go through your wedge matrix</div>
+            </div>
+          </button>
+        ) : sessionType === 'interleaved' ? (
+          <button
+            onClick={() => navigate('/session/new/interleaved')}
+            className="w-full flex items-center gap-4 rounded-2xl border border-border bg-card shadow-sm p-4 text-left transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
+          >
+            <div className="rounded-lg bg-primary-pale p-2.5">
+              <Shuffle size={20} className="text-primary" />
+            </div>
+            <div>
+              <div className="font-medium text-text-dark">Start Interleaved Practice</div>
+              <div className="text-xs text-text-muted">Simulated round with random holes</div>
             </div>
           </button>
         ) : (
