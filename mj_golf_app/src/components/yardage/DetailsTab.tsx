@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, ChevronDown } from 'lucide-react';
 import { MultiClubTrajectoryChart } from './MultiClubTrajectoryChart';
 import { MultiClubDispersionChart } from './MultiClubDispersionChart';
 import { YardageSummaryTable } from './YardageSummaryTable';
@@ -47,6 +47,7 @@ export function DetailsTab() {
 
   const realClubCount = filteredClubs.filter((c) => !c.imputed).length;
   const imputedClubCount = filteredClubs.filter((c) => c.imputed).length;
+  const [chartsOpen, setChartsOpen] = useState(false);
 
   if (!clubs || clubs.length === 0) {
     return (
@@ -86,10 +87,28 @@ export function DetailsTab() {
         )}
       </div>
 
-      {/* Side-by-side charts */}
-      <div className="mb-4 grid grid-cols-[3fr_2fr] gap-2">
-        <MultiClubTrajectoryChart clubs={filteredClubs} xScale={xScale} />
-        <MultiClubDispersionChart clubs={filteredClubs} xScale={xScale} />
+      {/* Collapsible flight charts */}
+      <div className="mb-4 rounded-xl border border-border overflow-hidden">
+        <button
+          onClick={() => setChartsOpen(!chartsOpen)}
+          className="flex w-full items-center justify-between px-3 py-2.5 text-sm font-medium text-text-medium hover:bg-surface transition"
+        >
+          Flight Visuals
+          <ChevronDown
+            size={16}
+            className={`text-text-muted transition-transform ${chartsOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
+        {chartsOpen && (
+          <div className="flex flex-col gap-2 px-3 pb-3">
+            <div className="w-full rounded-xl border border-border overflow-hidden shadow-[var(--shadow-card)]">
+              <MultiClubTrajectoryChart clubs={filteredClubs} xScale={xScale} />
+            </div>
+            <div className="w-full rounded-xl border border-border overflow-hidden shadow-[var(--shadow-card)]">
+              <MultiClubDispersionChart clubs={filteredClubs} xScale={xScale} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Summary table */}
