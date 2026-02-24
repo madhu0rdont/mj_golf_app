@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { useYardageBook } from '../../hooks/useYardageBook';
 import { useAllClubs, updateClub } from '../../hooks/useClubs';
+import { imputeFromCarryAndLoft } from '../../services/impute';
 import type { Club, ClubCategory } from '../../models/club';
 import type { YardageBookEntry } from '../../models/yardage';
 
@@ -26,7 +27,11 @@ function YardageRow({ club, entry }: { club: Club; entry?: YardageBookEntry }) {
   const [editing, setEditing] = useState<EditingState | null>(null);
 
   const carry = entry?.bookCarry ?? club.manualCarry;
-  const total = entry?.bookTotal ?? club.manualTotal;
+  // Show manual total if set, otherwise impute from carry + loft
+  const imputedTotal = (!entry && carry != null && club.loft)
+    ? imputeFromCarryAndLoft(carry, club.loft).total
+    : undefined;
+  const total = entry?.bookTotal ?? club.manualTotal ?? imputedTotal;
   const hasData = !!entry;
 
   const handleTapCarry = (e: React.MouseEvent) => {

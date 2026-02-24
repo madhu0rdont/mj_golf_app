@@ -5,7 +5,7 @@ import type { Club } from '../models/club';
 import type { Session, Shot, ShotShape } from '../models/session';
 import type { YardageBookEntry, DataFreshness } from '../models/yardage';
 import { CLUB_COLORS } from '../theme/colors';
-import { buildKnownClubAvg, imputeClubMetrics, syntheticShot } from '../services/impute';
+import { buildKnownClubAvg, imputeClubMetrics, imputeFromCarryAndLoft, syntheticShot } from '../services/impute';
 
 const HALF_LIFE_DAYS = 30;
 
@@ -194,17 +194,18 @@ function computeClubShotGroups(clubs: Club[], allShots: Shot[]): ClubShotGroup[]
   const allKnownAvgs = [...shotBasedAvgs];
   for (const club of clubs) {
     const hasShots = (shotsByClub.get(club.id) || []).length > 0;
-    if (!hasShots && club.loft && club.manualCarry && shotBasedAvgs.length >= 2) {
-      const flight = imputeClubMetrics(shotBasedAvgs, club.loft);
+    if (!hasShots && club.loft && club.manualCarry) {
+      // Derive flight metrics from carry + loft using physics-based model
+      const physics = imputeFromCarryAndLoft(club.manualCarry, club.loft);
       allKnownAvgs.push({
         loft: club.loft,
         carry: club.manualCarry,
-        total: club.manualTotal ?? club.manualCarry,
-        ballSpeed: flight.ballSpeed,
-        launchAngle: flight.launchAngle,
-        spinRate: flight.spinRate,
-        apexHeight: flight.apexHeight,
-        descentAngle: flight.descentAngle,
+        total: club.manualTotal ?? physics.total,
+        ballSpeed: physics.ballSpeed,
+        launchAngle: physics.launchAngle,
+        spinRate: physics.spinRate,
+        apexHeight: physics.apexHeight,
+        descentAngle: physics.descentAngle,
       });
     }
   }
@@ -222,10 +223,10 @@ function computeClubShotGroups(clubs: Club[], allShots: Shot[]): ClubShotGroup[]
       });
       colorIdx++;
     } else if (club.category !== 'putter' && club.loft) {
-      // Club has manual carry — use it directly with interpolated flight metrics
+      // Club has manual carry — derive flight metrics from physics model
       if (club.manualCarry) {
-        const flight = imputeClubMetrics(shotBasedAvgs.length >= 2 ? shotBasedAvgs : allKnownAvgs, club.loft);
-        const metrics = { ...flight, carry: club.manualCarry, total: club.manualTotal ?? club.manualCarry };
+        const physics = imputeFromCarryAndLoft(club.manualCarry, club.loft);
+        const metrics = { ...physics, carry: club.manualCarry, total: club.manualTotal ?? physics.total };
         groups.push({
           clubId: club.id,
           clubName: club.name,
