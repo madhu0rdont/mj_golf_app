@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { ShotInputSheet } from '../components/interleaved/ShotInputSheet';
 import { useAllClubs } from '../hooks/useClubs';
+import { useYardageBook } from '../hooks/useYardageBook';
 import { createSession } from '../hooks/useSessions';
 import { generateHoles } from '../services/course-generator';
 import { computeRemaining, computeHoleScore } from '../services/interleaved-scoring';
@@ -22,6 +23,35 @@ type Phase = 'setup' | 'playing' | 'saving';
 export function InterleavedPracticePage() {
   const navigate = useNavigate();
   const clubs = useAllClubs();
+  const entries = useYardageBook();
+
+  // Build a sorted list of {clubId, carry} for club recommendation
+  const clubCarries = useMemo(() => {
+    if (!clubs || !entries) return [];
+    const entryMap = new Map(entries.map((e) => [e.clubId, e.bookCarry]));
+    return clubs
+      .filter((c) => c.category !== 'putter')
+      .map((c) => ({
+        clubId: c.id,
+        carry: entryMap.get(c.id) ?? c.manualCarry ?? 0,
+      }))
+      .filter((c) => c.carry > 0)
+      .sort((a, b) => b.carry - a.carry); // longest first
+  }, [clubs, entries]);
+
+  const recommendClub = (targetDistance: number): string | undefined => {
+    if (clubCarries.length === 0) return undefined;
+    let best = clubCarries[0];
+    let bestDiff = Math.abs(best.carry - targetDistance);
+    for (const cc of clubCarries) {
+      const diff = Math.abs(cc.carry - targetDistance);
+      if (diff < bestDiff) {
+        best = cc;
+        bestDiff = diff;
+      }
+    }
+    return best.clubId;
+  };
 
   const [phase, setPhase] = useState<Phase>('setup');
   const [roundSize, setRoundSize] = useState<9 | 18>(9);
@@ -50,6 +80,15 @@ export function InterleavedPracticePage() {
   }, [currentHole, currentShots]);
 
   const holeComplete = remaining.trueRemaining <= 10 && currentShots.length > 0;
+
+  // Recommend a club for the current distance
+  const targetDistance = currentShots.length === 0
+    ? currentHole?.distanceYards ?? 0
+    : remaining.trueRemaining;
+  const suggestedClubId = useMemo(
+    () => recommendClub(targetDistance),
+    [targetDistance, clubCarries] // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const isLastHole = currentHoleIndex === holes.length - 1;
   const roundComplete = holeComplete && isLastHole;
 
@@ -271,7 +310,19 @@ export function InterleavedPracticePage() {
               </div>
             )}
 
-            {/* Action buttons */}
+            {/* Club recommendation + action */}
+            {!holeComplete && suggestedClubId && (
+              <div className="mb-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 text-center">
+                <span className="text-xs text-text-muted">Suggested: </span>
+                <span className="text-sm font-semibold text-primary">
+                  {clubs?.find((c) => c.id === suggestedClubId)?.name}
+                </span>
+                <span className="text-xs text-text-faint ml-1">
+                  ({clubCarries.find((c) => c.clubId === suggestedClubId)?.carry} yds)
+                </span>
+              </div>
+            )}
+
             {!holeComplete && (
               <Button onClick={() => setShotEntryOpen(true)} className="w-full" size="lg">
                 Hit Shot
@@ -323,6 +374,7 @@ export function InterleavedPracticePage() {
         open={shotEntryOpen}
         onClose={() => setShotEntryOpen(false)}
         clubs={sortedClubs}
+        suggestedClubId={suggestedClubId}
         onAdd={handleAddShot}
       />
     </>
