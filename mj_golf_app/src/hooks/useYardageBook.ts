@@ -185,9 +185,29 @@ function computeClubShotGroups(clubs: Club[], allShots: Shot[]): ClubShotGroup[]
     shotsByClub.set(shot.clubId, list);
   }
 
-  const knownAvgs = clubs
+  // Known averages from clubs with actual shot data
+  const shotBasedAvgs = clubs
     .map((club) => buildKnownClubAvg(club, shotsByClub.get(club.id) || []))
     .filter((a): a is NonNullable<typeof a> => a != null);
+
+  // Also include clubs with manualCarry as known anchor points
+  const allKnownAvgs = [...shotBasedAvgs];
+  for (const club of clubs) {
+    const hasShots = (shotsByClub.get(club.id) || []).length > 0;
+    if (!hasShots && club.loft && club.manualCarry && shotBasedAvgs.length >= 2) {
+      const flight = imputeClubMetrics(shotBasedAvgs, club.loft);
+      allKnownAvgs.push({
+        loft: club.loft,
+        carry: club.manualCarry,
+        total: club.manualTotal ?? club.manualCarry,
+        ballSpeed: flight.ballSpeed,
+        launchAngle: flight.launchAngle,
+        spinRate: flight.spinRate,
+        apexHeight: flight.apexHeight,
+        descentAngle: flight.descentAngle,
+      });
+    }
+  }
 
   const groups: ClubShotGroup[] = [];
   let colorIdx = 0;
@@ -201,9 +221,11 @@ function computeClubShotGroups(clubs: Club[], allShots: Shot[]): ClubShotGroup[]
         shots,
       });
       colorIdx++;
-    } else if (club.category !== 'putter' && club.loft && knownAvgs.length >= 2) {
-      const metrics = imputeClubMetrics(knownAvgs, club.loft);
-      if (metrics.carry > 0) {
+    } else if (club.category !== 'putter' && club.loft) {
+      // Club has manual carry — use it directly with interpolated flight metrics
+      if (club.manualCarry) {
+        const flight = imputeClubMetrics(shotBasedAvgs.length >= 2 ? shotBasedAvgs : allKnownAvgs, club.loft);
+        const metrics = { ...flight, carry: club.manualCarry, total: club.manualTotal ?? club.manualCarry };
         groups.push({
           clubId: club.id,
           clubName: club.name,
@@ -212,6 +234,19 @@ function computeClubShotGroups(clubs: Club[], allShots: Shot[]): ClubShotGroup[]
           imputed: true,
         });
         colorIdx++;
+      } else if (allKnownAvgs.length >= 2) {
+        // No manual carry — fully impute from all known points (shots + manual)
+        const metrics = imputeClubMetrics(allKnownAvgs, club.loft);
+        if (metrics.carry > 0) {
+          groups.push({
+            clubId: club.id,
+            clubName: club.name,
+            color: CLUB_COLORS[colorIdx % CLUB_COLORS.length],
+            shots: [syntheticShot(club.id, metrics)],
+            imputed: true,
+          });
+          colorIdx++;
+        }
       }
     }
   }
