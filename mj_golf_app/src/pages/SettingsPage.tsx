@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { Link } from 'react-router';
 import { Download, Upload, Trash2, LogOut } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { Button } from '../components/ui/Button';
@@ -124,9 +125,10 @@ export function SettingsPage() {
         </section>
 
         {/* About */}
-        <section className="text-center text-xs text-text-muted">
-          <p>MJ Golf v1.0.0</p>
-          <p>Club Distances & Yardage Book for Foresight GC4</p>
+        <section className="text-center">
+          <Link to="/about" className="text-xs text-text-muted hover:text-primary transition">
+            MJ Golf v1.0.0 &middot; About
+          </Link>
         </section>
       </div>
 
