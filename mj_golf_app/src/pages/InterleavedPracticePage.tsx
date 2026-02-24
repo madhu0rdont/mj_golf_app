@@ -130,11 +130,16 @@ export function InterleavedPracticePage() {
     setCurrentHoleIndex((i) => i + 1);
   };
 
-  const handleFinishRound = async () => {
+  const handleFinishRound = async (earlyExit = false) => {
     setSaving(true);
     try {
+      // Only include holes that have shots (completed holes)
+      const playedHoles = earlyExit
+        ? holes.filter((h) => (holeShots.get(h.number) ?? []).length > 0)
+        : holes;
+
       let shotNumber = 1;
-      const allShots = holes.flatMap((hole) => {
+      const allShots = playedHoles.flatMap((hole) => {
         const shots = holeShots.get(hole.number) ?? [];
         return shots.map((s) => ({
           clubId: s.clubId,
@@ -150,7 +155,7 @@ export function InterleavedPracticePage() {
         date: new Date(date + 'T00:00:00').getTime(),
         location: location.trim() || undefined,
         source: 'manual',
-        metadata: { holes, roundSize },
+        metadata: { holes: playedHoles, roundSize },
         shots: allShots,
       });
 
@@ -336,7 +341,7 @@ export function InterleavedPracticePage() {
             )}
 
             {roundComplete && (
-              <Button onClick={handleFinishRound} className="w-full" size="lg" disabled={saving}>
+              <Button onClick={() => handleFinishRound()} className="w-full" size="lg" disabled={saving}>
                 {saving ? 'Saving...' : 'Finish Round'}
               </Button>
             )}
@@ -364,6 +369,20 @@ export function InterleavedPracticePage() {
                 {holes.slice(0, currentHoleIndex + (holeComplete ? 1 : 0)).reduce((s, h) => s + h.par, 0)}
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Early exit */}
+        {!roundComplete && completedScores.length > 0 && (
+          <div className="mt-4">
+            <Button
+              variant="ghost"
+              onClick={() => handleFinishRound(true)}
+              className="w-full"
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : `End Round (${completedScores.length} hole${completedScores.length !== 1 ? 's' : ''} played)`}
+            </Button>
           </div>
         )}
 
