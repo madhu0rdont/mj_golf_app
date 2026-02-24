@@ -6,6 +6,7 @@ import { Input } from '../components/ui/Input';
 import { ShotInputSheet } from '../components/interleaved/ShotInputSheet';
 import { useAllClubs } from '../hooks/useClubs';
 import { useYardageBook } from '../hooks/useYardageBook';
+import { useWedgeOverrides } from '../hooks/useWedgeOverrides';
 import { createSession } from '../hooks/useSessions';
 import { generateHoles } from '../services/course-generator';
 import { computeRemaining, computeHoleScore } from '../services/interleaved-scoring';
@@ -18,39 +19,129 @@ interface HoleShotData {
   offlineYards: number;
 }
 
+interface Recommendation {
+  clubId: string;
+  clubName: string;
+  carry: number;
+  tip?: string; // e.g. "Grip down 1\"" or "Shoulder swing"
+}
+
+const WEDGE_POSITIONS = [
+  { key: 'full', label: 'Full', multiplier: 1.0 },
+  { key: 'shoulder', label: 'Shoulder', multiplier: 0.85 },
+  { key: 'hip', label: 'Hip', multiplier: 0.65 },
+] as const;
+
+const GRIP_DOWN_YDS_PER_INCH = 5;
+
 type Phase = 'setup' | 'playing' | 'saving';
 
 export function InterleavedPracticePage() {
   const navigate = useNavigate();
   const clubs = useAllClubs();
   const entries = useYardageBook();
+  const wedgeOverrides = useWedgeOverrides();
 
-  // Build a sorted list of {clubId, carry} for club recommendation
-  const clubCarries = useMemo(() => {
-    if (!clubs || !entries) return [];
+  // Build carry lookup and wedge distance matrix for recommendations
+  const { clubCarryMap, wedgeDistances } = useMemo(() => {
+    const carryMap = new Map<string, number>();
+    const wedgeDist: { clubId: string; clubName: string; position: string; positionLabel: string; carry: number }[] = [];
+
+    if (!clubs || !entries) return { clubCarryMap: carryMap, wedgeDistances: wedgeDist };
+
     const entryMap = new Map(entries.map((e) => [e.clubId, e.bookCarry]));
-    return clubs
-      .filter((c) => c.category !== 'putter')
-      .map((c) => ({
-        clubId: c.id,
-        carry: entryMap.get(c.id) ?? c.manualCarry ?? 0,
-      }))
-      .filter((c) => c.carry > 0)
-      .sort((a, b) => b.carry - a.carry); // longest first
-  }, [clubs, entries]);
+    const overrideMap = new Map<string, number>();
+    if (wedgeOverrides) {
+      for (const o of wedgeOverrides) overrideMap.set(`${o.clubId}:${o.position}`, o.carry);
+    }
 
-  const recommendClub = (targetDistance: number): string | undefined => {
-    if (clubCarries.length === 0) return undefined;
-    let best = clubCarries[0];
-    let bestDiff = Math.abs(best.carry - targetDistance);
-    for (const cc of clubCarries) {
-      const diff = Math.abs(cc.carry - targetDistance);
-      if (diff < bestDiff) {
-        best = cc;
-        bestDiff = diff;
+    for (const club of clubs) {
+      if (club.category === 'putter') continue;
+      const carry = entryMap.get(club.id) ?? club.manualCarry ?? 0;
+      if (carry > 0) carryMap.set(club.id, carry);
+
+      // Build wedge position distances (sorted by least loft = lowest sortOrder first)
+      if (club.category === 'wedge' && carry > 0) {
+        for (const pos of WEDGE_POSITIONS) {
+          const override = overrideMap.get(`${club.id}:${pos.key}`);
+          const dist = override ?? Math.round(carry * pos.multiplier);
+          wedgeDist.push({
+            clubId: club.id,
+            clubName: club.name,
+            position: pos.key,
+            positionLabel: pos.label,
+            carry: dist,
+          });
+        }
       }
     }
-    return best.clubId;
+
+    // Sort wedges by least loft first (lowest sortOrder), then full > shoulder > hip
+    wedgeDist.sort((a, b) => {
+      const aClub = clubs.find((c) => c.id === a.clubId)!;
+      const bClub = clubs.find((c) => c.id === b.clubId)!;
+      if (aClub.sortOrder !== bClub.sortOrder) return aClub.sortOrder - bClub.sortOrder;
+      const posOrder = { full: 0, shoulder: 1, hip: 2 } as Record<string, number>;
+      return (posOrder[a.position] ?? 0) - (posOrder[b.position] ?? 0);
+    });
+
+    return { clubCarryMap: carryMap, wedgeDistances: wedgeDist };
+  }, [clubs, entries, wedgeOverrides]);
+
+  const recommend = (targetDistance: number): Recommendation | undefined => {
+    if (!clubs || clubCarryMap.size === 0) return undefined;
+
+    const nonWedges = clubs
+      .filter((c) => c.category !== 'putter' && c.category !== 'wedge')
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    let best: Recommendation | undefined;
+    let bestDiff = Infinity;
+
+    // 1. Check non-wedge clubs (driver, woods, hybrids, irons) — exact + grip down
+    for (const club of nonWedges) {
+      const carry = clubCarryMap.get(club.id);
+      if (!carry) continue;
+
+      // Exact match
+      const diff = Math.abs(carry - targetDistance);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = { clubId: club.id, clubName: club.name, carry };
+      }
+
+      // Grip down 1" (~5 yds less)
+      const carry1 = carry - GRIP_DOWN_YDS_PER_INCH;
+      const diff1 = Math.abs(carry1 - targetDistance);
+      if (diff1 < bestDiff) {
+        bestDiff = diff1;
+        best = { clubId: club.id, clubName: club.name, carry: carry1, tip: 'Grip down 1"' };
+      }
+
+      // Grip down 2" (~10 yds less)
+      const carry2 = carry - 2 * GRIP_DOWN_YDS_PER_INCH;
+      if (carry2 > 0) {
+        const diff2 = Math.abs(carry2 - targetDistance);
+        if (diff2 < bestDiff) {
+          bestDiff = diff2;
+          best = { clubId: club.id, clubName: club.name, carry: carry2, tip: 'Grip down 2"' };
+        }
+      }
+    }
+
+    // 2. Check wedge + position combos (sorted by least loft first)
+    for (const w of wedgeDistances) {
+      const diff = Math.abs(w.carry - targetDistance);
+      // For wedges, favor least loft: only replace if strictly closer
+      // (the sort order ensures least-loft wedges are checked first)
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        const tip = w.position !== 'full' ? `${w.positionLabel} swing` : undefined;
+        best = { clubId: w.clubId, clubName: w.clubName, carry: w.carry, tip };
+      }
+    }
+
+    return best;
   };
 
   const [phase, setPhase] = useState<Phase>('setup');
@@ -85,9 +176,9 @@ export function InterleavedPracticePage() {
   const targetDistance = currentShots.length === 0
     ? currentHole?.distanceYards ?? 0
     : remaining.trueRemaining;
-  const suggestedClubId = useMemo(
-    () => recommendClub(targetDistance),
-    [targetDistance, clubCarries] // eslint-disable-line react-hooks/exhaustive-deps
+  const suggestion = useMemo(
+    () => recommend(targetDistance),
+    [targetDistance, clubCarryMap, wedgeDistances, clubs] // eslint-disable-line react-hooks/exhaustive-deps
   );
   const isLastHole = currentHoleIndex === holes.length - 1;
   const roundComplete = holeComplete && isLastHole;
@@ -316,14 +407,19 @@ export function InterleavedPracticePage() {
             )}
 
             {/* Club recommendation + action */}
-            {!holeComplete && suggestedClubId && (
+            {!holeComplete && suggestion && (
               <div className="mb-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 text-center">
                 <span className="text-xs text-text-muted">Suggested: </span>
                 <span className="text-sm font-semibold text-primary">
-                  {clubs?.find((c) => c.id === suggestedClubId)?.name}
+                  {suggestion.clubName}
                 </span>
+                {suggestion.tip && (
+                  <span className="text-xs font-medium text-gold-dark ml-1">
+                    — {suggestion.tip}
+                  </span>
+                )}
                 <span className="text-xs text-text-faint ml-1">
-                  ({clubCarries.find((c) => c.clubId === suggestedClubId)?.carry} yds)
+                  ({suggestion.carry} yds)
                 </span>
               </div>
             )}
@@ -393,7 +489,7 @@ export function InterleavedPracticePage() {
         open={shotEntryOpen}
         onClose={() => setShotEntryOpen(false)}
         clubs={sortedClubs}
-        suggestedClubId={suggestedClubId}
+        suggestedClubId={suggestion?.clubId}
         onAdd={handleAddShot}
       />
     </>
