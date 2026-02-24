@@ -5,8 +5,10 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { ShotInputSheet } from '../components/interleaved/ShotInputSheet';
 import { useAllClubs } from '../hooks/useClubs';
-import { useYardageBook } from '../hooks/useYardageBook';
+import { useYardageBook, useYardageBookShots } from '../hooks/useYardageBook';
 import { useWedgeOverrides } from '../hooks/useWedgeOverrides';
+import { buildDistributions, findBestApproaches } from '../services/monte-carlo';
+import type { ApproachStrategy } from '../services/monte-carlo';
 import { createSession } from '../hooks/useSessions';
 import { generateHoles } from '../services/course-generator';
 import { computeRemaining, computeHoleScore } from '../services/interleaved-scoring';
@@ -42,6 +44,7 @@ export function InterleavedPracticePage() {
   const clubs = useAllClubs();
   const entries = useYardageBook();
   const wedgeOverrides = useWedgeOverrides();
+  const shotGroups = useYardageBookShots();
 
   // Build carry lookup and wedge distance matrix for recommendations
   const { clubCarryMap, wedgeDistances } = useMemo(() => {
@@ -88,6 +91,18 @@ export function InterleavedPracticePage() {
 
     return { clubCarryMap: carryMap, wedgeDistances: wedgeDist };
   }, [clubs, entries, wedgeOverrides]);
+
+  // Max full-swing wedge carry — MC switches to greedy below this distance
+  const maxWedgeCarry = useMemo(() => {
+    if (!clubs) return 0;
+    let max = 0;
+    for (const club of clubs) {
+      if (club.category !== 'wedge') continue;
+      const carry = clubCarryMap.get(club.id) ?? 0;
+      if (carry > max) max = carry;
+    }
+    return max;
+  }, [clubs, clubCarryMap]);
 
   const recommend = (targetDistance: number): Recommendation | undefined => {
     if (!clubs || clubCarryMap.size === 0) return undefined;
@@ -155,6 +170,13 @@ export function InterleavedPracticePage() {
   const [holeShots, setHoleShots] = useState<Map<number, HoleShotData[]>>(new Map());
   const [shotEntryOpen, setShotEntryOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedStrategyClubId, setSelectedStrategyClubId] = useState<string | null>(null);
+
+  // Monte Carlo club distributions from actual shot data
+  const clubDistributions = useMemo(
+    () => (shotGroups ? buildDistributions(shotGroups) : []),
+    [shotGroups],
+  );
 
   const sortedClubs = useMemo(() => {
     if (!clubs) return [];
@@ -181,6 +203,18 @@ export function InterleavedPracticePage() {
     () => recommend(targetDistance),
     [targetDistance, clubCarryMap, wedgeDistances, clubs] // eslint-disable-line react-hooks/exhaustive-deps
   );
+
+  // Monte Carlo best approaches — recomputed after each shot until within wedge range
+  const mcDistance = currentShots.length === 0
+    ? currentHole?.distanceYards ?? 0
+    : remaining.trueRemaining;
+  const showMonteCarlo = !holeComplete && mcDistance > maxWedgeCarry && clubDistributions.length > 0;
+
+  const bestApproaches: ApproachStrategy[] = useMemo(() => {
+    if (!showMonteCarlo || mcDistance <= 0) return [];
+    return findBestApproaches(Math.round(mcDistance), clubDistributions);
+  }, [showMonteCarlo, mcDistance, clubDistributions]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const isLastHole = currentHoleIndex === holes.length - 1;
   const roundComplete = holeComplete && isLastHole;
 
@@ -217,9 +251,11 @@ export function InterleavedPracticePage() {
     const list = [...(next.get(currentHole.number) ?? []), shot];
     next.set(currentHole.number, list);
     setHoleShots(next);
+    setSelectedStrategyClubId(null); // reset for new MC results
   };
 
   const handleNextHole = () => {
+    setSelectedStrategyClubId(null);
     setCurrentHoleIndex((i) => i + 1);
   };
 
@@ -406,8 +442,59 @@ export function InterleavedPracticePage() {
               </div>
             )}
 
-            {/* Club recommendation + action */}
-            {!holeComplete && suggestion && (
+            {/* Monte Carlo strategy card — shown until within wedge range */}
+            {showMonteCarlo && bestApproaches.length > 0 && (
+              <div className="mb-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-3">
+                <p className="text-[10px] text-text-muted uppercase tracking-wide mb-2">
+                  Best Approaches <span className="normal-case">({Math.round(mcDistance)} yds · 2k sims)</span>
+                </p>
+                <div className="space-y-1">
+                  {bestApproaches.map((strategy, i) => {
+                    const firstClubId = strategy.clubs[0].clubId;
+                    const isSelected = selectedStrategyClubId === firstClubId;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => setSelectedStrategyClubId(firstClubId)}
+                        className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm transition ${
+                          isSelected
+                            ? 'bg-primary/10 ring-1 ring-primary/30'
+                            : 'hover:bg-primary/5'
+                        }`}
+                      >
+                        <span className={`font-medium ${i === 0 ? 'text-primary' : 'text-text-dark'}`}>
+                          {strategy.label}
+                        </span>
+                        <span className="text-xs text-text-muted tabular-nums">
+                          ~{strategy.expectedStrokes.toFixed(1)} strokes
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Greedy suggestion — within wedge range or no MC data */}
+            {!holeComplete && !showMonteCarlo && suggestion && (
+              <div className="mb-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 text-center">
+                <span className="text-xs text-text-muted">Suggested: </span>
+                <span className="text-sm font-semibold text-primary">
+                  {suggestion.clubName}
+                </span>
+                {suggestion.tip && (
+                  <span className="text-xs font-medium text-gold-dark ml-1">
+                    — {suggestion.tip}
+                  </span>
+                )}
+                <span className="text-xs text-text-faint ml-1">
+                  ({suggestion.carry} yds)
+                </span>
+              </div>
+            )}
+
+            {/* Fallback greedy when MC has data but finds no viable combos */}
+            {showMonteCarlo && bestApproaches.length === 0 && suggestion && (
               <div className="mb-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 text-center">
                 <span className="text-xs text-text-muted">Suggested: </span>
                 <span className="text-sm font-semibold text-primary">
@@ -501,7 +588,7 @@ export function InterleavedPracticePage() {
         open={shotEntryOpen}
         onClose={() => setShotEntryOpen(false)}
         clubs={sortedClubs}
-        suggestedClubId={suggestion?.clubId}
+        suggestedClubId={selectedStrategyClubId ?? suggestion?.clubId}
         defaultFullShot={!suggestion?.tip}
         onAdd={handleAddShot}
       />
