@@ -57,6 +57,37 @@ interface FaqSection {
 
 const FAQ_SECTIONS: FaqSection[] = [
   {
+    title: 'Why Interleaved Practice?',
+    items: [
+  {
+    question: 'What is interleaved practice and why does it work?',
+    answer: `Interleaved (or "random") practice means mixing different clubs and shot types in each session instead of hitting the same club 20 times in a row ("blocked" practice).
+
+Blocked practice feels more productive — you groove a rhythm and your shots get better within the session. But research consistently shows the opposite for long-term retention: interleaved practice produces better results when it counts.
+
+The mechanism is called the contextual interference effect. Switching clubs on every shot forces your brain to rebuild the motor plan from scratch each time, which strengthens the memory trace. In blocked practice the plan stays in working memory and never gets deeply encoded.`,
+  },
+  {
+    question: 'What does the golf research say?',
+    answer: `Three golf-specific studies tell the story:
+
+Fazeli et al. (2017) — 30 novice golfers practiced putting for 6 consecutive days. The blocked group putted better during practice, but at a 1-week retention test the random group was more accurate and had developed mental representations closer to those of skilled golfers.
+
+Mousavi et al. (2024) — 40 golfers practiced putting over 3 days. On a retention test 72 hours later, the random group averaged 34.7 cm from the hole vs. 45.9 cm for the blocked group — a 24% accuracy advantage.
+
+Porter & Beckerman (2016) — Studied golf chipping with three shot variations. During practice, both groups improved equally. But on a random-order retention test, the interleaved group was significantly more accurate. Blocked practice gains didn't transfer.
+
+The pattern is the same every time: blocked practice looks better in the moment, interleaved practice wins when you test a week later.`,
+  },
+  {
+    question: 'Should beginners use interleaved practice?',
+    answer: `Not necessarily from day one. The Challenge Point Framework (Guadagnoli & Lee, 2004) suggests that complete beginners can be overwhelmed by too much randomness — if you can't hit the ball at all yet, switching clubs every shot just adds confusion.
+
+The recommended approach is graduated: start with short blocks (5–10 shots of the same club) to build a basic feel, then progressively shorten the blocks until you're fully interleaved. This app's interleaved mode is designed for golfers who already have baseline club data from practice sessions.`,
+  },
+    ],
+  },
+  {
     title: 'Yardage Book',
     items: [
   {
