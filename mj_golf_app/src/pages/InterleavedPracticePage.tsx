@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { ClipboardList } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
+import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { ShotInputSheet } from '../components/interleaved/ShotInputSheet';
@@ -169,6 +171,7 @@ export function InterleavedPracticePage() {
   const [currentHoleIndex, setCurrentHoleIndex] = useState(0);
   const [holeShots, setHoleShots] = useState<Map<number, HoleShotData[]>>(new Map());
   const [shotEntryOpen, setShotEntryOpen] = useState(false);
+  const [scorecardOpen, setScorecardOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedStrategyClubId, setSelectedStrategyClubId] = useState<string | null>(null);
 
@@ -339,7 +342,21 @@ export function InterleavedPracticePage() {
   // ── Playing Phase ──
   return (
     <>
-      <TopBar title="Interleaved Practice" showBack />
+      <TopBar
+        title="Interleaved Practice"
+        showBack
+        rightAction={
+          completedScores.length > 0 ? (
+            <button
+              onClick={() => setScorecardOpen(true)}
+              className="rounded-lg p-1.5 text-primary hover:text-primary-light"
+              aria-label="Scorecard"
+            >
+              <ClipboardList size={20} />
+            </button>
+          ) : undefined
+        }
+      />
       <div className="px-4 py-4">
         {/* Mini scorestrip */}
         <div className="mb-4 flex items-center gap-1 overflow-x-auto pb-1">
@@ -536,38 +553,85 @@ export function InterleavedPracticePage() {
           </div>
         )}
 
-        {/* Running totals */}
-        {completedScores.length > 0 && (() => {
+        <div className="h-6" />
+      </div>
+
+      {/* Scorecard modal */}
+      <Modal open={scorecardOpen} onClose={() => setScorecardOpen(false)} title="Scorecard">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-[10px] uppercase text-text-muted">
+                <th className="py-2 text-left font-medium">Hole</th>
+                <th className="py-2 text-center font-medium">Par</th>
+                <th className="py-2 text-center font-medium">Dist</th>
+                <th className="py-2 text-center font-medium">Score</th>
+                <th className="py-2 text-right font-medium">+/−</th>
+              </tr>
+            </thead>
+            <tbody>
+              {holes.map((hole, i) => {
+                const score = completedScores[i];
+                const isCurrent = i === currentHoleIndex;
+                return (
+                  <tr
+                    key={hole.number}
+                    className={`border-b border-border/50 ${isCurrent ? 'bg-primary/5' : ''}`}
+                  >
+                    <td className="py-2 text-left font-medium text-text-dark">{hole.number}</td>
+                    <td className="py-2 text-center text-text-muted">{hole.par}</td>
+                    <td className="py-2 text-center text-text-muted">{hole.distanceYards}</td>
+                    <td className="py-2 text-center font-semibold text-text-dark">
+                      {score ? score.total : '—'}
+                    </td>
+                    <td className={`py-2 text-right font-medium ${
+                      score
+                        ? score.toPar < 0 ? 'text-primary'
+                        : score.toPar === 0 ? 'text-text-muted'
+                        : 'text-coral'
+                        : 'text-text-faint'
+                    }`}>
+                      {score
+                        ? score.toPar === 0 ? 'E' : score.toPar > 0 ? `+${score.toPar}` : score.toPar
+                        : '—'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            {completedScores.length > 0 && (
+              <tfoot>
+                <tr className="text-sm font-semibold">
+                  <td className="pt-3 text-left text-text-dark">Total</td>
+                  <td className="pt-3 text-center text-text-muted">
+                    {holes.slice(0, currentHoleIndex + (holeComplete ? 1 : 0)).reduce((s, h) => s + h.par, 0)}
+                  </td>
+                  <td className="pt-3 text-center text-text-muted" />
+                  <td className="pt-3 text-center text-text-dark">{totalScore}</td>
+                  <td className={`pt-3 text-right ${
+                    totalToPar < 0 ? 'text-primary' : totalToPar === 0 ? 'text-text-muted' : 'text-coral'
+                  }`}>
+                    {totalToPar === 0 ? 'E' : totalToPar > 0 ? `+${totalToPar}` : totalToPar}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+
+        {/* Scoring zone summary */}
+        {(() => {
           const szApplicable = completedScores.filter((s) => s.scoringZone.applicable);
           const szTotal = szApplicable.reduce((s, h) => s + h.scoringZone.delta, 0);
+          if (szApplicable.length === 0) return null;
           return (
-            <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
-              <div className="rounded-xl border border-border bg-card px-2 py-3">
-                <p className="text-[10px] text-text-muted uppercase">Score</p>
-                <p className="text-lg font-bold text-text-dark">{totalScore}</p>
-              </div>
-              <div className="rounded-xl border border-border bg-card px-2 py-3">
-                <p className="text-[10px] text-text-muted uppercase">vs Par</p>
-                <p className={`text-lg font-bold ${
-                  totalToPar < 0 ? 'text-primary' : totalToPar === 0 ? 'text-text-dark' : 'text-coral'
-                }`}>
-                  {totalToPar === 0 ? 'E' : totalToPar > 0 ? `+${totalToPar}` : totalToPar}
-                </p>
-              </div>
-              <div className="rounded-xl border border-border bg-card px-2 py-3">
-                <p className="text-[10px] text-text-muted uppercase">Zone</p>
-                <p className={`text-lg font-bold ${
-                  szTotal < 0 ? 'text-primary' : szTotal === 0 ? 'text-text-dark' : 'text-coral'
-                }`}>
-                  {szApplicable.length === 0 ? '—' : szTotal === 0 ? 'E' : szTotal > 0 ? `+${szTotal}` : szTotal}
-                </p>
-              </div>
-              <div className="rounded-xl border border-border bg-card px-2 py-3">
-                <p className="text-[10px] text-text-muted uppercase">Par</p>
-                <p className="text-lg font-bold text-text-dark">
-                  {holes.slice(0, currentHoleIndex + (holeComplete ? 1 : 0)).reduce((s, h) => s + h.par, 0)}
-                </p>
-              </div>
+            <div className="mt-4 rounded-xl bg-surface px-3 py-2 flex items-center justify-between">
+              <span className="text-xs text-text-muted uppercase">Scoring Zone</span>
+              <span className={`text-sm font-bold ${
+                szTotal < 0 ? 'text-primary' : szTotal === 0 ? 'text-text-dark' : 'text-coral'
+              }`}>
+                {szTotal === 0 ? 'E' : szTotal > 0 ? `+${szTotal}` : szTotal}
+              </span>
             </div>
           );
         })()}
@@ -577,7 +641,7 @@ export function InterleavedPracticePage() {
           <div className="mt-4">
             <Button
               variant="ghost"
-              onClick={() => handleFinishRound(true)}
+              onClick={() => { setScorecardOpen(false); handleFinishRound(true); }}
               className="w-full"
               disabled={saving}
             >
@@ -585,9 +649,7 @@ export function InterleavedPracticePage() {
             </Button>
           </div>
         )}
-
-        <div className="h-6" />
-      </div>
+      </Modal>
 
       <ShotInputSheet
         open={shotEntryOpen}
