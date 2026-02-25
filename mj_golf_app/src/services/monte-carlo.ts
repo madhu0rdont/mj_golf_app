@@ -24,6 +24,13 @@ const DEFAULT_TRIALS = 2000;
 const GRIP_DOWN_YDS_PER_INCH = 5;
 const MAX_GRIP_DOWN_INCHES = 3;
 
+/** Log-curve putting model fitted to PGA strokes-gained data.
+ *  putts(d) = 1.0 + 0.42 * ln(d), clamped to [1, 3] */
+function expectedPutts(distanceYards: number): number {
+  if (distanceYards <= 1) return 1.0;
+  return Math.min(3, 1.0 + 0.42 * Math.log(distanceYards));
+}
+
 /** Box-Muller transform for Gaussian sampling */
 function gaussianSample(mu: number, sigma: number): number {
   const u1 = Math.random();
@@ -174,12 +181,13 @@ function simulateStrategy(
       strokes++;
     }
 
-    // If we stopped in chip range (> 10 yds but < chipThreshold), add 1 chip stroke
     if (trueRemaining > HOLE_THRESHOLD && trueRemaining <= chipThreshold) {
-      strokes++;
+      // Chip zone — add 1 chip stroke, assume chip leaves ~3 yds from pin
+      totalStrokes += strokes + 1 + expectedPutts(3);
+    } else {
+      // On the green — putt from current proximity
+      totalStrokes += strokes + expectedPutts(trueRemaining);
     }
-
-    totalStrokes += strokes + 2; // +2 putts
   }
 
   return totalStrokes / trials;
