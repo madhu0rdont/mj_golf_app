@@ -20,6 +20,8 @@ const MIN_SHOTS_FOR_DISTRIBUTION = 3;
 const HOLE_THRESHOLD = 10; // yards — within this = on the green
 const MAX_SHOTS_PER_HOLE = 8; // safety cap
 const DEFAULT_TRIALS = 2000;
+const GRIP_DOWN_YDS_PER_INCH = 5;
+const MAX_GRIP_DOWN_INCHES = 3;
 
 /** Box-Muller transform for Gaussian sampling */
 function gaussianSample(mu: number, sigma: number): number {
@@ -29,10 +31,55 @@ function gaussianSample(mu: number, sigma: number): number {
   return mu + sigma * z;
 }
 
-/** Build per-club carry/offline distributions from raw shot data */
+/** Simple linear regression: predict y at x from a set of (x, y) points */
+function linearPredict(points: [number, number][], x: number): number {
+  const n = points.length;
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+  for (const [xi, yi] of points) {
+    sumX += xi;
+    sumY += yi;
+    sumXY += xi * yi;
+    sumX2 += xi * xi;
+  }
+  const denom = n * sumX2 - sumX * sumX;
+  if (Math.abs(denom) < 1e-10) return sumY / n;
+  const b = (n * sumXY - sumX * sumY) / denom;
+  const a = (sumY - b * sumX) / n;
+  return a + b * x;
+}
+
+/** Estimate carry and offline dispersion for a club at the given carry distance.
+ *  Uses linear extrapolation from real clubs when available, otherwise a default CoV. */
+function estimateDispersion(
+  carry: number,
+  realDists: { meanCarry: number; stdCarry: number; stdOffline: number }[],
+): { stdCarry: number; stdOffline: number } {
+  if (realDists.length >= 2) {
+    return {
+      stdCarry: Math.max(2, linearPredict(
+        realDists.map((d) => [d.meanCarry, d.stdCarry]),
+        carry,
+      )),
+      stdOffline: Math.max(2, linearPredict(
+        realDists.map((d) => [d.meanCarry, d.stdOffline]),
+        carry,
+      )),
+    };
+  }
+
+  // Fallback: 4% CoV for carry, 5% for offline
+  return { stdCarry: carry * 0.04, stdOffline: carry * 0.05 };
+}
+
+/** Build per-club carry/offline distributions from shot data.
+ *  Clubs with 3+ real shots use measured dispersion.
+ *  Imputed clubs (manual carry, no shots) get dispersion extrapolated
+ *  from real clubs via linear regression. */
 export function buildDistributions(groups: ClubShotGroup[]): ClubDistribution[] {
   const distributions: ClubDistribution[] = [];
+  const realDists: { meanCarry: number; stdCarry: number; stdOffline: number }[] = [];
 
+  // First pass: clubs with real shot data
   for (const group of groups) {
     if (group.imputed) continue;
     if (group.shots.length < MIN_SHOTS_FOR_DISTRIBUTION) continue;
@@ -42,13 +89,32 @@ export function buildDistributions(groups: ClubShotGroup[]): ClubDistribution[] 
       .map((s) => s.offlineYards)
       .filter((v): v is number => v != null);
 
-    distributions.push({
+    const dist: ClubDistribution = {
       clubId: group.clubId,
       clubName: group.clubName,
       meanCarry: mean(carries),
       stdCarry: stddev(carries),
       meanOffline: offlines.length > 0 ? mean(offlines) : 0,
-      stdOffline: offlines.length > 0 ? stddev(offlines) : 5, // default 5 yd if no data
+      stdOffline: offlines.length > 0 ? stddev(offlines) : 5,
+    };
+    distributions.push(dist);
+    realDists.push({ meanCarry: dist.meanCarry, stdCarry: dist.stdCarry, stdOffline: dist.stdOffline });
+  }
+
+  // Second pass: imputed clubs — estimate dispersion from real clubs' trend
+  for (const group of groups) {
+    if (!group.imputed || group.shots.length === 0) continue;
+    const carry = group.shots[0].carryYards;
+    if (carry <= 0) continue;
+
+    const { stdCarry, stdOffline } = estimateDispersion(carry, realDists);
+    distributions.push({
+      clubId: group.clubId,
+      clubName: group.clubName,
+      meanCarry: carry,
+      stdCarry,
+      meanOffline: 0,
+      stdOffline,
     });
   }
 
@@ -118,8 +184,25 @@ function simulateStrategy(
   return totalStrokes / trials;
 }
 
+/** Compact label: "6 Iron (188)" */
 function clubLabel(c: ClubDistribution): string {
   return `${c.clubName} (${Math.round(c.meanCarry)})`;
+}
+
+/** Verbose approach label with grip-down advice when the club overshoots the target */
+function approachLabel(c: ClubDistribution, targetYards: number): string {
+  const fullCarry = Math.round(c.meanCarry);
+  const overshoot = c.meanCarry - targetYards;
+
+  if (overshoot >= GRIP_DOWN_YDS_PER_INCH * 0.5) {
+    const inches = Math.min(MAX_GRIP_DOWN_INCHES, Math.round(overshoot / GRIP_DOWN_YDS_PER_INCH));
+    if (inches > 0) {
+      const adjusted = fullCarry - inches * GRIP_DOWN_YDS_PER_INCH;
+      return `${c.clubName} (Full = ${fullCarry}), Grip ${inches}" down for ${adjusted}y`;
+    }
+  }
+
+  return `${c.clubName} (Full = ${fullCarry})`;
 }
 
 /** Find the best multi-club approach strategies for a given distance */
@@ -137,25 +220,26 @@ export function findBestApproaches(
   // 226 – 425 yds → 2-club plans (par-4 approach)
   // > 425 yds → 2-club AND 3-club plans (par-5 approach)
   if (distance <= 225) {
-    // 1-club plans
+    // 1-club plans — approach label with grip-down advice
     for (const c of clubs) {
       if (Math.abs(c.meanCarry - distance) < 40) {
         candidates.push({
           plan: [c],
-          label: clubLabel(c),
+          label: approachLabel(c, distance),
         });
       }
     }
   } else if (distance <= 425) {
-    // 2-club plans
+    // 2-club plans — last club gets approach label
     for (const c1 of clubs) {
       if (c1.meanCarry >= distance) continue;
       for (const c2 of clubs) {
         const sumCarry = c1.meanCarry + c2.meanCarry;
         if (Math.abs(sumCarry - distance) < 60) {
+          const remainder = distance - c1.meanCarry;
           candidates.push({
             plan: [c1, c2],
-            label: `${clubLabel(c1)} → ${clubLabel(c2)}`,
+            label: `${clubLabel(c1)} → ${approachLabel(c2, remainder)}`,
           });
         }
       }
@@ -169,9 +253,10 @@ export function findBestApproaches(
       for (const c2 of clubs) {
         const sum2 = c1.meanCarry + c2.meanCarry;
         if (Math.abs(sum2 - distance) < 80) {
+          const remainder = distance - c1.meanCarry;
           candidates.push({
             plan: [c1, c2],
-            label: `${clubLabel(c1)} → ${clubLabel(c2)}`,
+            label: `${clubLabel(c1)} → ${approachLabel(c2, remainder)}`,
           });
         }
       }
@@ -183,9 +268,10 @@ export function findBestApproaches(
         for (const c3 of clubs) {
           const sum3 = sum12 + c3.meanCarry;
           if (Math.abs(sum3 - distance) < 80) {
+            const remainder = distance - sum12;
             candidates.push({
               plan: [c1, c2, c3],
-              label: `${clubLabel(c1)} → ${clubLabel(c2)} → ${clubLabel(c3)}`,
+              label: `${clubLabel(c1)} → ${clubLabel(c2)} → ${approachLabel(c3, remainder)}`,
             });
           }
         }

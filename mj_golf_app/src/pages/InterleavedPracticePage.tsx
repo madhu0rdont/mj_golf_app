@@ -456,7 +456,7 @@ export function InterleavedPracticePage() {
                       <button
                         key={i}
                         onClick={() => setSelectedStrategyClubId(firstClubId)}
-                        className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm transition ${
+                        className={`flex w-full items-start justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition ${
                           isSelected
                             ? 'bg-primary/10 ring-1 ring-primary/30'
                             : 'hover:bg-primary/5'
@@ -465,7 +465,7 @@ export function InterleavedPracticePage() {
                         <span className={`font-medium ${i === 0 ? 'text-primary' : 'text-text-dark'}`}>
                           {strategy.label}
                         </span>
-                        <span className="text-xs text-text-muted tabular-nums">
+                        <span className="flex-shrink-0 text-xs text-text-muted tabular-nums">
                           ~{strategy.expectedStrokes.toFixed(1)} strokes
                         </span>
                       </button>

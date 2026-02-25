@@ -1,141 +1,165 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
+import 'katex/dist/katex.min.css';
+import { InlineMath, BlockMath } from 'react-katex';
 import { TopBar } from '../components/layout/TopBar';
+
+/**
+ * Renders a string containing $...$ (inline) and $$...$$ (block) LaTeX
+ * delimiters into React nodes with KaTeX math rendering.
+ */
+function renderMath(text: string): ReactNode[] {
+  const regex = /\$\$([\s\S]*?)\$\$|\$([^$]*?)\$/g;
+  const parts: ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+  let key = 0;
+  let lastWasBlock = false;
+
+  while ((match = regex.exec(text)) !== null) {
+    const isBlock = match[1] !== undefined;
+    if (match.index > lastIndex) {
+      let t = text.slice(lastIndex, match.index);
+      if (lastWasBlock) t = t.replace(/^\n+/, '');
+      if (isBlock) t = t.replace(/\n+$/, '');
+      if (t) parts.push(<span key={key++}>{t}</span>);
+    }
+    if (isBlock) {
+      parts.push(<BlockMath key={key++} math={match[1].trim()} />);
+      lastWasBlock = true;
+    } else {
+      parts.push(<InlineMath key={key++} math={match[2]!} />);
+      lastWasBlock = false;
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    let t = text.slice(lastIndex);
+    if (lastWasBlock) t = t.replace(/^\n+/, '');
+    if (t) parts.push(<span key={key++}>{t}</span>);
+  }
+  return parts;
+}
 
 const FAQ_ITEMS = [
   // ── Yardages ──
   {
     question: 'How are yardage book numbers calculated?',
-    answer:
-      'Each club\'s "book carry" is a recency-weighted average across all practice sessions. ' +
-      'Each session\'s average carry gets a weight based on how old it is:\n\n' +
-      '  w(t) = 0.5 ^ (t / 30)\n\n' +
-      'where t is the age in days and 30 is the half-life. A session from today has weight 1.0, ' +
-      '30 days ago has weight 0.5, 60 days has 0.25, and so on. The book carry is then:\n\n' +
-      '  bookCarry = \u03A3(carry\u1D62 \u00B7 w\u1D62) / \u03A3(w\u1D62)\n\n' +
-      'This is an exponential moving average — recent sessions dominate, but older data ' +
-      'still contributes so one bad day on the range won\'t blow up your numbers. Dispersion, ' +
-      'spin rate, and launch angle are weighted the same way.',
+    answer: String.raw`Each club's "book carry" is a recency-weighted average across all practice sessions. Each session's average carry gets a weight based on how old it is:
+
+$$w(t) = 0.5^{\,t/30}$$
+
+where $t$ is the age in days and 30 is the half-life. A session from today has weight 1.0, 30 days ago has weight 0.5, 60 days has 0.25, and so on. The book carry is then:
+
+$$\text{bookCarry} = \frac{\sum(\text{carry}_i \cdot w_i)}{\sum w_i}$$
+
+This is an exponential moving average — recent sessions dominate, but older data still contributes so one bad day on the range won't blow up your numbers. Dispersion, spin rate, and launch angle are weighted the same way.`,
   },
   {
     question: 'What do Fresh, Aging, and Stale mean?',
-    answer:
-      'Each club has a freshness badge based on how recently you\'ve hit it on the monitor:\n\n' +
-      '  Fresh — last session < 14 days ago\n' +
-      '  Aging — 14 to 45 days ago\n' +
-      '  Stale — > 45 days ago\n\n' +
-      'Stale clubs still have valid book numbers (the weighted average doesn\'t expire), ' +
-      'but the weights will be small. The home page warns you when clubs are stale so you know ' +
-      'which ones to prioritize at the range.',
+    answer: `Each club has a freshness badge based on how recently you've hit it on the monitor:
+
+  Fresh — last session < 14 days ago
+  Aging — 14 to 45 days ago
+  Stale — > 45 days ago
+
+Stale clubs still have valid book numbers (the weighted average doesn't expire), but the weights will be small. The home page warns you when clubs are stale so you know which ones to prioritize at the range.`,
   },
   // ── Imputation ──
   {
     question: 'How are missing club distances imputed?',
-    answer:
-      'Two methods depending on what data you have:\n\n' +
-      '1. Known carry + loft (no shot data):\n' +
-      'The app scales Trackman PGA Tour reference data to your level. It looks up the tour ' +
-      'carry at your club\'s loft, computes a scaling factor s = yourCarry / tourCarry, ' +
-      'then applies it:\n\n' +
-      '  ballSpeed = tourBallSpeed \u00B7 s\n' +
-      '  apexHeight = tourApex \u00B7 s\n' +
-      '  spinRate = tourSpin \u00B7 (0.7 + 0.3s)\n' +
-      '  launchAngle = tourLaunch (loft-driven, unscaled)\n' +
-      '  descentAngle = tourDescent (loft-driven, unscaled)\n' +
-      '  total = carry \u00B7 (1 + 0.12 \u00B7 e\u207B\u2070\u22C5\u2070\u2075 \u02E1\u1D52\u1DA0\u1D57)\n\n' +
-      'The rollout fraction decays exponentially with loft — a driver (10.5\u00B0) rolls out ~7%, ' +
-      'while a lob wedge (60\u00B0) gets essentially zero rollout.\n\n' +
-      '2. No carry at all:\n' +
-      'Piecewise linear interpolation between your other clubs\' known data, using loft as the ' +
-      'independent variable. With 2+ anchor points, it fits a line between each adjacent pair ' +
-      'and extrapolates beyond the endpoints. More clubs on the monitor = better estimates.',
+    answer: String.raw`Two methods depending on what data you have:
+
+1. Known carry + loft (no shot data):
+The app scales Trackman PGA Tour reference data to your level. It looks up the tour carry at your club's loft, computes a scaling factor:
+
+$$s = \frac{\text{yourCarry}}{\text{tourCarry}}$$
+
+then scales speed-dependent metrics:
+
+$$\begin{aligned} \text{ballSpeed} &= \text{tourBallSpeed} \cdot s \\ \text{apexHeight} &= \text{tourApex} \cdot s \\ \text{spinRate} &= \text{tourSpin} \cdot (0.7 + 0.3\,s) \end{aligned}$$
+
+Loft-driven metrics (launch angle, descent angle) come directly from tour data. Rollout is estimated as:
+
+$$\text{total} = \text{carry} \cdot \left(1 + 0.12 \cdot e^{-0.05 \cdot \text{loft}}\right)$$
+
+The rollout fraction decays exponentially with loft — a driver (10.5°) rolls out ~7%, while a lob wedge (60°) gets essentially zero rollout.
+
+2. No carry at all:
+Piecewise linear interpolation between your other clubs' known data, using loft as the independent variable. With 2+ anchor points, it fits a line between each adjacent pair and extrapolates beyond the endpoints. More clubs on the monitor = better estimates.`,
   },
   {
     question: 'Where does the tour reference data come from?',
-    answer:
-      'The imputation engine uses 14 reference points from Trackman PGA Tour averages, ' +
-      'covering every loft from driver (10.5\u00B0) to lob wedge (60\u00B0). Each point includes ' +
-      'carry, total, ball speed, launch angle, spin rate, apex height, and descent angle.\n\n' +
-      'These serve as a "shape template" — the relationships between metrics at each loft are ' +
-      'well-established by physics, even if absolute values differ between players. Scaling by ' +
-      'carry-to-tour ratio captures your swing speed implicitly without needing to measure it directly.',
+    answer: `The imputation engine uses 14 reference points from Trackman PGA Tour averages, covering every loft from driver (10.5°) to lob wedge (60°). Each point includes carry, total, ball speed, launch angle, spin rate, apex height, and descent angle.
+
+These serve as a "shape template" — the relationships between metrics at each loft are well-established by physics, even if absolute values differ between players. Scaling by carry-to-tour ratio captures your swing speed implicitly without needing to measure it directly.`,
   },
   // ── Remaining Distance Model ──
   {
     question: 'How is remaining distance calculated during a hole?',
-    answer:
-      'After each shot, the app computes your true distance from the pin using an iterative ' +
-      'Pythagorean model. Each shot is assumed to be aimed at the hole:\n\n' +
-      '  forward = trueRemaining \u2212 carry\n' +
-      '  trueRemaining\u2032 = \u221A(forward\u00B2 + offline\u00B2)\n\n' +
-      'If you overshoot (carry > remaining), forward goes negative — you\'re past the pin. ' +
-      'If you miss offline, you end up farther than a pure carry number would suggest. ' +
-      'The Pythagorean distance captures both effects in a single scalar.\n\n' +
-      'A hole is complete when trueRemaining \u2264 10 yards (on the green). ' +
-      'The app then assumes 2 putts and scores the hole as strokes + 2.',
+    answer: String.raw`After each shot, the app computes your true distance from the pin using an iterative Pythagorean model. Each shot is assumed to be aimed at the hole:
+
+$$\begin{aligned} \text{forward} &= \text{trueRemaining} - \text{carry} \\[4pt] \text{trueRemaining}' &= \sqrt{\text{forward}^2 + \text{offline}^2} \end{aligned}$$
+
+If you overshoot ($\text{carry} > \text{remaining}$), forward goes negative — you're past the pin. If you miss offline, you end up farther than a pure carry number would suggest. The Pythagorean distance captures both effects in a single scalar.
+
+A hole is complete when $\text{trueRemaining} \leq 10$ yards (on the green). The app then assumes 2 putts and scores the hole as strokes + 2.`,
   },
   // ── Monte Carlo ──
   {
     question: 'How does the Monte Carlo simulation work?',
-    answer:
-      'For each shot during interleaved practice, the app builds a statistical profile for each club ' +
-      'from your real shot data (minimum 3 shots):\n\n' +
-      '  \u03BC_carry, \u03C3_carry  (mean and standard deviation of carry)\n' +
-      '  \u03BC_offline, \u03C3_offline  (mean and std dev of lateral miss)\n\n' +
-      'It then enumerates candidate club sequences based on the distance:\n\n' +
-      '  \u2264 225 yds \u2192 1-club plans\n' +
-      '  226\u2013425 yds \u2192 2-club plans\n' +
-      '  > 425 yds \u2192 2-club + 3-club plans\n\n' +
-      'Each candidate is filtered so the sum of mean carries is close to the target distance ' +
-      '(\u00B160 yds for par 4, \u00B180 yds for par 5).\n\n' +
-      'For each candidate, the simulator runs 2,000 independent trials. Each shot is sampled:\n\n' +
-      '  carry ~ N(\u03BC_carry, \u03C3_carry)\n' +
-      '  offline ~ N(\u03BC_offline, \u03C3_offline)\n\n' +
-      'using the Box-Muller transform for Gaussian random numbers:\n\n' +
-      '  z = \u221A(\u22122 ln u\u2081) \u00B7 cos(2\u03C0 u\u2082),  u\u2081,u\u2082 ~ Uniform(0,1)\n\n' +
-      'After the planned clubs, if not on the green, a greedy policy takes over (pick the club ' +
-      'with meanCarry closest to remaining). Score = strokes + 2 putts. ' +
-      'Strategies are ranked by E[score] = (1/N) \u03A3 score\u1D62 and the top 3 are shown.',
+    answer: String.raw`For each shot during interleaved practice, the app builds a statistical profile for each club from your real shot data (minimum 3 shots):
+
+$$\mu_{\text{carry}},\; \sigma_{\text{carry}} \quad \small\text{(mean and std dev of carry)}$$
+$$\mu_{\text{offline}},\; \sigma_{\text{offline}} \quad \small\text{(mean and std dev of lateral miss)}$$
+
+It then enumerates candidate club sequences based on the distance:
+
+  ≤ 225 yds → 1-club plans
+  226–425 yds → 2-club plans
+  > 425 yds → 2-club + 3-club plans
+
+Each candidate is filtered so the sum of mean carries is within range of the target distance.
+
+For each candidate, the simulator runs 2,000 independent trials. Each shot is sampled from a normal distribution:
+
+$$\text{carry} \sim \mathcal{N}\!\left(\mu_{\text{carry}},\; \sigma_{\text{carry}}\right)$$
+$$\text{offline} \sim \mathcal{N}\!\left(\mu_{\text{offline}},\; \sigma_{\text{offline}}\right)$$
+
+using the Box-Muller transform for Gaussian random numbers:
+
+$$z = \sqrt{-2 \ln u_1} \cdot \cos(2\pi\, u_2), \quad u_1, u_2 \sim \text{Uniform}(0,1)$$
+
+After the planned clubs, if not on the green, a greedy policy takes over (pick the club with mean carry closest to remaining). Strategies are ranked by $E[\text{score}] = \frac{1}{N} \sum \text{score}_i$ and the top 3 are shown.`,
   },
   {
     question: 'Why 2,000 trials? Is that enough?',
-    answer:
-      'For a sample mean of a bounded random variable, the standard error scales as ' +
-      '\u03C3 / \u221AN. Golf scores per hole typically have \u03C3 \u2248 0.5\u20131.0 strokes, ' +
-      'so with N = 2,000:\n\n' +
-      '  SE \u2248 1.0 / \u221A2000 \u2248 0.022 strokes\n\n' +
-      'That means strategy rankings are accurate to about \u00B10.05 strokes with 95% confidence — ' +
-      'more than enough to reliably distinguish a 3.2 vs 3.4 stroke strategy.\n\n' +
-      'For par 5s, the 3-club enumeration can produce many candidates. To keep the total computation ' +
-      'bounded at ~400k simulations, trials are scaled down proportionally (minimum 500). ' +
-      'Even at 500 trials, SE \u2248 0.045 — still sharp enough for a top-3 ranking.',
+    answer: String.raw`For a sample mean of a bounded random variable, the standard error scales as $\sigma / \sqrt{N}$. Golf scores per hole typically have $\sigma \approx 0.5\text{–}1.0$ strokes, so with $N = 2{,}000$:
+
+$$\text{SE} \approx \frac{1.0}{\sqrt{2000}} \approx 0.022 \;\text{strokes}$$
+
+That means strategy rankings are accurate to about ±0.05 strokes with 95% confidence — more than enough to reliably distinguish a 3.2 vs 3.4 stroke strategy.
+
+For par 5s, the 3-club enumeration can produce many candidates. To keep the total computation bounded at ~400k simulations, trials are scaled down proportionally (minimum 500). Even at 500 trials, $\text{SE} \approx 0.045$ — still sharp enough for a top-3 ranking.`,
   },
   {
     question: 'When does the simulation re-run vs. use simple suggestions?',
-    answer:
-      'The Monte Carlo strategy card appears on every shot where the remaining distance is greater ' +
-      'than your longest full wedge carry. After each shot, it re-runs with the new remaining distance ' +
-      'and a fresh set of candidate combos.\n\n' +
-      'Once you\'re within wedge range, the simulation stops and a simple greedy recommendation takes ' +
-      'over — it picks the club (including wedge positions at 100%, 85%, and 65% carry and grip-down ' +
-      'options at \u22125 yds/inch) whose carry is closest to the remaining distance.\n\n' +
-      'If you don\'t have enough shot data for Monte Carlo (< 3 shots for any club), ' +
-      'the greedy recommendation is used for all shots.',
+    answer: `The Monte Carlo strategy card appears on every shot where the remaining distance is greater than your longest full wedge carry. After each shot, it re-runs with the new remaining distance and a fresh set of candidate combos.
+
+Once you're within wedge range, the simulation stops and a simple greedy recommendation takes over — it picks the club (including wedge positions at 100%, 85%, and 65% carry and grip-down options at −5 yds/inch) whose carry is closest to the remaining distance.
+
+If you don't have enough shot data for Monte Carlo (< 3 shots for any club), the greedy recommendation is used for all shots.`,
   },
   // ── Scoring ──
   {
     question: 'What is the Scoring Zone metric?',
-    answer:
-      'The scoring zone measures how efficiently you get the ball within 100 yards of the pin — ' +
-      'the part of the hole where short game takes over.\n\n' +
-      '  target = par \u2212 2  (strokes to reach 100 yds)\n' +
-      '  actual = first stroke index where trueRemaining \u2264 100\n' +
-      '  delta = actual \u2212 target\n\n' +
-      'On a par 4, you should reach 100 yards in 2 strokes. If it takes 3, your delta is +1. ' +
-      'On a par 5, the target is 3. Not applicable on par 3s where the tee is already \u2264 100 yards.\n\n' +
-      'A negative delta means you\'re getting into scoring position faster than expected — ' +
-      'your long game is outperforming your handicap. A positive delta means you\'re ' +
-      'losing strokes before you even reach the green complex.',
+    answer: String.raw`The scoring zone measures how efficiently you get the ball within 100 yards of the pin — the part of the hole where short game takes over.
+
+$$\begin{aligned} \text{target} &= \text{par} - 2 \quad \small\text{(strokes to reach 100 yds)} \\[4pt] \text{actual} &= \text{first stroke where remaining} \leq 100 \\[4pt] \delta &= \text{actual} - \text{target} \end{aligned}$$
+
+On a par 4, you should reach 100 yards in 2 strokes. If it takes 3, your $\delta$ is +1. On a par 5, the target is 3. Not applicable on par 3s where the tee is already ≤ 100 yards.
+
+A negative $\delta$ means you're getting into scoring position faster than expected — your long game is outperforming your handicap. A positive $\delta$ means you're losing strokes before you even reach the green complex.`,
   },
 ];
 
@@ -189,7 +213,7 @@ export function AboutPage() {
                   </button>
                   {isOpen && (
                     <div className="pb-3 text-sm text-text-medium leading-relaxed whitespace-pre-line">
-                      {item.answer}
+                      {renderMath(item.answer)}
                     </div>
                   )}
                 </div>
