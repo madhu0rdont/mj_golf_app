@@ -60,10 +60,14 @@ function linearPredict(points: [number, number][], x: number): number {
  *  Uses linear extrapolation from real clubs when available, otherwise a default CoV. */
 function estimateDispersion(
   carry: number,
-  realDists: { meanCarry: number; stdCarry: number; stdOffline: number }[],
-): { stdCarry: number; stdOffline: number } {
+  realDists: { meanCarry: number; meanOffline: number; stdCarry: number; stdOffline: number }[],
+): { meanOffline: number; stdCarry: number; stdOffline: number } {
   if (realDists.length >= 2) {
     return {
+      meanOffline: linearPredict(
+        realDists.map((d) => [d.meanCarry, d.meanOffline]),
+        carry,
+      ),
       stdCarry: Math.max(2, linearPredict(
         realDists.map((d) => [d.meanCarry, d.stdCarry]),
         carry,
@@ -75,8 +79,8 @@ function estimateDispersion(
     };
   }
 
-  // Fallback: 4% CoV for carry, 5% for offline
-  return { stdCarry: carry * 0.04, stdOffline: carry * 0.05 };
+  // Fallback: no bias, 4% CoV for carry, 5% for offline
+  return { meanOffline: 0, stdCarry: carry * 0.04, stdOffline: carry * 0.05 };
 }
 
 /** Build per-club carry/offline distributions from shot data.
@@ -85,7 +89,7 @@ function estimateDispersion(
  *  from real clubs via linear regression. */
 export function buildDistributions(groups: ClubShotGroup[]): ClubDistribution[] {
   const distributions: ClubDistribution[] = [];
-  const realDists: { meanCarry: number; stdCarry: number; stdOffline: number }[] = [];
+  const realDists: { meanCarry: number; meanOffline: number; stdCarry: number; stdOffline: number }[] = [];
 
   // First pass: clubs with real shot data
   for (const group of groups) {
@@ -106,7 +110,7 @@ export function buildDistributions(groups: ClubShotGroup[]): ClubDistribution[] 
       stdOffline: offlines.length > 0 ? stddev(offlines) : 5,
     };
     distributions.push(dist);
-    realDists.push({ meanCarry: dist.meanCarry, stdCarry: dist.stdCarry, stdOffline: dist.stdOffline });
+    realDists.push({ meanCarry: dist.meanCarry, meanOffline: dist.meanOffline, stdCarry: dist.stdCarry, stdOffline: dist.stdOffline });
   }
 
   // Second pass: imputed clubs — estimate dispersion from real clubs' trend
@@ -115,13 +119,13 @@ export function buildDistributions(groups: ClubShotGroup[]): ClubDistribution[] 
     const carry = group.shots[0].carryYards;
     if (carry <= 0) continue;
 
-    const { stdCarry, stdOffline } = estimateDispersion(carry, realDists);
+    const { meanOffline, stdCarry, stdOffline } = estimateDispersion(carry, realDists);
     distributions.push({
       clubId: group.clubId,
       clubName: group.clubName,
       meanCarry: carry,
       stdCarry,
-      meanOffline: 0,
+      meanOffline,
       stdOffline,
     });
   }
