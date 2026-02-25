@@ -82,7 +82,7 @@ export function ClubDetailPage() {
           <div className="mb-6">
             <h3 className="mb-2 text-sm font-medium text-text-medium uppercase">Carry Over Time</h3>
             <div className="rounded-2xl border border-border bg-card shadow-sm p-3">
-              <CarryOverTimeChart data={history} />
+              <CarryOverTimeChart data={history} bookCarry={entry?.bookCarry} />
             </div>
           </div>
         )}
