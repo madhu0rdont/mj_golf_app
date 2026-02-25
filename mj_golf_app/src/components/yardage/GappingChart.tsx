@@ -1,4 +1,4 @@
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, LabelList } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LabelList } from 'recharts';
 import type { YardageBookEntry } from '../../models/yardage';
 import { THEME } from '../../theme/colors';
 
@@ -7,6 +7,28 @@ interface GappingChartProps {
 }
 
 const CATEGORY_COLORS = THEME.category;
+
+/** Custom bar shape that renders dashed outlines for imputed clubs */
+function GappingBar(props: any) {
+  const { x, y, width, height, fill, imputed } = props;
+  if (imputed) {
+    return (
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        rx={4}
+        fill={fill}
+        fillOpacity={0.25}
+        stroke={fill}
+        strokeWidth={1.5}
+        strokeDasharray="4 3"
+      />
+    );
+  }
+  return <rect x={x} y={y} width={width} height={height} rx={4} fill={fill} />;
+}
 
 export function GappingChart({ entries }: GappingChartProps) {
   // Sort by carry descending
@@ -18,7 +40,10 @@ export function GappingChart({ entries }: GappingChartProps) {
     name: e.clubName,
     carry: e.bookCarry,
     category: e.category,
+    imputed: !!e.imputed,
   }));
+
+  const hasImputed = data.some((d) => d.imputed);
 
   // Calculate gaps
   const gaps: { between: string; gap: number; isLarge: boolean }[] = [];
@@ -42,10 +67,20 @@ export function GappingChart({ entries }: GappingChartProps) {
             tick={{ fill: THEME.textMedium, fontSize: 12 }}
             width={55}
           />
-          <Bar dataKey="carry" radius={[0, 4, 4, 0]} barSize={24}>
-            {data.map((entry, i) => (
-              <Cell key={i} fill={CATEGORY_COLORS[entry.category] || '#6b7280'} />
-            ))}
+          <Bar
+            dataKey="carry"
+            barSize={24}
+            shape={(props: any) => {
+              const item = data[props.index];
+              return (
+                <GappingBar
+                  {...props}
+                  fill={CATEGORY_COLORS[item?.category] || '#6b7280'}
+                  imputed={item?.imputed}
+                />
+              );
+            }}
+          >
             <LabelList
               dataKey="carry"
               position="right"
@@ -55,6 +90,16 @@ export function GappingChart({ entries }: GappingChartProps) {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+
+      {/* Legend for imputed */}
+      {hasImputed && (
+        <div className="flex items-center gap-2 mt-1 mb-3 px-1">
+          <svg width="24" height="12">
+            <rect x="0" y="2" width="24" height="8" rx="2" fill="#6b7280" fillOpacity={0.25} stroke="#6b7280" strokeWidth="1.5" strokeDasharray="4 3" />
+          </svg>
+          <span className="text-[11px] text-text-muted">Imputed (no shot data)</span>
+        </div>
+      )}
 
       {/* Gap annotations */}
       {gaps.length > 0 && (

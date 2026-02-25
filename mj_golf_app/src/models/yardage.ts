@@ -17,4 +17,5 @@ export interface YardageBookEntry {
   shotCount: number;
   lastSessionDate: number;
   freshness: DataFreshness;
+  imputed?: boolean;
 }

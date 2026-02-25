@@ -2,11 +2,13 @@ import { useState, useMemo } from 'react';
 import { TopBar } from '../components/layout/TopBar';
 import { GappingChart } from '../components/yardage/GappingChart';
 import { useYardageBook, useYardageBookShots } from '../hooks/useYardageBook';
+import { useAllClubs } from '../hooks/useClubs';
 
 export function GappingPage() {
   const [excludeMishits, setExcludeMishits] = useState(false);
   const entries = useYardageBook(excludeMishits);
   const allClubs = useYardageBookShots();
+  const clubs = useAllClubs();
 
   const mishitCount = useMemo(
     () =>
@@ -17,13 +19,36 @@ export function GappingPage() {
     [allClubs]
   );
 
-  if (entries === undefined) return null;
+  // Merge imputed clubs into entries (skip any that already have real data)
+  const mergedEntries = useMemo(() => {
+    if (!entries || !allClubs) return entries;
+    const clubMap = new Map((clubs ?? []).map((c) => [c.id, c]));
+    const realIds = new Set(entries.map((e) => e.clubId));
+    const imputed = allClubs
+      .filter((c) => c.imputed && !realIds.has(c.clubId) && c.shots.length > 0)
+      .map((c) => ({
+        clubId: c.clubId,
+        clubName: c.clubName,
+        category: clubMap.get(c.clubId)?.category ?? '',
+        bookCarry: c.shots[0].carryYards,
+        confidenceCarry: 0,
+        dispersion: 0,
+        sessionCount: 0,
+        shotCount: 0,
+        lastSessionDate: 0,
+        freshness: 'stale' as const,
+        imputed: true,
+      }));
+    return [...entries, ...imputed];
+  }, [entries, allClubs, clubs]);
+
+  if (mergedEntries === undefined) return null;
 
   return (
     <>
       <TopBar title="Gapping Analysis" showBack />
       <div className="px-4 py-4">
-        {entries.length === 0 ? (
+        {mergedEntries.length === 0 ? (
           <p className="py-8 text-center text-sm text-text-muted">
             No yardage data yet. Log sessions to see your gapping chart.
           </p>
@@ -56,7 +81,7 @@ export function GappingPage() {
               )}
             </div>
             <div className="rounded-2xl border border-border bg-card shadow-sm p-3">
-              <GappingChart entries={entries} />
+              <GappingChart entries={mergedEntries} />
             </div>
           </>
         )}
