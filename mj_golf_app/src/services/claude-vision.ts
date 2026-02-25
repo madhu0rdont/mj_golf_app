@@ -91,16 +91,47 @@ export async function extractShotDataFromImage(
   return { shots, warnings };
 }
 
+const MAX_DIMENSION = 2048;
+const JPEG_QUALITY = 0.85;
+const MAX_BASE64_BYTES = 4_500_000; // stay well under Anthropic's 5 MB limit
+
+/** Resize + JPEG-compress an image file via canvas, then return base64 */
 export function imageFileToBase64(file: File): Promise<{ base64: string; mediaType: string }> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      const [header, base64] = dataUrl.split(',');
-      const mediaType = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
-      resolve({ base64, mediaType });
+    const img = new Image();
+    img.onload = () => {
+      // Scale down if either dimension exceeds MAX_DIMENSION
+      let { width, height } = img;
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        const scale = MAX_DIMENSION / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Try at default quality, reduce if still too large
+      let quality = JPEG_QUALITY;
+      let dataUrl = canvas.toDataURL('image/jpeg', quality);
+      let base64 = dataUrl.split(',')[1];
+
+      while (base64.length > MAX_BASE64_BYTES && quality > 0.3) {
+        quality -= 0.1;
+        dataUrl = canvas.toDataURL('image/jpeg', quality);
+        base64 = dataUrl.split(',')[1];
+      }
+
+      URL.revokeObjectURL(img.src);
+      resolve({ base64, mediaType: 'image/jpeg' });
     };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(img.src);
+      reject(new Error('Failed to load image'));
+    };
+    img.src = URL.createObjectURL(file);
   });
 }
