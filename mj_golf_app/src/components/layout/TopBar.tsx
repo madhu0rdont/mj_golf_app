@@ -6,7 +6,7 @@ const NAV_LINKS = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/bag', icon: Briefcase, label: 'Bag' },
   { to: '/yardage', icon: BookOpen, label: 'Yardage' },
-  { to: '/faq', icon: HelpCircle, label: 'FAQ' },
+  { to: '/faq', icon: HelpCircle, label: 'How It Works' },
   { to: '/settings', icon: Settings, label: 'Settings' },
   { to: '/about', icon: Info, label: 'About' },
 ];

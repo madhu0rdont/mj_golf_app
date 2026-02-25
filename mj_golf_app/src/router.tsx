@@ -15,7 +15,7 @@ import { YardageBookPage } from './pages/YardageBookPage';
 import { ClubDetailPage } from './pages/ClubDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AboutPage } from './pages/AboutPage';
-import { FaqPage } from './pages/FaqPage';
+import { HowItWorksPage } from './pages/HowItWorksPage';
 
 export const router = createBrowserRouter([
   {
@@ -40,7 +40,7 @@ export const router = createBrowserRouter([
       { path: 'yardage/:clubId', element: <ClubDetailPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'about', element: <AboutPage /> },
-      { path: 'faq', element: <FaqPage /> },
+      { path: 'faq', element: <HowItWorksPage /> },
     ],
   },
 ]);

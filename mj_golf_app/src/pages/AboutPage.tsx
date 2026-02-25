@@ -17,12 +17,12 @@ export function AboutPage() {
           <p className="text-xs text-text-faint mt-1">v1.0.0</p>
         </div>
 
-        {/* FAQ Link */}
+        {/* How It Works Link */}
         <Link
           to="/faq"
           className="block rounded-xl border border-border bg-card p-4 mb-4 text-sm font-medium text-primary hover:bg-surface transition"
         >
-          Frequently Asked Questions &rarr;
+          How It Works &rarr;
         </Link>
 
         {/* Developer */}
