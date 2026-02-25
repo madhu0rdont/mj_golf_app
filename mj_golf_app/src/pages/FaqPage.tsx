@@ -45,8 +45,20 @@ function renderMath(text: string): ReactNode[] {
   return parts;
 }
 
-const FAQ_ITEMS = [
-  // ── Yardages ──
+interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+interface FaqSection {
+  title: string;
+  items: FaqItem[];
+}
+
+const FAQ_SECTIONS: FaqSection[] = [
+  {
+    title: 'Yardage Book',
+    items: [
   {
     question: 'How are yardage book numbers calculated?',
     answer: String.raw`Each club's "book carry" is a recency-weighted average across all practice sessions. Each session's average carry gets a weight based on how old it is:
@@ -98,7 +110,11 @@ Piecewise linear interpolation between your other clubs' known data, using loft 
 
 These serve as a "shape template" — the relationships between metrics at each loft are well-established by physics, even if absolute values differ between players. Scaling by carry-to-tour ratio captures your swing speed implicitly without needing to measure it directly.`,
   },
-  // ── Remaining Distance Model ──
+    ],
+  },
+  {
+    title: 'Interleaved Practice',
+    items: [
   {
     question: 'How is remaining distance calculated during a hole?',
     answer: String.raw`After every shot, the app re-aims at the hole and recalculates your true distance using the Pythagorean theorem:
@@ -182,7 +198,6 @@ Once you're within wedge range, the simulation stops and a simple greedy recomme
 
 If you don't have enough shot data for Monte Carlo (< 3 shots for any club), the greedy recommendation is used for all shots.`,
   },
-  // ── Scoring ──
   {
     question: 'What is the Scoring Zone metric?',
     answer: String.raw`The scoring zone measures how efficiently you get the ball within 100 yards of the pin — the part of the hole where short game takes over.
@@ -193,7 +208,21 @@ On a par 4, you should reach 100 yards in 2 strokes. If it takes 3, your $\delta
 
 A negative $\delta$ means you're getting into scoring position faster than expected — your long game is outperforming your handicap. A positive $\delta$ means you're losing strokes before you even reach the green complex.`,
   },
+    ],
+  },
 ];
+
+/** Stable numeric index for a FAQ item across all sections */
+const globalIndexMap = new Map<string, number>();
+let _idx = 0;
+for (const section of FAQ_SECTIONS) {
+  for (const item of section.items) {
+    globalIndexMap.set(`${section.title}-${item.question}`, _idx++);
+  }
+}
+function globalIndex(sectionTitle: string, question: string): number {
+  return globalIndexMap.get(`${sectionTitle}-${question}`) ?? 0;
+}
 
 export function FaqPage() {
   const [openItems, setOpenItems] = useState<Set<number>>(new Set());
@@ -210,37 +239,46 @@ export function FaqPage() {
   return (
     <>
       <TopBar title="FAQ" showBack />
-      <div className="px-4 py-4">
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="divide-y divide-border">
-            {FAQ_ITEMS.map((item, i) => {
-              const isOpen = openItems.has(i);
-              return (
-                <div key={i}>
-                  <button
-                    onClick={() => toggle(i)}
-                    className="flex w-full items-center justify-between py-3 text-left"
-                  >
-                    <span className="text-sm font-medium text-text-dark pr-2">
-                      {item.question}
-                    </span>
-                    <ChevronDown
-                      size={16}
-                      className={`flex-shrink-0 text-text-muted transition-transform duration-200 ${
-                        isOpen ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
-                  {isOpen && (
-                    <div className="pb-3 text-sm text-text-medium leading-relaxed whitespace-pre-line">
-                      {renderMath(item.answer)}
+      <div className="px-4 py-4 space-y-4">
+        {FAQ_SECTIONS.map((section) => {
+          return (
+            <div key={section.title} className="rounded-xl border border-border bg-card p-4">
+              <h3 className="text-sm font-medium text-text-medium uppercase mb-1">
+                {section.title}
+              </h3>
+              <div className="divide-y divide-border">
+                {section.items.map((item) => {
+                  const key = `${section.title}-${item.question}`;
+                  const idx = globalIndex(section.title, item.question);
+                  const isOpen = openItems.has(idx);
+                  return (
+                    <div key={key}>
+                      <button
+                        onClick={() => toggle(idx)}
+                        className="flex w-full items-center justify-between py-3 text-left"
+                      >
+                        <span className="text-sm font-medium text-text-dark pr-2">
+                          {item.question}
+                        </span>
+                        <ChevronDown
+                          size={16}
+                          className={`flex-shrink-0 text-text-muted transition-transform duration-200 ${
+                            isOpen ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+                      {isOpen && (
+                        <div className="pb-3 text-sm text-text-medium leading-relaxed whitespace-pre-line">
+                          {renderMath(item.answer)}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </>
   );
