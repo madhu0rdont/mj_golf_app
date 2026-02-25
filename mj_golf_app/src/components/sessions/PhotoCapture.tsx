@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Camera, Upload, X } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
 import { Button } from '../ui/Button';
 
 interface PhotoCaptureProps {
@@ -8,7 +8,6 @@ interface PhotoCaptureProps {
 
 export function PhotoCapture({ onCapture }: PhotoCaptureProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -27,7 +26,6 @@ export function PhotoCapture({ onCapture }: PhotoCaptureProps) {
     setPreview(null);
     setSelectedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
   const submit = () => {
@@ -39,24 +37,15 @@ export function PhotoCapture({ onCapture }: PhotoCaptureProps) {
       {!preview ? (
         <>
           <p className="text-sm text-text-medium">
-            Photograph the GC4 session table view, or choose an image from your gallery.
+            Upload a photo of the GC4 session table view.
           </p>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => cameraInputRef.current?.click()}
-              className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-text-muted transition-colors hover:border-primary hover:text-primary"
-            >
-              <Camera size={28} />
-              <span className="text-sm">Take Photo</span>
-            </button>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-text-muted transition-colors hover:border-primary hover:text-primary"
-            >
-              <Upload size={28} />
-              <span className="text-sm">Upload Image</span>
-            </button>
-          </div>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-8 text-text-muted transition-colors hover:border-primary hover:text-primary"
+          >
+            <Upload size={28} />
+            <span className="text-sm">Upload Image</span>
+          </button>
         </>
       ) : (
         <>
@@ -84,15 +73,7 @@ export function PhotoCapture({ onCapture }: PhotoCaptureProps) {
         </>
       )}
 
-      {/* Hidden file inputs */}
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleFileChange}
-        className="hidden"
-      />
+      {/* Single file input — on mobile, the OS offers camera or gallery */}
       <input
         ref={fileInputRef}
         type="file"
