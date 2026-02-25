@@ -418,7 +418,9 @@ Rollout is estimated as:
 
 $$\text{total} = \text{carry} \cdot \left(1 + 0.12 \cdot e^{-0.05 \cdot \text{loft}}\right)$$
 
-For clubs with no carry data at all, the app uses piecewise linear interpolation between your other clubs' known data, using loft as the independent variable.`}</P>
+For clubs with no carry data at all, the app uses piecewise linear interpolation between your other clubs' known data, using loft as the independent variable.
+
+Imputed clubs also get dispersion estimates for the Monte Carlo simulation. Carry spread ($\sigma_\text{carry}$), offline spread ($\sigma_\text{offline}$), and mean offline bias ($\mu_\text{offline}$) are each extrapolated via linear regression from your real clubs' data. This means if your right miss gets worse with longer clubs, imputed long clubs inherit that rightward trend rather than being centered at zero.`}</P>
 
           <H4>Tour reference data</H4>
           <P>{`The imputation engine uses 14 reference points from Trackman PGA Tour averages, covering every loft from driver (10.5°) to lob wedge (60°). These serve as a "shape template" — the relationships between metrics at each loft are well-established by physics. Scaling by your carry-to-tour ratio captures your swing speed implicitly without needing to measure it directly.`}</P>
