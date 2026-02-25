@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
 import { GappingChart } from './GappingChart';
 import { useYardageBook, useYardageBookShots } from '../../hooks/useYardageBook';
+import { useAllClubs } from '../../hooks/useClubs';
 
 export function GappingTab() {
   const [excludeMishits, setExcludeMishits] = useState(false);
   const entries = useYardageBook(excludeMishits);
   const allClubs = useYardageBookShots();
+  const clubs = useAllClubs();
 
   const mishitCount = useMemo(
     () =>
@@ -16,9 +18,32 @@ export function GappingTab() {
     [allClubs]
   );
 
-  if (entries === undefined) return null;
+  // Merge imputed clubs into entries (skip any that already have real data)
+  const mergedEntries = useMemo(() => {
+    if (!entries || !allClubs) return entries;
+    const clubMap = new Map((clubs ?? []).map((c) => [c.id, c]));
+    const realIds = new Set(entries.map((e) => e.clubId));
+    const imputed = allClubs
+      .filter((c) => c.imputed && !realIds.has(c.clubId) && c.shots.length > 0)
+      .map((c) => ({
+        clubId: c.clubId,
+        clubName: c.clubName,
+        category: clubMap.get(c.clubId)?.category ?? '',
+        bookCarry: c.shots[0].carryYards,
+        confidenceCarry: 0,
+        dispersion: 0,
+        sessionCount: 0,
+        shotCount: 0,
+        lastSessionDate: 0,
+        freshness: 'stale' as const,
+        imputed: true,
+      }));
+    return [...entries, ...imputed];
+  }, [entries, allClubs, clubs]);
 
-  if (entries.length === 0) {
+  if (mergedEntries === undefined) return null;
+
+  if (mergedEntries.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-text-muted">
         No yardage data yet. Log sessions to see your gapping chart.
@@ -55,7 +80,7 @@ export function GappingTab() {
         )}
       </div>
       <div className="rounded-2xl border border-border bg-card shadow-sm p-3">
-        <GappingChart entries={entries} />
+        <GappingChart entries={mergedEntries} />
       </div>
     </>
   );
