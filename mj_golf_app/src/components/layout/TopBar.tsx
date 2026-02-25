@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router';
-import { ArrowLeft, Settings, Menu, X, Home, Briefcase, BookOpen, Info } from 'lucide-react';
+import { ArrowLeft, Settings, Menu, X, Home, Briefcase, BookOpen, HelpCircle, Info } from 'lucide-react';
 
 const NAV_LINKS = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/bag', icon: Briefcase, label: 'Bag' },
   { to: '/yardage', icon: BookOpen, label: 'Yardage' },
+  { to: '/faq', icon: HelpCircle, label: 'FAQ' },
   { to: '/settings', icon: Settings, label: 'Settings' },
   { to: '/about', icon: Info, label: 'About' },
 ];
