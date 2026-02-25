@@ -26,7 +26,7 @@ const MAX_GRIP_DOWN_INCHES = 3;
 
 /** Log-curve putting model fitted to PGA strokes-gained data.
  *  putts(d) = 1.0 + 0.42 * ln(d), clamped to [1, 3] */
-function expectedPutts(distanceYards: number): number {
+export function expectedPutts(distanceYards: number): number {
   if (distanceYards <= 1) return 1.0;
   return Math.min(3, 1.0 + 0.42 * Math.log(distanceYards));
 }
@@ -40,7 +40,7 @@ function gaussianSample(mu: number, sigma: number): number {
 }
 
 /** Simple linear regression: predict y at x from a set of (x, y) points */
-function linearPredict(points: [number, number][], x: number): number {
+export function linearPredict(points: [number, number][], x: number): number {
   const n = points.length;
   let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
   for (const [xi, yi] of points) {
@@ -58,7 +58,7 @@ function linearPredict(points: [number, number][], x: number): number {
 
 /** Estimate carry and offline dispersion for a club at the given carry distance.
  *  Uses linear extrapolation from real clubs when available, otherwise a default CoV. */
-function estimateDispersion(
+export function estimateDispersion(
   carry: number,
   realDists: { meanCarry: number; meanOffline: number; stdCarry: number; stdOffline: number }[],
 ): { meanOffline: number; stdCarry: number; stdOffline: number } {

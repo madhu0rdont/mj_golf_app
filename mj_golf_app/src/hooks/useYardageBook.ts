@@ -120,7 +120,7 @@ export function computeBookEntry(
   };
 }
 
-function computeYardageBook(
+export function computeYardageBook(
   clubs: Club[],
   allSessions: Session[],
   allShots: Shot[],
@@ -194,7 +194,7 @@ export interface ClubShotGroup {
   imputed?: boolean;
 }
 
-function computeClubShotGroups(clubs: Club[], allShots: Shot[]): ClubShotGroup[] {
+export function computeClubShotGroups(clubs: Club[], allShots: Shot[]): ClubShotGroup[] {
   const shotsByClub = new Map<string, Shot[]>();
   for (const shot of allShots) {
     const list = shotsByClub.get(shot.clubId) || [];
