@@ -25,7 +25,11 @@ function renderMath(text: string): ReactNode[] {
       if (t) parts.push(<span key={key++}>{t}</span>);
     }
     if (isBlock) {
-      parts.push(<BlockMath key={key++} math={match[1].trim()} />);
+      parts.push(
+        <div key={key++} className="overflow-x-auto -mx-1 px-1">
+          <BlockMath math={match[1].trim()} />
+        </div>,
+      );
       lastWasBlock = true;
     } else {
       parts.push(<InlineMath key={key++} math={match[2]!} />);
@@ -97,13 +101,23 @@ These serve as a "shape template" — the relationships between metrics at each 
   // ── Remaining Distance Model ──
   {
     question: 'How is remaining distance calculated during a hole?',
-    answer: String.raw`After each shot, the app computes your true distance from the pin using an iterative Pythagorean model. Each shot is assumed to be aimed at the hole:
+    answer: String.raw`After every shot, the app re-aims at the hole and recalculates your true distance using the Pythagorean theorem:
 
-$$\begin{aligned} \text{forward} &= \text{trueRemaining} - \text{carry} \\[4pt] \text{trueRemaining}' &= \sqrt{\text{forward}^2 + \text{offline}^2} \end{aligned}$$
+$$\text{trueRemaining}' = \sqrt{(\text{remaining} - \text{carry})^2 + \text{offline}^2}$$
 
-If you overshoot ($\text{carry} > \text{remaining}$), forward goes negative — you're past the pin. If you miss offline, you end up farther than a pure carry number would suggest. The Pythagorean distance captures both effects in a single scalar.
+This matters because lateral misses cost you real distance. If you're 50 yards out, carry 40, but miss 10 yards right, you're not 10 yards away — you're $\sqrt{10^2 + 10^2} \approx 14$ yards away.
 
-A hole is complete when $\text{trueRemaining} \leq 10$ yards (on the green). The app then assumes 2 putts and scores the hole as strokes + 2.`,
+Example — Par 4, 300 yards:
+
+  Shot 1: Mini Driver, 251 carry, 25R
+  $\sqrt{49^2 + 25^2} = \sqrt{3026} \approx 55$ yds left
+
+  Shot 2: 58°, 50 carry, 5R (re-aimed at hole)
+  $\sqrt{5^2 + 5^2} = \sqrt{50} \approx 7$ yds left → on the green
+
+Key: after each shot, the app reorients toward the hole. The 5R on shot 2 is relative to the new aim line, not the original tee line. Offline misses don't accumulate — each shot gets a fresh start at the pin.
+
+If you overshoot ($\text{carry} > \text{remaining}$), you're past the pin and the forward component goes negative. A hole is complete when $\text{trueRemaining} \leq 10$ yards, then the app adds 2 putts for the final score.`,
   },
   // ── Monte Carlo ──
   {

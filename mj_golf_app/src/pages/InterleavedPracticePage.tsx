@@ -462,11 +462,11 @@ export function InterleavedPracticePage() {
                             : 'hover:bg-primary/5'
                         }`}
                       >
-                        <span className={`font-medium ${i === 0 ? 'text-primary' : 'text-text-dark'}`}>
+                        <span className={`font-medium break-words min-w-0 ${i === 0 ? 'text-primary' : 'text-text-dark'}`}>
                           {strategy.label}
                         </span>
-                        <span className="flex-shrink-0 text-xs text-text-muted tabular-nums">
-                          ~{strategy.expectedStrokes.toFixed(1)} strokes
+                        <span className="flex-shrink-0 text-xs text-text-muted tabular-nums whitespace-nowrap">
+                          ~{strategy.expectedStrokes.toFixed(1)}
                         </span>
                       </button>
                     );
@@ -536,7 +536,7 @@ export function InterleavedPracticePage() {
           const szApplicable = completedScores.filter((s) => s.scoringZone.applicable);
           const szTotal = szApplicable.reduce((s, h) => s + h.scoringZone.delta, 0);
           return (
-            <div className="grid grid-cols-4 gap-2 text-center">
+            <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
               <div className="rounded-xl border border-border bg-card px-2 py-3">
                 <p className="text-[10px] text-text-muted uppercase">Score</p>
                 <p className="text-lg font-bold text-text-dark">{totalScore}</p>
