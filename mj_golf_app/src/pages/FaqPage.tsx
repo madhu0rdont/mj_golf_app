@@ -117,7 +117,7 @@ Example — Par 4, 300 yards:
 
 Key: after each shot, the app reorients toward the hole. The 5R on shot 2 is relative to the new aim line, not the original tee line. Offline misses don't accumulate — each shot gets a fresh start at the pin.
 
-If you overshoot ($\text{carry} > \text{remaining}$), you're past the pin and the forward component goes negative. A hole is complete when $\text{trueRemaining} \leq 10$ yards, then the app adds 2 putts for the final score.`,
+If you overshoot ($\text{carry} > \text{remaining}$), you're past the pin and the forward component goes negative. A hole is complete when $\text{trueRemaining} \leq 10$ yards, then the app estimates putts based on proximity to the pin (see the putting model FAQ).`,
   },
   // ── Monte Carlo ──
   {
@@ -145,6 +145,24 @@ using the Box-Muller transform for Gaussian random numbers:
 $$z = \sqrt{-2 \ln u_1} \cdot \cos(2\pi\, u_2), \quad u_1, u_2 \sim \text{Uniform}(0,1)$$
 
 After the planned clubs, if not on the green, a greedy policy takes over (pick the club with mean carry closest to remaining). Strategies are ranked by $E[\text{score}] = \frac{1}{N} \sum \text{score}_i$ and the top 3 are shown.`,
+  },
+  {
+    question: 'How does the putting model work?',
+    answer: String.raw`Instead of assuming a flat 2 putts, the simulation estimates putts based on how close you finish to the pin using a log-curve fitted to PGA strokes-gained data:
+
+$$\text{putts}(d) = 1.0 + 0.42 \cdot \ln(d)$$
+
+where $d$ is the distance to the pin in yards. This means:
+
+  1 yard → 1.0 putts
+  3 yards → 1.5 putts
+  5 yards → 1.7 putts
+  10 yards → 2.0 putts
+  20 yards → 2.3 putts
+
+This matters because it rewards strategies that consistently land close to the pin. Two strategies might both reach the green in 2 shots, but if one averages 4 yards from the pin and the other averages 9 yards, the first will score ~0.3 strokes better per hole — a significant edge over a round.
+
+If a shot lands in the chip zone (too close for a full swing but not on the green), the simulator adds 1 chip stroke and assumes the chip leaves you ~3 yards from the pin.`,
   },
   {
     question: 'Why 2,000 trials? Is that enough?',
