@@ -1,16 +1,23 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Check } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { ShotEntrySheet, type ShotEntry } from '../components/wedge-practice/ShotEntrySheet';
 import { useYardageBook } from '../hooks/useYardageBook';
 import { useAllClubs } from '../hooks/useClubs';
 import { useWedgeOverrides } from '../hooks/useWedgeOverrides';
 import { createSession } from '../hooks/useSessions';
 import type { Club } from '../models/club';
 import type { SwingPosition } from '../models/session';
+
+interface ShotEntry {
+  carryYards: number;
+  totalYards?: number;
+  ballSpeed?: number;
+  launchAngle?: number;
+  spinRate?: number;
+}
 
 const SWING_POSITIONS: { key: SwingPosition; label: string; multiplier: number }[] = [
   { key: 'full', label: 'Full', multiplier: 1.0 },
@@ -37,7 +44,17 @@ export function WedgePracticePage() {
   const [location, setLocation] = useState('');
   const [shotData, setShotData] = useState<Map<string, ShotEntry[]>>(new Map());
   const [activeCell, setActiveCell] = useState<CellKey | null>(null);
+  const [inputValue, setInputValue] = useState('');
   const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const blurTimeoutRef = useRef<number>(0);
+
+  // Auto-focus the inline input when a cell becomes active
+  useEffect(() => {
+    if (activeCell) {
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [activeCell]);
 
   // Build wedge list with full carry distances
   const wedges = useMemo(() => {
@@ -76,20 +93,60 @@ export function WedgePracticePage() {
     return count;
   }, [shotData]);
 
+  // Running stats: average delta from target across all cells
+  const avgDelta = useMemo(() => {
+    if (!wedges || totalShotCount === 0) return null;
+    let totalDelta = 0;
+    let count = 0;
+    for (const [key, shots] of shotData.entries()) {
+      const [clubId, position] = key.split(':') as [string, SwingPosition];
+      const wedge = wedges.find((w) => w.club.id === clubId);
+      if (!wedge) continue;
+      const pos = SWING_POSITIONS.find((p) => p.key === position);
+      if (!pos) continue;
+      const target = getTarget(clubId, wedge.fullCarry, pos);
+      for (const shot of shots) {
+        totalDelta += shot.carryYards - target;
+        count++;
+      }
+    }
+    return count > 0 ? totalDelta / count : null;
+  }, [shotData, wedges, totalShotCount, overrideMap]);
+
   const handleCellTap = (clubId: string, position: SwingPosition) => {
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    if (activeCell?.clubId === clubId && activeCell?.position === position) return;
     setActiveCell({ clubId, position });
+    setInputValue('');
   };
 
-  const handleSaveShots = (shots: ShotEntry[]) => {
+  const handleAddShot = () => {
     if (!activeCell) return;
+    const carry = parseFloat(inputValue);
+    if (isNaN(carry) || carry <= 0) return;
     const key = cellKeyStr(activeCell.clubId, activeCell.position);
     const next = new Map(shotData);
-    if (shots.length === 0) {
-      next.delete(key);
-    } else {
-      next.set(key, shots);
-    }
+    const existing = next.get(key) || [];
+    next.set(key, [...existing, { carryYards: carry }]);
     setShotData(next);
+    setInputValue('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddShot();
+    } else if (e.key === 'Escape') {
+      setActiveCell(null);
+      setInputValue('');
+    }
+  };
+
+  const handleInputBlur = () => {
+    blurTimeoutRef.current = window.setTimeout(() => {
+      setActiveCell(null);
+      setInputValue('');
+    }, 200);
   };
 
   const handleSaveSession = async () => {
@@ -139,20 +196,6 @@ export function WedgePracticePage() {
       setSaving(false);
     }
   };
-
-  // Find active cell data for the sheet
-  const activeCellClub = activeCell && wedges
-    ? wedges.find((w) => w.club.id === activeCell.clubId)
-    : null;
-  const activeCellPos = activeCell
-    ? SWING_POSITIONS.find((p) => p.key === activeCell.position)
-    : null;
-  const activeCellTarget = activeCellClub && activeCellPos
-    ? getTarget(activeCellClub.club.id, activeCellClub.fullCarry, activeCellPos)
-    : 0;
-  const activeCellShots = activeCell
-    ? shotData.get(cellKeyStr(activeCell.clubId, activeCell.position)) || []
-    : [];
 
   if (!wedges) return null;
 
@@ -218,32 +261,60 @@ export function WedgePracticePage() {
                     const target = getTarget(club.id, fullCarry, pos);
                     const key = cellKeyStr(club.id, pos.key);
                     const shots = shotData.get(key);
-                    const hasSshots = shots && shots.length > 0;
-                    const avg = hasSshots
+                    const hasShots = shots && shots.length > 0;
+                    const avg = hasShots
                       ? Math.round(shots.reduce((s, sh) => s + sh.carryYards, 0) / shots.length)
                       : null;
+                    const isActive =
+                      activeCell?.clubId === club.id && activeCell?.position === pos.key;
 
                     return (
                       <td key={pos.key} className="py-3 px-2 text-center">
-                        <button
-                          onClick={() => handleCellTap(club.id, pos.key)}
-                          className={`relative inline-block min-w-[3.5rem] rounded-lg px-2 py-1.5 transition ${
-                            hasSshots
-                              ? 'bg-primary/10 font-bold text-primary ring-1 ring-primary/30'
-                              : 'text-text-dark hover:bg-surface'
-                          }`}
-                        >
-                          {hasSshots ? (
-                            <>
-                              {avg}
+                        {isActive ? (
+                          <div className="relative inline-block min-w-[3.5rem]">
+                            <input
+                              ref={inputRef}
+                              type="number"
+                              inputMode="decimal"
+                              value={inputValue}
+                              onChange={(e) => setInputValue(e.target.value)}
+                              onKeyDown={handleKeyDown}
+                              onBlur={handleInputBlur}
+                              placeholder={String(target)}
+                              className="w-16 rounded-lg border border-primary bg-surface px-2 py-1.5 text-center text-sm text-text-dark placeholder-text-faint focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                            {hasShots && (
                               <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
                                 {shots.length}
                               </span>
-                            </>
-                          ) : (
-                            <span className="text-text-muted">{target}</span>
-                          )}
-                        </button>
+                            )}
+                            {avg != null && (
+                              <div className="text-[10px] text-text-muted mt-0.5">
+                                avg: {avg}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleCellTap(club.id, pos.key)}
+                            className={`relative inline-block min-w-[3.5rem] rounded-lg px-2 py-1.5 transition ${
+                              hasShots
+                                ? 'bg-primary/10 font-bold text-primary ring-1 ring-primary/30'
+                                : 'text-text-dark hover:bg-surface'
+                            }`}
+                          >
+                            {hasShots ? (
+                              <>
+                                {avg}
+                                <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
+                                  {shots.length}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-text-muted">{target}</span>
+                            )}
+                          </button>
+                        )}
                       </td>
                     );
                   })}
@@ -254,8 +325,25 @@ export function WedgePracticePage() {
         </div>
 
         <p className="mt-2 text-xs text-text-faint">
-          Tap a cell to enter shots. Target distances shown in gray.
+          Tap a cell, type carry, press Enter. Target distances shown in gray.
         </p>
+
+        {/* Running session stats */}
+        {totalShotCount > 0 && (
+          <div className="mt-4 flex items-center justify-between rounded-xl bg-surface px-4 py-2">
+            <span className="text-sm text-text-medium">
+              {totalShotCount} shot{totalShotCount !== 1 ? 's' : ''}
+            </span>
+            {avgDelta != null && (
+              <span
+                className={`text-sm font-semibold ${avgDelta >= 0 ? 'text-green-500' : 'text-coral'}`}
+              >
+                Avg {avgDelta >= 0 ? '+' : ''}
+                {avgDelta.toFixed(1)} yds
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Save button */}
         <div className="mt-6">
@@ -270,17 +358,6 @@ export function WedgePracticePage() {
           </Button>
         </div>
       </div>
-
-      {/* Shot entry bottom sheet */}
-      <ShotEntrySheet
-        open={!!activeCell}
-        onClose={() => setActiveCell(null)}
-        clubName={activeCellClub?.club.name ?? ''}
-        positionLabel={activeCellPos?.label ?? ''}
-        targetYards={activeCellTarget}
-        initialShots={activeCellShots}
-        onSave={handleSaveShots}
-      />
     </>
   );
 }

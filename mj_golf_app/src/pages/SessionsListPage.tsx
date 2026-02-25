@@ -82,7 +82,7 @@ export function SessionsListPage() {
                 <div className="flex items-center gap-2">
                   <div className="text-right mr-2">
                     <div className="text-sm text-text-medium">{session.shotCount} shots</div>
-                    <div className="text-[10px] text-text-faint capitalize">{session.source}</div>
+                    <div className="text-[10px] text-text-faint uppercase">{session.source}</div>
                   </div>
                   <button
                     onClick={(e) => openEdit(session, e)}

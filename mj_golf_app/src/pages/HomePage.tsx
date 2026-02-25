@@ -22,8 +22,8 @@ export function HomePage() {
       <TopBar title="MJ Golf" />
       <div className="px-4 py-6">
         <div className="mb-6">
-          <h2 className="mb-1 text-2xl font-bold">Welcome back</h2>
-          <p className="text-sm text-text-medium">Track your game, improve your scores.</p>
+          <h2 className="mb-1 text-2xl font-bold">Madhu's Yardage Book</h2>
+          <p className="text-sm text-text-medium">Powered by real data and statistics.</p>
         </div>
 
         {/* Quick Actions */}
