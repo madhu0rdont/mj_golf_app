@@ -3,9 +3,11 @@ import type { ClubShotGroup } from '../../hooks/useYardageBook';
 import type { ShotShape } from '../../models/session';
 import { mean, stddev } from '../../services/stats';
 import { THEME } from '../../theme/colors';
+import type { ClubDistribution } from '../../services/monte-carlo';
 
 interface YardageSummaryTableProps {
   clubs: ClubShotGroup[];
+  distributions?: ClubDistribution[];
 }
 
 const COLUMNS = [
@@ -33,11 +35,14 @@ type ColKey = (typeof COLUMNS)[number]['key'];
 
 interface ClubStats {
   clubName: string;
+  clubId: string;
   color: string;
   shotCount: number;
   avg: Record<ColKey, number | undefined>;
   sd: Record<ColKey, number | undefined>;
   avgCarry: number;
+  avgOffline: number | undefined;
+  sdOffline: number | undefined;
   imputed: boolean;
   dominantShape?: ShotShape;
 }
@@ -49,7 +54,7 @@ function formatVal(value: number | undefined, decimals: number): string {
   return rounded.toLocaleString();
 }
 
-export function YardageSummaryTable({ clubs }: YardageSummaryTableProps) {
+export function YardageSummaryTable({ clubs, distributions }: YardageSummaryTableProps) {
   const rows = useMemo(() => {
     const result: ClubStats[] = clubs.map((c) => {
       const avg = {} as Record<ColKey, number | undefined>;
@@ -61,6 +66,23 @@ export function YardageSummaryTable({ clubs }: YardageSummaryTableProps) {
           .filter((v): v is number => v != null);
         avg[col.key] = vals.length > 0 ? mean(vals) : undefined;
         sd[col.key] = vals.length > 1 ? stddev(vals) : undefined;
+      }
+
+      // Offline stats
+      let avgOffline: number | undefined;
+      let sdOffline: number | undefined;
+      if (!c.imputed) {
+        const offlines = c.shots
+          .map((s) => s.offlineYards)
+          .filter((v): v is number => v != null);
+        avgOffline = offlines.length > 0 ? mean(offlines) : undefined;
+        sdOffline = offlines.length > 1 ? stddev(offlines) : undefined;
+      } else {
+        const dist = distributions?.find((d) => d.clubId === c.clubId);
+        if (dist) {
+          avgOffline = dist.meanOffline;
+          sdOffline = dist.stdOffline;
+        }
       }
 
       // Dominant shape
@@ -78,11 +100,14 @@ export function YardageSummaryTable({ clubs }: YardageSummaryTableProps) {
 
       return {
         clubName: c.clubName,
+        clubId: c.clubId,
         color: c.color,
         shotCount: c.shots.length,
         avg,
         sd,
         avgCarry: avg.carryYards ?? 0,
+        avgOffline,
+        sdOffline,
         imputed: !!c.imputed,
         dominantShape,
       };
@@ -113,6 +138,13 @@ export function YardageSummaryTable({ clubs }: YardageSummaryTableProps) {
                   </span>
                 </th>
               ))}
+              <th className="px-2 py-2 text-right text-[10px] font-medium uppercase tracking-wider text-text-muted">
+                Offline
+                <br />
+                <span className="font-normal normal-case tracking-normal text-text-faint">
+                  (yds)
+                </span>
+              </th>
               <th className="px-2 py-2 text-center text-[10px] font-medium uppercase tracking-wider text-text-muted">
                 Shape
               </th>
@@ -148,6 +180,18 @@ export function YardageSummaryTable({ clubs }: YardageSummaryTableProps) {
                     )}
                   </td>
                 ))}
+                <td className="px-2 py-1.5 text-right align-top">
+                  <div className={`font-mono ${row.imputed ? 'italic text-text-medium' : 'font-semibold text-text-dark'}`}>
+                    {row.avgOffline != null
+                      ? `${row.avgOffline >= 0 ? '+' : ''}${Math.round(row.avgOffline)}`
+                      : '\u2014'}
+                  </div>
+                  {row.sdOffline != null && (
+                    <div className="font-mono text-[10px] text-text-muted">
+                      ±{Math.round(row.sdOffline)}
+                    </div>
+                  )}
+                </td>
                 <td className="px-2 py-1.5 text-center align-top">
                   {row.dominantShape ? (
                     <span className="inline-flex items-center gap-1">

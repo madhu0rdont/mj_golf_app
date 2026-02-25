@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
 import type { ClubShotGroup } from '../../hooks/useYardageBook';
 import type { AxisScale } from '../flight/flight-math';
+import type { ClubDistribution } from '../../services/monte-carlo';
 import { computeLandingDots, computeDispersionEllipse } from '../flight/flight-math';
 import { THEME } from '../../theme/colors';
 
 interface MultiClubDispersionChartProps {
   clubs: ClubShotGroup[];
   xScale: AxisScale;
+  imputedDistributions?: ClubDistribution[];
 }
 
 const WIDTH = 600;
@@ -15,7 +17,7 @@ const MARGIN = { top: 8, right: 10, bottom: 8, left: 10 };
 const PLOT_W = WIDTH - MARGIN.left - MARGIN.right;
 const PLOT_H = HEIGHT - MARGIN.top - MARGIN.bottom;
 
-export function MultiClubDispersionChart({ clubs, xScale }: MultiClubDispersionChartProps) {
+export function MultiClubDispersionChart({ clubs, xScale, imputedDistributions = [] }: MultiClubDispersionChartProps) {
   const clubData = useMemo(
     () =>
       clubs
@@ -28,10 +30,27 @@ export function MultiClubDispersionChart({ clubs, xScale }: MultiClubDispersionC
     [clubs]
   );
 
+  const imputedEllipses = useMemo(
+    () =>
+      imputedDistributions.map((d) => {
+        const club = clubs.find((c) => c.clubId === d.clubId);
+        return {
+          color: club?.color ?? '#888',
+          clubName: d.clubName,
+          cx: d.meanCarry,
+          cy: d.meanOffline,
+          rx: d.stdCarry * 2,
+          ry: d.stdOffline * 2,
+        };
+      }),
+    [imputedDistributions, clubs]
+  );
+
   const maxOffline = useMemo(() => {
-    const allAbs = clubData.flatMap((c) => c.dots.map((d) => Math.abs(d.y)));
-    return Math.max(...allAbs, 10) * 1.3;
-  }, [clubData]);
+    const realAbs = clubData.flatMap((c) => c.dots.map((d) => Math.abs(d.y)));
+    const imputedAbs = imputedEllipses.map((e) => Math.abs(e.cy) + e.ry);
+    return Math.max(...realAbs, ...imputedAbs, 10) * 1.3;
+  }, [clubData, imputedEllipses]);
 
   const sx = (x: number) =>
     MARGIN.left + ((x - xScale.min) / (xScale.max - xScale.min)) * PLOT_W;
@@ -97,6 +116,27 @@ export function MultiClubDispersionChart({ clubs, xScale }: MultiClubDispersionC
             stroke={color}
             strokeOpacity={0.5}
             strokeWidth="1.5"
+          />
+        );
+      })}
+
+      {/* Imputed ellipses (dashed) */}
+      {imputedEllipses.map(({ color, clubName, cx, cy, rx, ry }) => {
+        const rxPx = (rx / (xScale.max - xScale.min)) * PLOT_W;
+        const ryPx = (ry / (2 * maxOffline)) * PLOT_H;
+        return (
+          <ellipse
+            key={`imp-${clubName}`}
+            cx={sx(cx)}
+            cy={sy(cy)}
+            rx={Math.max(rxPx, 8)}
+            ry={Math.max(ryPx, 4)}
+            fill={color}
+            fillOpacity={0.04}
+            stroke={color}
+            strokeOpacity={0.35}
+            strokeWidth="1.5"
+            strokeDasharray="4 3"
           />
         );
       })}

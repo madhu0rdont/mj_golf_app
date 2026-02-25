@@ -5,6 +5,7 @@ import { MultiClubDispersionChart } from './MultiClubDispersionChart';
 import { YardageSummaryTable } from './YardageSummaryTable';
 import { useYardageBookShots } from '../../hooks/useYardageBook';
 import { computeXScale } from '../flight/flight-math';
+import { buildDistributions } from '../../services/monte-carlo';
 
 export function DetailsTab() {
   const clubs = useYardageBookShots();
@@ -42,6 +43,18 @@ export function DetailsTab() {
   );
 
   const xScale = useMemo(() => computeXScale(allShots), [allShots]);
+
+  const distributions = useMemo(
+    () => buildDistributions(filteredClubs),
+    [filteredClubs]
+  );
+
+  const imputedDistributions = useMemo(
+    () => distributions.filter((d) =>
+      filteredClubs.some((c) => c.clubId === d.clubId && c.imputed)
+    ),
+    [distributions, filteredClubs]
+  );
 
   const realClubCount = filteredClubs.filter((c) => !c.imputed).length;
   const imputedClubCount = filteredClubs.filter((c) => c.imputed).length;
@@ -103,14 +116,14 @@ export function DetailsTab() {
               <MultiClubTrajectoryChart clubs={filteredClubs} xScale={xScale} />
             </div>
             <div className="w-full rounded-xl border border-border overflow-hidden shadow-[var(--shadow-card)]">
-              <MultiClubDispersionChart clubs={filteredClubs} xScale={xScale} />
+              <MultiClubDispersionChart clubs={filteredClubs} xScale={xScale} imputedDistributions={imputedDistributions} />
             </div>
           </div>
         )}
       </div>
 
       {/* Summary table */}
-      <YardageSummaryTable clubs={filteredClubs} />
+      <YardageSummaryTable clubs={filteredClubs} distributions={distributions} />
     </>
   );
 }
