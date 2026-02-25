@@ -14,6 +14,7 @@ export interface ApproachStrategy {
   clubs: { clubId: string; clubName: string }[];
   expectedStrokes: number;
   label: string;
+  tip?: string; // e.g. "Grip 2\" down for 178y"
 }
 
 const MIN_SHOTS_FOR_DISTRIBUTION = 3;
@@ -189,8 +190,8 @@ function clubLabel(c: ClubDistribution): string {
   return `${c.clubName} (${Math.round(c.meanCarry)})`;
 }
 
-/** Verbose approach label with grip-down advice when the club overshoots the target */
-function approachLabel(c: ClubDistribution, targetYards: number): string {
+/** Verbose approach label with optional grip-down tip when the club overshoots */
+function approachLabel(c: ClubDistribution, targetYards: number): { label: string; tip?: string } {
   const fullCarry = Math.round(c.meanCarry);
   const overshoot = c.meanCarry - targetYards;
 
@@ -198,11 +199,14 @@ function approachLabel(c: ClubDistribution, targetYards: number): string {
     const inches = Math.min(MAX_GRIP_DOWN_INCHES, Math.round(overshoot / GRIP_DOWN_YDS_PER_INCH));
     if (inches > 0) {
       const adjusted = fullCarry - inches * GRIP_DOWN_YDS_PER_INCH;
-      return `${c.clubName} (Full = ${fullCarry}), Grip ${inches}" down for ${adjusted}y`;
+      return {
+        label: `${c.clubName} (Full = ${fullCarry})`,
+        tip: `Grip ${inches}" down for ${adjusted}y`,
+      };
     }
   }
 
-  return `${c.clubName} (Full = ${fullCarry})`;
+  return { label: `${c.clubName} (Full = ${fullCarry})` };
 }
 
 /** Find the best multi-club approach strategies for a given distance */
@@ -213,7 +217,7 @@ export function findBestApproaches(
 ): ApproachStrategy[] {
   if (clubs.length === 0) return [];
 
-  const candidates: { plan: ClubDistribution[]; label: string }[] = [];
+  const candidates: { plan: ClubDistribution[]; label: string; tip?: string }[] = [];
 
   // Plan depth based on distance:
   // ≤ 225 yds → 1-club plans (par-3 approach)
@@ -223,9 +227,11 @@ export function findBestApproaches(
     // 1-club plans — approach label with grip-down advice
     for (const c of clubs) {
       if (Math.abs(c.meanCarry - distance) < 40) {
+        const approach = approachLabel(c, distance);
         candidates.push({
           plan: [c],
-          label: approachLabel(c, distance),
+          label: approach.label,
+          tip: approach.tip,
         });
       }
     }
@@ -236,10 +242,11 @@ export function findBestApproaches(
       for (const c2 of clubs) {
         const sumCarry = c1.meanCarry + c2.meanCarry;
         if (Math.abs(sumCarry - distance) < 60) {
-          const remainder = distance - c1.meanCarry;
+          const approach = approachLabel(c2, distance - c1.meanCarry);
           candidates.push({
             plan: [c1, c2],
-            label: `${clubLabel(c1)} → ${approachLabel(c2, remainder)}`,
+            label: `${clubLabel(c1)} → ${approach.label}`,
+            tip: approach.tip,
           });
         }
       }
@@ -253,10 +260,11 @@ export function findBestApproaches(
       for (const c2 of clubs) {
         const sum2 = c1.meanCarry + c2.meanCarry;
         if (Math.abs(sum2 - distance) < 80) {
-          const remainder = distance - c1.meanCarry;
+          const approach = approachLabel(c2, distance - c1.meanCarry);
           candidates.push({
             plan: [c1, c2],
-            label: `${clubLabel(c1)} → ${approachLabel(c2, remainder)}`,
+            label: `${clubLabel(c1)} → ${approach.label}`,
+            tip: approach.tip,
           });
         }
       }
@@ -268,10 +276,11 @@ export function findBestApproaches(
         for (const c3 of clubs) {
           const sum3 = sum12 + c3.meanCarry;
           if (Math.abs(sum3 - distance) < 80) {
-            const remainder = distance - sum12;
+            const approach = approachLabel(c3, distance - sum12);
             candidates.push({
               plan: [c1, c2, c3],
-              label: `${clubLabel(c1)} → ${clubLabel(c2)} → ${approachLabel(c3, remainder)}`,
+              label: `${clubLabel(c1)} → ${clubLabel(c2)} → ${approach.label}`,
+              tip: approach.tip,
             });
           }
         }
@@ -286,10 +295,11 @@ export function findBestApproaches(
   const effectiveTrials = Math.max(500, Math.min(trials, Math.floor(maxWork / candidates.length)));
 
   // Simulate each candidate
-  const results: ApproachStrategy[] = candidates.map(({ plan, label }) => ({
+  const results: ApproachStrategy[] = candidates.map(({ plan, label, tip }) => ({
     clubs: plan.map((c) => ({ clubId: c.clubId, clubName: c.clubName })),
     expectedStrokes: simulateStrategy(distance, plan, clubs, effectiveTrials),
     label,
+    tip,
   }));
 
   // Sort by expected strokes ascending, return top 3

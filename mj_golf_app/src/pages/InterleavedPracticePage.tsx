@@ -462,9 +462,14 @@ export function InterleavedPracticePage() {
                             : 'hover:bg-primary/5'
                         }`}
                       >
-                        <span className={`font-medium break-words min-w-0 ${i === 0 ? 'text-primary' : 'text-text-dark'}`}>
-                          {strategy.label}
-                        </span>
+                        <div className="min-w-0">
+                          <span className={`font-medium ${i === 0 ? 'text-primary' : 'text-text-dark'}`}>
+                            {strategy.label}
+                          </span>
+                          {strategy.tip && (
+                            <p className="text-xs text-gold-dark mt-0.5">{strategy.tip}</p>
+                          )}
+                        </div>
                         <span className="flex-shrink-0 text-xs text-text-muted tabular-nums whitespace-nowrap">
                           ~{strategy.expectedStrokes.toFixed(1)}
                         </span>
