@@ -13,7 +13,7 @@ export async function clearIndexedDB(page: Page) {
   });
 }
 
-export async function navigateTo(page: Page, tab: 'Home' | 'Bag' | 'Yardage' | 'Course') {
+export async function navigateTo(page: Page, tab: 'Home' | 'Bag' | 'Yardage') {
   await page.getByRole('link', { name: tab }).click();
   await page.waitForTimeout(300);
 }
