@@ -4,7 +4,15 @@ import { useYardageBook } from '../../hooks/useYardageBook';
 import { useAllClubs, updateClub } from '../../hooks/useClubs';
 import { imputeFromCarryAndLoft } from '../../services/impute';
 import type { Club, ClubCategory } from '../../models/club';
+import type { ShotShape } from '../../models/session';
 import type { YardageBookEntry } from '../../models/yardage';
+
+const SHAPE_FILTERS: { key: ShotShape | undefined; label: string }[] = [
+  { key: undefined, label: 'All' },
+  { key: 'straight', label: 'Straight' },
+  { key: 'draw', label: 'Draw' },
+  { key: 'fade', label: 'Fade' },
+];
 
 const CATEGORY_LABELS: Record<ClubCategory, string> = {
   driver: 'Driver',
@@ -94,7 +102,8 @@ function YardageRow({ club, entry }: { club: Club; entry?: YardageBookEntry }) {
 }
 
 export function YardagesTab() {
-  const entries = useYardageBook();
+  const [shapeFilter, setShapeFilter] = useState<ShotShape | undefined>(undefined);
+  const entries = useYardageBook(false, shapeFilter);
   const clubs = useAllClubs();
 
   const grouped = useMemo(() => {
@@ -126,6 +135,23 @@ export function YardagesTab() {
 
   return (
     <div className="space-y-4">
+      {/* Shot shape filter */}
+      <div className="flex gap-2">
+        {SHAPE_FILTERS.map(({ key, label }) => (
+          <button
+            key={label}
+            onClick={() => setShapeFilter(key)}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+              shapeFilter === key
+                ? 'bg-primary text-white'
+                : 'bg-surface text-text-muted hover:text-text-dark'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {grouped.map((group) => (
         <div key={group.category}>
           <h3 className="mb-1.5 text-xs font-medium text-text-muted uppercase tracking-wide">

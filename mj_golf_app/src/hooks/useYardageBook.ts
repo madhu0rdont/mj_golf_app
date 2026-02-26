@@ -124,11 +124,13 @@ export function computeYardageBook(
   clubs: Club[],
   allSessions: Session[],
   allShots: Shot[],
-  excludeMishits: boolean
+  excludeMishits: boolean,
+  shapeFilter?: ShotShape
 ): YardageBookEntry[] {
   const shotsBySession = new Map<string, Shot[]>();
   for (const shot of allShots) {
     if (excludeMishits && shot.quality === 'mishit') continue;
+    if (shapeFilter && shot.shape !== shapeFilter) continue;
     const list = shotsBySession.get(shot.sessionId) || [];
     list.push(shot);
     shotsBySession.set(shot.sessionId, list);
@@ -175,15 +177,15 @@ export function computeYardageBook(
   return entries;
 }
 
-export function useYardageBook(excludeMishits = false): YardageBookEntry[] | undefined {
+export function useYardageBook(excludeMishits = false, shapeFilter?: ShotShape): YardageBookEntry[] | undefined {
   const { data: clubs } = useSWR<Club[]>('/api/clubs', fetcher);
   const { data: allSessions } = useSWR<Session[]>('/api/sessions?all=true', fetcher);
   const { data: allShots } = useSWR<Shot[]>('/api/shots', fetcher);
 
   return useMemo(() => {
     if (!clubs || !allSessions || !allShots) return undefined;
-    return computeYardageBook(clubs, allSessions, allShots, excludeMishits);
-  }, [clubs, allSessions, allShots, excludeMishits]);
+    return computeYardageBook(clubs, allSessions, allShots, excludeMishits, shapeFilter);
+  }, [clubs, allSessions, allShots, excludeMishits, shapeFilter]);
 }
 
 export interface ClubShotGroup {
