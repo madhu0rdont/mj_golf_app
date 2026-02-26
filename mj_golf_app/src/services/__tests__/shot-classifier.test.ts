@@ -122,11 +122,11 @@ describe('classifyAllShots', () => {
       makeShot({ id: 's2', carryYards: 160, shotNumber: 2 }),
       makeShot({ id: 's3', carryYards: 170, shotNumber: 3 }),
     ];
-    // mean=160, stddev=~8.16
+    // mean=160, sample stddev=10, deviation of 10 = 1.0*stddev
     const result = classifyAllShots(shots);
     expect(result[1].quality).toBe('pure');   // deviation=0
-    expect(result[0].quality).toBe('acceptable'); // deviation=10 > 1.0*8.16
-    expect(result[2].quality).toBe('acceptable'); // deviation=10 > 1.0*8.16
+    expect(result[0].quality).toBe('good');   // deviation=10 = 1.0*stddev
+    expect(result[2].quality).toBe('good');   // deviation=10 = 1.0*stddev
   });
 
   it('assigns shape to each shot based on spinAxis and offlineYards', () => {

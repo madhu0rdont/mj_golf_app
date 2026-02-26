@@ -5,6 +5,7 @@ import { CarryOverTimeChart } from '../components/charts/CarryOverTimeChart';
 import { StatCard } from '../components/charts/StatCard';
 import { useClub } from '../hooks/useClubs';
 import { useClubHistory, useYardageBook } from '../hooks/useYardageBook';
+import { LoadingPage } from '../components/ui/LoadingPage';
 
 export function ClubDetailPage() {
   const { clubId } = useParams();
@@ -14,12 +15,7 @@ export function ClubDetailPage() {
   const yardageBook = useYardageBook();
 
   if (!club || !history || !yardageBook) {
-    return (
-      <>
-        <TopBar title="Club Detail" showBack />
-        <div className="px-4 py-8 text-center text-sm text-text-muted">Loading...</div>
-      </>
-    );
+    return <LoadingPage title="Club Detail" showBack />;
   }
 
   const entry = yardageBook.find((e) => e.clubId === clubId);

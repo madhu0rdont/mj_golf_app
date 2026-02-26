@@ -5,6 +5,7 @@ import { ClubForm, type ClubFormData } from '../components/clubs/ClubForm';
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { useClub, addClub, updateClub, deleteClub } from '../hooks/useClubs';
+import { LoadingPage } from '../components/ui/LoadingPage';
 
 export function ClubEditPage() {
   const { clubId } = useParams();
@@ -15,7 +16,7 @@ export function ClubEditPage() {
   const isEditing = Boolean(clubId);
 
   // While loading an existing club
-  if (isEditing && club === undefined) return null;
+  if (isEditing && club === undefined) return <LoadingPage title="Edit Club" showBack />;
 
   const handleSave = async (data: ClubFormData) => {
     if (isEditing && clubId) {

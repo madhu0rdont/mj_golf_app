@@ -5,12 +5,13 @@ import { ClubList } from '../components/clubs/ClubList';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Button } from '../components/ui/Button';
 import { useAllClubs } from '../hooks/useClubs';
+import { LoadingPage } from '../components/ui/LoadingPage';
 import { api } from '../lib/api';
 
 export function ClubBagPage() {
   const clubs = useAllClubs();
 
-  if (clubs === undefined) return null; // loading
+  if (clubs === undefined) return <LoadingPage title="My Bag" />;
 
   return (
     <>

@@ -10,6 +10,7 @@ import { useWedgeOverrides } from '../hooks/useWedgeOverrides';
 import { createSession } from '../hooks/useSessions';
 import type { Club } from '../models/club';
 import type { SwingPosition } from '../models/session';
+import { LoadingPage } from '../components/ui/LoadingPage';
 
 interface ShotEntry {
   carryYards: number;
@@ -193,11 +194,12 @@ export function WedgePracticePage() {
       navigate(`/session/${sessionId}`);
     } catch (err) {
       console.error('Failed to save wedge practice session', err);
+    } finally {
       setSaving(false);
     }
   };
 
-  if (!wedges) return null;
+  if (!wedges) return <LoadingPage title="Wedge Practice" showBack />;
 
   if (wedges.length === 0) {
     return (

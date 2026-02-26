@@ -31,18 +31,12 @@ export async function importAllData(file: File): Promise<{ clubs: number; sessio
     throw new Error('Invalid backup file format');
   }
 
-  const result = await api.post<{ clubs: number; sessions: number; shots: number }>(
+  return api.post<{ clubs: number; sessions: number; shots: number }>(
     '/backup/import',
     data
   );
-
-  // Force full reload to clear all SWR caches
-  window.location.reload();
-
-  return result;
 }
 
 export async function clearAllData(): Promise<void> {
   await api.post('/backup/import', { version: 1, clubs: [], sessions: [], shots: [] });
-  window.location.reload();
 }

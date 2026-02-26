@@ -50,8 +50,9 @@ export function classifyAllShots(shots: Shot[], handedness: Handedness = 'right'
 
   const carries = shots.map((s) => s.carryYards);
   const avg = carries.reduce((a, b) => a + b, 0) / carries.length;
-  const variance = carries.reduce((sum, c) => sum + (c - avg) ** 2, 0) / carries.length;
-  const stdDev = Math.sqrt(variance);
+  const stdDev = carries.length <= 1
+    ? 0
+    : Math.sqrt(carries.reduce((sum, c) => sum + (c - avg) ** 2, 0) / (carries.length - 1));
 
   return shots.map((shot) => ({
     ...shot,

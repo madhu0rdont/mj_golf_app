@@ -48,16 +48,17 @@ function formatVal(value: number | undefined, decimals: number, locale = false):
 
 export function TrackmanTable({ shots, excludeMishits = false }: TrackmanTableProps) {
   const stats = useMemo(() => {
-    const result: Record<ColKey, { avg: number | undefined; sd: number | undefined }> = {} as any;
-    for (const col of COLUMNS) {
-      const vals = shots
-        .map((s) => s[col.key] as number | undefined)
-        .filter((v): v is number => v != null);
-      result[col.key] = {
-        avg: vals.length > 0 ? mean(vals) : undefined,
-        sd: vals.length > 1 ? stddev(vals) : undefined,
-      };
-    }
+    const result = Object.fromEntries(
+      COLUMNS.map((col) => {
+        const vals = shots
+          .map((s) => s[col.key] as number | undefined)
+          .filter((v): v is number => v != null);
+        return [col.key, {
+          avg: vals.length > 0 ? mean(vals) : undefined,
+          sd: vals.length > 1 ? stddev(vals) : undefined,
+        }];
+      })
+    ) as Record<ColKey, { avg: number | undefined; sd: number | undefined }>;
     return result;
   }, [shots]);
 

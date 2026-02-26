@@ -5,6 +5,7 @@ import { TopBar } from '../components/layout/TopBar';
 import { Select } from '../components/ui/Select';
 import { Input } from '../components/ui/Input';
 import { useAllClubs } from '../hooks/useClubs';
+import { LoadingPage } from '../components/ui/LoadingPage';
 import type { SessionType } from '../models/session';
 
 const SESSION_TYPES: { key: SessionType; label: string; desc: string; icon: typeof Target }[] = [
@@ -21,7 +22,7 @@ export function SessionNewPage() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [location, setLocation] = useState('');
 
-  if (clubs === undefined) return null;
+  if (clubs === undefined) return <LoadingPage title="New Session" showBack />;
 
   const clubOptions = clubs.map((c) => ({ value: c.id, label: c.name }));
   const selectedClub = clubId || (clubs.length > 0 ? clubs[0].id : '');

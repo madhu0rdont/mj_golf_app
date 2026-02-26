@@ -58,10 +58,10 @@ describe('stddev', () => {
     expect(stddev([42])).toBe(0);
   });
 
-  it('computes population stddev', () => {
-    // [10, 20, 30]: mean=20, variance=((100+0+100)/3)=66.67, stddev=~8.165
+  it('computes sample stddev (Bessel-corrected)', () => {
+    // [10, 20, 30]: mean=20, variance=((100+0+100)/2)=100, stddev=10
     const result = stddev([10, 20, 30]);
-    expect(result).toBeCloseTo(8.165, 2);
+    expect(result).toBeCloseTo(10, 2);
   });
 
   it('returns 0 when all values are identical', () => {

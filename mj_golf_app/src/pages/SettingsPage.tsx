@@ -28,6 +28,7 @@ export function SettingsPage() {
     try {
       const result = await importAllData(file);
       setImportStatus(`Imported ${result.clubs} clubs, ${result.sessions} sessions, ${result.shots} shots`);
+      window.location.reload();
     } catch (err) {
       setImportStatus('Import failed: ' + (err instanceof Error ? err.message : 'Invalid file'));
     }
@@ -36,6 +37,7 @@ export function SettingsPage() {
   const handleClear = async () => {
     await clearAllData();
     setShowClearConfirm(false);
+    window.location.reload();
   };
 
   const handleResetBag = async () => {

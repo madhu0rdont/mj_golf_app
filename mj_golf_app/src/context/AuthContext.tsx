@@ -33,8 +33,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true };
     }
 
-    const data = await res.json();
-    return { success: false, error: data.error || 'Login failed' };
+    try {
+      const data = await res.json();
+      return { success: false, error: data.error || 'Login failed' };
+    } catch {
+      return { success: false, error: 'Login failed' };
+    }
   }, []);
 
   const logout = useCallback(async () => {
