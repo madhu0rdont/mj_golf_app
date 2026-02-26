@@ -146,7 +146,7 @@ export function computeLandingDots(shots: Shot[]): LandingDot[] {
   return shots.map((s) => ({
     shotId: s.id,
     x: s.carryYards,
-    y: s.offlineYards ?? 0,
+    y: -(s.offlineYards ?? 0),
   }));
 }
 
