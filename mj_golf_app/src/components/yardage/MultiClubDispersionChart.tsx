@@ -91,12 +91,12 @@ export function MultiClubDispersionChart({ clubs, xScale, imputedDistributions =
         stroke={THEME.grassCenter} strokeWidth="1" strokeDasharray="4 3"
       />
 
-      {/* L/R labels — for a left-handed golfer, positive offlineYards = left of target */}
+      {/* L/R labels — positive offlineYards = right of target, mapped to top */}
       <text x={MARGIN.left + 2} y={MARGIN.top + 10} fill={THEME.grassLabel} fontSize="8" fontFamily="system-ui">
-        L
+        R
       </text>
       <text x={MARGIN.left + 2} y={HEIGHT - MARGIN.bottom - 4} fill={THEME.grassLabel} fontSize="8" fontFamily="system-ui">
-        R
+        L
       </text>
 
       {/* Ellipses (render behind dots) */}
