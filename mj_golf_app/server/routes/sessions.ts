@@ -41,15 +41,32 @@ router.get('/:id', async (req, res) => {
 // Body: { clubId?, type?, date, location?, notes?, source, shots: [...] }
 router.post('/', async (req, res) => {
   const { clubId, type = 'block', date, location, notes, source, metadata, shots: rawShots } = req.body;
+
+  const VALID_TYPES = ['block', 'wedge-distance', 'interleaved'];
+  if (!VALID_TYPES.includes(type)) {
+    return res.status(400).json({ error: `Invalid session type: ${type}` });
+  }
+  if (!Array.isArray(rawShots) || rawShots.length === 0) {
+    return res.status(400).json({ error: 'Sessions must include at least one shot' });
+  }
+
   const sessionId = crypto.randomUUID();
   const now = Date.now();
   const isMultiClub = type === 'wedge-distance' || type === 'interleaved';
+
+  if (isMultiClub) {
+    const missing = rawShots.some((s: Record<string, unknown>) => !s.clubId);
+    if (missing) {
+      return res.status(400).json({ error: 'All shots in multi-club sessions must have a clubId' });
+    }
+  }
 
   // Build shot objects
   const shotsWithIds = rawShots.map((s: Record<string, unknown>, i: number) => ({
     ...s,
     id: crypto.randomUUID(),
     sessionId,
+    carryYards: s.carryYards as number,
     clubId: isMultiClub ? s.clubId : clubId,
     position: s.position || null,
     holeNumber: s.holeNumber ?? null,
