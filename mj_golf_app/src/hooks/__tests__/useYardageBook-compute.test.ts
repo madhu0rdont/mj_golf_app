@@ -148,6 +148,81 @@ describe('computeYardageBook', () => {
     expect(result[0].sessionCount).toBe(2);
   });
 
+  it('filters shots by shape when shapeFilter is provided', () => {
+    const clubs = [makeClub()];
+    const sessions = [makeSession()];
+    const shots = [
+      makeShot({ id: 's1', carryYards: 150, shape: 'draw' }),
+      makeShot({ id: 's2', carryYards: 160, shape: 'straight' }),
+      makeShot({ id: 's3', carryYards: 155, shape: 'draw' }),
+    ];
+    const result = computeYardageBook(clubs, sessions, shots, false, 'draw');
+    expect(result).toHaveLength(1);
+    expect(result[0].shotCount).toBe(2); // only draw shots
+    expect(result[0].bookCarry).toBeCloseTo(152.5, 0);
+  });
+
+  it('returns no entries when no shots match shapeFilter', () => {
+    const clubs = [makeClub()];
+    const sessions = [makeSession()];
+    const shots = [
+      makeShot({ id: 's1', carryYards: 150, shape: 'fade' }),
+      makeShot({ id: 's2', carryYards: 160, shape: 'fade' }),
+    ];
+    const result = computeYardageBook(clubs, sessions, shots, false, 'draw');
+    expect(result).toHaveLength(0);
+  });
+
+  it('returns all shots when shapeFilter is undefined', () => {
+    const clubs = [makeClub()];
+    const sessions = [makeSession()];
+    const shots = [
+      makeShot({ id: 's1', carryYards: 150, shape: 'draw' }),
+      makeShot({ id: 's2', carryYards: 160, shape: 'straight' }),
+      makeShot({ id: 's3', carryYards: 155, shape: 'fade' }),
+    ];
+    const result = computeYardageBook(clubs, sessions, shots, false, undefined);
+    expect(result).toHaveLength(1);
+    expect(result[0].shotCount).toBe(3);
+  });
+
+  it('combines shapeFilter with excludeMishits', () => {
+    const clubs = [makeClub()];
+    const sessions = [makeSession()];
+    const shots = [
+      makeShot({ id: 's1', carryYards: 150, shape: 'draw', quality: 'good' }),
+      makeShot({ id: 's2', carryYards: 100, shape: 'draw', quality: 'mishit' }),
+      makeShot({ id: 's3', carryYards: 160, shape: 'straight', quality: 'good' }),
+    ];
+    const result = computeYardageBook(clubs, sessions, shots, true, 'draw');
+    expect(result).toHaveLength(1);
+    expect(result[0].shotCount).toBe(1); // only draw + non-mishit
+    expect(result[0].bookCarry).toBeCloseTo(150, 0);
+  });
+
+  it('includes shots without shape when no shapeFilter', () => {
+    const clubs = [makeClub()];
+    const sessions = [makeSession()];
+    const shots = [
+      makeShot({ id: 's1', carryYards: 150 }), // no shape
+      makeShot({ id: 's2', carryYards: 160, shape: 'draw' }),
+    ];
+    const result = computeYardageBook(clubs, sessions, shots, false);
+    expect(result[0].shotCount).toBe(2);
+  });
+
+  it('excludes shots without shape when shapeFilter is set', () => {
+    const clubs = [makeClub()];
+    const sessions = [makeSession()];
+    const shots = [
+      makeShot({ id: 's1', carryYards: 150 }), // no shape — excluded
+      makeShot({ id: 's2', carryYards: 160, shape: 'draw' }),
+    ];
+    const result = computeYardageBook(clubs, sessions, shots, false, 'draw');
+    expect(result[0].shotCount).toBe(1);
+    expect(result[0].bookCarry).toBeCloseTo(160, 0);
+  });
+
   it('sorts sessions by date descending for each club', () => {
     const now = Date.now();
     const DAY = 86400000;

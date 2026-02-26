@@ -155,6 +155,7 @@ export function computeYardageBook(
       }
     } else if (session.clubId) {
       const shots = shotsBySession.get(session.id) || [];
+      if (shots.length === 0) continue;
       const list = sessionsByClub.get(session.clubId) || [];
       list.push({ session, shots });
       sessionsByClub.set(session.clubId, list);
