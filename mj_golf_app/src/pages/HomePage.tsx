@@ -111,7 +111,7 @@ export function HomePage() {
                   </div>
                   <div className="text-right">
                     <div className="text-sm text-text-medium">{session.shotCount} shots</div>
-                    <div className="text-[10px] text-text-faint capitalize">{session.source}</div>
+                    <div className="text-[10px] text-text-faint uppercase">{session.source}</div>
                   </div>
                 </button>
               ))}

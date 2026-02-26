@@ -148,59 +148,83 @@ describe('computeYardageBook', () => {
     expect(result[0].sessionCount).toBe(2);
   });
 
-  it('filters shots by shape when shapeFilter is provided', () => {
-    const clubs = [makeClub()];
+  it('filters shots by club preferredShape', () => {
+    const clubs = [makeClub({ preferredShape: 'draw' })];
     const sessions = [makeSession()];
     const shots = [
       makeShot({ id: 's1', carryYards: 150, shape: 'draw' }),
       makeShot({ id: 's2', carryYards: 160, shape: 'straight' }),
       makeShot({ id: 's3', carryYards: 155, shape: 'draw' }),
     ];
-    const result = computeYardageBook(clubs, sessions, shots, false, 'draw');
+    const result = computeYardageBook(clubs, sessions, shots, false);
     expect(result).toHaveLength(1);
     expect(result[0].shotCount).toBe(2); // only draw shots
     expect(result[0].bookCarry).toBeCloseTo(152.5, 0);
   });
 
-  it('returns no entries when no shots match shapeFilter', () => {
-    const clubs = [makeClub()];
+  it('returns no entries when no shots match club preferredShape', () => {
+    const clubs = [makeClub({ preferredShape: 'draw' })];
     const sessions = [makeSession()];
     const shots = [
       makeShot({ id: 's1', carryYards: 150, shape: 'fade' }),
       makeShot({ id: 's2', carryYards: 160, shape: 'fade' }),
     ];
-    const result = computeYardageBook(clubs, sessions, shots, false, 'draw');
+    const result = computeYardageBook(clubs, sessions, shots, false);
     expect(result).toHaveLength(0);
   });
 
-  it('returns all shots when shapeFilter is undefined', () => {
-    const clubs = [makeClub()];
+  it('returns all shots when club has no preferredShape', () => {
+    const clubs = [makeClub()]; // no preferredShape
     const sessions = [makeSession()];
     const shots = [
       makeShot({ id: 's1', carryYards: 150, shape: 'draw' }),
       makeShot({ id: 's2', carryYards: 160, shape: 'straight' }),
       makeShot({ id: 's3', carryYards: 155, shape: 'fade' }),
     ];
-    const result = computeYardageBook(clubs, sessions, shots, false, undefined);
+    const result = computeYardageBook(clubs, sessions, shots, false);
     expect(result).toHaveLength(1);
     expect(result[0].shotCount).toBe(3);
   });
 
-  it('combines shapeFilter with excludeMishits', () => {
-    const clubs = [makeClub()];
+  it('combines preferredShape with excludeMishits', () => {
+    const clubs = [makeClub({ preferredShape: 'draw' })];
     const sessions = [makeSession()];
     const shots = [
       makeShot({ id: 's1', carryYards: 150, shape: 'draw', quality: 'good' }),
       makeShot({ id: 's2', carryYards: 100, shape: 'draw', quality: 'mishit' }),
       makeShot({ id: 's3', carryYards: 160, shape: 'straight', quality: 'good' }),
     ];
-    const result = computeYardageBook(clubs, sessions, shots, true, 'draw');
+    const result = computeYardageBook(clubs, sessions, shots, true);
     expect(result).toHaveLength(1);
     expect(result[0].shotCount).toBe(1); // only draw + non-mishit
     expect(result[0].bookCarry).toBeCloseTo(150, 0);
   });
 
-  it('includes shots without shape when no shapeFilter', () => {
+  it('applies different preferredShape per club', () => {
+    const clubs = [
+      makeClub({ id: 'c1', name: '7 Iron', preferredShape: 'draw' }),
+      makeClub({ id: 'c2', name: 'PW', preferredShape: 'straight' }),
+    ];
+    const sessions = [
+      makeSession({ id: 'sess-1', clubId: 'c1' }),
+      makeSession({ id: 'sess-2', clubId: 'c2' }),
+    ];
+    const shots = [
+      makeShot({ id: 's1', sessionId: 'sess-1', clubId: 'c1', carryYards: 155, shape: 'draw' }),
+      makeShot({ id: 's2', sessionId: 'sess-1', clubId: 'c1', carryYards: 150, shape: 'straight' }),
+      makeShot({ id: 's3', sessionId: 'sess-2', clubId: 'c2', carryYards: 120, shape: 'straight' }),
+      makeShot({ id: 's4', sessionId: 'sess-2', clubId: 'c2', carryYards: 125, shape: 'draw' }),
+    ];
+    const result = computeYardageBook(clubs, sessions, shots, false);
+    const iron = result.find((e) => e.clubId === 'c1')!;
+    const pw = result.find((e) => e.clubId === 'c2')!;
+    expect(iron.shotCount).toBe(1); // only draw
+    expect(iron.bookCarry).toBeCloseTo(155, 0);
+    expect(pw.shotCount).toBe(1); // only straight
+    expect(pw.bookCarry).toBeCloseTo(120, 0);
+  });
+
+  it('includes shots without shape when club has no preferredShape', () => {
     const clubs = [makeClub()];
     const sessions = [makeSession()];
     const shots = [
@@ -209,18 +233,6 @@ describe('computeYardageBook', () => {
     ];
     const result = computeYardageBook(clubs, sessions, shots, false);
     expect(result[0].shotCount).toBe(2);
-  });
-
-  it('excludes shots without shape when shapeFilter is set', () => {
-    const clubs = [makeClub()];
-    const sessions = [makeSession()];
-    const shots = [
-      makeShot({ id: 's1', carryYards: 150 }), // no shape — excluded
-      makeShot({ id: 's2', carryYards: 160, shape: 'draw' }),
-    ];
-    const result = computeYardageBook(clubs, sessions, shots, false, 'draw');
-    expect(result[0].shotCount).toBe(1);
-    expect(result[0].bookCarry).toBeCloseTo(160, 0);
   });
 
   it('sorts sessions by date descending for each club', () => {

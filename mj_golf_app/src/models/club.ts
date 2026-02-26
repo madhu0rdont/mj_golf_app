@@ -14,6 +14,7 @@ export interface Club {
   manualTotal?: number | null;
   computedCarry?: number;
   computedTotal?: number;
+  preferredShape?: string | null;
   sortOrder: number;
   createdAt: number;
   updatedAt: number;

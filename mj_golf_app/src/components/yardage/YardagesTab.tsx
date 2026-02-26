@@ -4,15 +4,14 @@ import { useYardageBook } from '../../hooks/useYardageBook';
 import { useAllClubs, updateClub } from '../../hooks/useClubs';
 import { imputeFromCarryAndLoft } from '../../services/impute';
 import type { Club, ClubCategory } from '../../models/club';
-import type { ShotShape } from '../../models/session';
 import type { YardageBookEntry } from '../../models/yardage';
 
-const SHAPE_FILTERS: { key: ShotShape | undefined; label: string }[] = [
-  { key: undefined, label: 'All' },
-  { key: 'straight', label: 'Straight' },
-  { key: 'draw', label: 'Draw' },
-  { key: 'fade', label: 'Fade' },
-];
+const SHAPE_CYCLE = [undefined, 'draw', 'straight', 'fade'] as const;
+const SHAPE_LABELS: Record<string, string> = {
+  draw: 'Draw',
+  straight: 'Str',
+  fade: 'Fade',
+};
 
 const CATEGORY_LABELS: Record<ClubCategory, string> = {
   driver: 'Driver',
@@ -55,16 +54,39 @@ function YardageRow({ club, entry }: { club: Club; entry?: YardageBookEntry }) {
     setEditing(null);
   };
 
+  const handleCycleShape = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const current = club.preferredShape ?? undefined;
+    const idx = SHAPE_CYCLE.indexOf(current as typeof SHAPE_CYCLE[number]);
+    const next = SHAPE_CYCLE[(idx + 1) % SHAPE_CYCLE.length];
+    await updateClub(club.id, { preferredShape: next ?? null });
+  };
+
   const isEditingCarry = editing?.field === 'carry';
+  const shapeLabel = club.preferredShape ? SHAPE_LABELS[club.preferredShape] : null;
 
   return (
     <div className="flex items-center justify-between px-4 py-3">
-      <Link
-        to={`/yardage/${club.id}`}
-        className={`text-sm font-medium hover:underline ${hasData ? 'text-text-dark' : 'text-text-muted italic'}`}
-      >
-        {club.name}
-      </Link>
+      <div className="flex items-center gap-2 min-w-0">
+        <Link
+          to={`/yardage/${club.id}`}
+          className={`text-sm font-medium hover:underline ${hasData ? 'text-text-dark' : 'text-text-muted italic'}`}
+        >
+          {club.name}
+        </Link>
+        <button
+          onClick={handleCycleShape}
+          className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${
+            shapeLabel
+              ? 'bg-primary/10 text-primary'
+              : 'bg-surface text-text-faint hover:text-text-muted'
+          }`}
+          title="Tap to set preferred shot shape"
+        >
+          {shapeLabel ?? 'All'}
+        </button>
+      </div>
       <div className="flex items-baseline gap-1.5">
         {isEditingCarry ? (
           <input
@@ -102,8 +124,7 @@ function YardageRow({ club, entry }: { club: Club; entry?: YardageBookEntry }) {
 }
 
 export function YardagesTab() {
-  const [shapeFilter, setShapeFilter] = useState<ShotShape | undefined>(undefined);
-  const entries = useYardageBook(false, shapeFilter);
+  const entries = useYardageBook();
   const clubs = useAllClubs();
 
   const grouped = useMemo(() => {
@@ -135,23 +156,6 @@ export function YardagesTab() {
 
   return (
     <div className="space-y-4">
-      {/* Shot shape filter */}
-      <div className="flex gap-2">
-        {SHAPE_FILTERS.map(({ key, label }) => (
-          <button
-            key={label}
-            onClick={() => setShapeFilter(key)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-              shapeFilter === key
-                ? 'bg-primary text-white'
-                : 'bg-surface text-text-muted hover:text-text-dark'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
       {grouped.map((group) => (
         <div key={group.category}>
           <h3 className="mb-1.5 text-xs font-medium text-text-muted uppercase tracking-wide">
@@ -166,7 +170,7 @@ export function YardagesTab() {
       ))}
 
       <p className="text-xs text-text-faint text-center">
-        Tap carry to edit. Total is auto-calculated. Tap club name for details.
+        Tap carry to edit. Tap shape badge to filter by draw/straight/fade.
       </p>
     </div>
   );

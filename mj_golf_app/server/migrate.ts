@@ -105,5 +105,8 @@ export async function migrate() {
   await query(`ALTER TABLE shots ADD COLUMN IF NOT EXISTS hole_number INTEGER`);
   await query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS metadata JSONB`);
 
+  // Preferred shot shape per club for yardage book filtering
+  await query(`ALTER TABLE clubs ADD COLUMN IF NOT EXISTS preferred_shape TEXT`);
+
   console.log('Database migration complete');
 }
