@@ -17,6 +17,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { AboutPage } from './pages/AboutPage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
 import { AdminPage } from './pages/AdminPage';
+import { StrategyPlannerPage } from './pages/StrategyPlannerPage';
 
 export const router = createBrowserRouter([
   {
@@ -42,6 +43,8 @@ export const router = createBrowserRouter([
       { path: 'settings', element: <SettingsPage /> },
       { path: 'about', element: <AboutPage /> },
       { path: 'faq', element: <HowItWorksPage /> },
+      { path: 'strategy', element: <StrategyPlannerPage /> },
+      { path: 'strategy/:courseId/:holeNumber', element: <StrategyPlannerPage /> },
       { path: 'admin', element: <AdminPage /> },
     ],
   },

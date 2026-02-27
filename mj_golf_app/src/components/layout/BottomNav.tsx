@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router';
-import { Home, Briefcase, BookOpen } from 'lucide-react';
+import { Home, Briefcase, BookOpen, MapPin } from 'lucide-react';
 
 const NAV_ITEMS = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/bag', icon: Briefcase, label: 'Bag' },
   { to: '/yardage', icon: BookOpen, label: 'Yardage' },
+  { to: '/strategy', icon: MapPin, label: 'Strategy' },
 ];
 
 export function BottomNav() {
