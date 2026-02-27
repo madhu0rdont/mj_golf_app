@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { computeLandingZones } from '../useHoleStrategy';
+import { computeLandingZones, computeLandingZonesFromAimPoints } from '../useHoleStrategy';
 import type { ClubDistribution, ApproachStrategy } from '../../services/monte-carlo';
+import type { OptimizedStrategy } from '../../services/strategy-optimizer';
 import { haversineYards } from '../../utils/geo';
 
 const makeDist = (overrides: Partial<ClubDistribution> = {}): ClubDistribution => ({
@@ -95,5 +96,78 @@ describe('computeLandingZones', () => {
     const maxDist1 = Math.max(...zones[0].sigma1.map((p) => haversineYards(center, p)));
     const maxDist2 = Math.max(...zones[0].sigma2.map((p) => haversineYards(center, p)));
     expect(maxDist2).toBeGreaterThan(maxDist1 * 1.5);
+  });
+});
+
+describe('computeLandingZonesFromAimPoints', () => {
+  const driverDist = makeDist();
+  const ironDist = makeDist({
+    clubId: 'iron7',
+    clubName: '7 Iron',
+    meanCarry: 165,
+    stdCarry: 6,
+    stdOffline: 5,
+  });
+
+  it('creates zones centered on aim points', () => {
+    const aimPos = { lat: 33.0025, lng: -117.0 };
+    const strategy: OptimizedStrategy = {
+      clubs: [{ clubId: 'driver', clubName: 'Driver' }],
+      expectedStrokes: 3.5,
+      label: 'Driver (275)',
+      strategyName: 'Test',
+      strategyType: 'scoring',
+      scoreDistribution: { eagle: 0, birdie: 0, par: 1, bogey: 0, double: 0, worse: 0 },
+      blowupRisk: 0,
+      aimPoints: [{ position: aimPos, clubName: 'Driver', shotNumber: 1 }],
+    };
+
+    const zones = computeLandingZonesFromAimPoints(strategy, [driverDist], 0);
+    expect(zones).toHaveLength(1);
+    expect(zones[0].center.lat).toBeCloseTo(aimPos.lat, 6);
+    expect(zones[0].center.lng).toBeCloseTo(aimPos.lng, 6);
+  });
+
+  it('creates multiple zones for multi-shot strategy', () => {
+    const aim1 = { lat: 33.0025, lng: -117.0 };
+    const aim2 = { lat: 33.004, lng: -117.0 };
+    const strategy: OptimizedStrategy = {
+      clubs: [
+        { clubId: 'driver', clubName: 'Driver' },
+        { clubId: 'iron7', clubName: '7 Iron' },
+      ],
+      expectedStrokes: 3.2,
+      label: 'Driver (275) → 7 Iron (165)',
+      strategyName: 'Test 2-Shot',
+      strategyType: 'balanced',
+      scoreDistribution: { eagle: 0, birdie: 0, par: 1, bogey: 0, double: 0, worse: 0 },
+      blowupRisk: 0,
+      aimPoints: [
+        { position: aim1, clubName: 'Driver', shotNumber: 1 },
+        { position: aim2, clubName: '7 Iron', shotNumber: 2 },
+      ],
+    };
+
+    const zones = computeLandingZonesFromAimPoints(strategy, [driverDist, ironDist], 0);
+    expect(zones).toHaveLength(2);
+    expect(zones[0].clubName).toBe('Driver');
+    expect(zones[1].clubName).toBe('7 Iron');
+  });
+
+  it('each zone has sigma1 and sigma2 ellipses', () => {
+    const strategy: OptimizedStrategy = {
+      clubs: [{ clubId: 'driver', clubName: 'Driver' }],
+      expectedStrokes: 3.5,
+      label: 'Driver (275)',
+      strategyName: 'Test',
+      strategyType: 'scoring',
+      scoreDistribution: { eagle: 0, birdie: 0, par: 1, bogey: 0, double: 0, worse: 0 },
+      blowupRisk: 0,
+      aimPoints: [{ position: { lat: 33.0025, lng: -117.0 }, clubName: 'Driver', shotNumber: 1 }],
+    };
+
+    const zones = computeLandingZonesFromAimPoints(strategy, [driverDist], 0);
+    expect(zones[0].sigma1).toHaveLength(36);
+    expect(zones[0].sigma2).toHaveLength(36);
   });
 });

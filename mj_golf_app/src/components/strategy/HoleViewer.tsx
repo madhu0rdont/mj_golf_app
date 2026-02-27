@@ -26,7 +26,7 @@ export function HoleViewer({ hole, landingZones }: HoleViewerProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const overlaysRef = useRef<(google.maps.Polygon | google.maps.Polyline | google.maps.marker.AdvancedMarkerElement)[]>([]);
-  const simOverlaysRef = useRef<(google.maps.Polygon | google.maps.marker.AdvancedMarkerElement)[]>([]);
+  const simOverlaysRef = useRef<(google.maps.Polygon | google.maps.Polyline | google.maps.marker.AdvancedMarkerElement)[]>([]);
   const measureRef = useRef<{
     marker: google.maps.marker.AdvancedMarkerElement | null;
     listener: google.maps.MapsEventListener | null;
@@ -130,7 +130,9 @@ export function HoleViewer({ hole, landingZones }: HoleViewerProps) {
     clearSimOverlays();
     if (!landingZones || landingZones.length === 0) return;
 
-    for (const zone of landingZones) {
+    for (let i = 0; i < landingZones.length; i++) {
+      const zone = landingZones[i];
+
       // 2σ ellipse (outer, lighter)
       const sigma2Poly = new google.maps.Polygon({
         map,
@@ -158,21 +160,54 @@ export function HoleViewer({ hole, landingZones }: HoleViewerProps) {
       });
       simOverlaysRef.current.push(sigma1Poly);
 
-      // Club name label at zone center
-      const labelEl = document.createElement('div');
-      labelEl.style.cssText =
-        'background:#00E5FF;color:#000;font-size:10px;font-weight:600;' +
-        'padding:2px 6px;border-radius:8px;white-space:nowrap;pointer-events:none;';
-      labelEl.textContent = zone.clubName;
+      // Numbered aim point circle at zone center
+      const circleEl = document.createElement('div');
+      circleEl.style.cssText =
+        'width:24px;height:24px;border-radius:50%;background:#00E5FF;' +
+        'display:flex;align-items:center;justify-content:center;' +
+        'font-size:12px;font-weight:700;color:#000;pointer-events:none;' +
+        'border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.4);';
+      circleEl.textContent = String(i + 1);
 
-      const labelMarker = new google.maps.marker.AdvancedMarkerElement({
+      const circleMarker = new google.maps.marker.AdvancedMarkerElement({
         map,
         position: zone.center,
-        content: labelEl,
+        content: circleEl,
       });
-      simOverlaysRef.current.push(labelMarker);
+      simOverlaysRef.current.push(circleMarker);
     }
-  }, [landingZones, clearSimOverlays]);
+
+    // Shot sequence arrow polyline: tee → zone centers → pin
+    const arrowPath: google.maps.LatLngLiteral[] = [
+      { lat: hole.tee.lat, lng: hole.tee.lng },
+      ...landingZones.map((z) => z.center),
+      { lat: hole.pin.lat, lng: hole.pin.lng },
+    ];
+
+    const arrowLine = new google.maps.Polyline({
+      map,
+      path: arrowPath,
+      strokeColor: '#00E5FF',
+      strokeWeight: 2,
+      strokeOpacity: 0.8,
+      icons: [
+        {
+          icon: {
+            path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+            scale: 3,
+            strokeColor: '#00E5FF',
+            strokeWeight: 2,
+            fillColor: '#00E5FF',
+            fillOpacity: 1,
+          },
+          repeat: '80px',
+          offset: '50%',
+        },
+      ],
+      clickable: false,
+    });
+    simOverlaysRef.current.push(arrowLine);
+  }, [landingZones, clearSimOverlays, hole.tee.lat, hole.tee.lng, hole.pin.lat, hole.pin.lng]);
 
   // Render all overlays when hole changes
   const renderOverlays = useCallback(() => {

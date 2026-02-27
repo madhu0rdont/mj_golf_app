@@ -1,10 +1,53 @@
 import type { ApproachStrategy } from '../../services/monte-carlo';
+import type { OptimizedStrategy, ScoreDistribution } from '../../services/strategy-optimizer';
 
 interface StrategyPanelProps {
   strategies: ApproachStrategy[];
   selectedIdx: number;
   onSelect: (idx: number) => void;
   shotCount: number;
+}
+
+function isOptimized(s: ApproachStrategy): s is OptimizedStrategy {
+  return 'strategyName' in s;
+}
+
+const SCORE_COLORS: { key: keyof ScoreDistribution; color: string }[] = [
+  { key: 'eagle', color: '#D4A843' },
+  { key: 'birdie', color: '#40916C' },
+  { key: 'par', color: '#2D6A4F' },
+  { key: 'bogey', color: '#9B9B9B' },
+  { key: 'double', color: '#E76F51' },
+  { key: 'worse', color: '#DC2626' },
+];
+
+function ScoreBar({ dist }: { dist: ScoreDistribution }) {
+  return (
+    <div className="flex h-2 w-full rounded-full overflow-hidden mt-1.5">
+      {SCORE_COLORS.map(({ key, color }) => {
+        const pct = dist[key] * 100;
+        if (pct < 0.5) return null;
+        return (
+          <div
+            key={key}
+            style={{ width: `${pct}%`, backgroundColor: color }}
+            title={`${key}: ${pct.toFixed(0)}%`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function BlowupBadge({ risk }: { risk: number }) {
+  if (risk <= 0.05) return null;
+  const pct = (risk * 100).toFixed(0);
+  const colorClass = risk > 0.15 ? 'bg-coral/20 text-coral' : 'bg-gold/20 text-gold-dark';
+  return (
+    <span className={`ml-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${colorClass}`}>
+      {pct}% blow
+    </span>
+  );
 }
 
 export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount }: StrategyPanelProps) {
@@ -24,37 +67,48 @@ export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount }: 
 
       {strategies.map((s, idx) => {
         const isSelected = idx === selectedIdx;
+        const opt = isOptimized(s) ? s : null;
         return (
           <button
             key={idx}
             onClick={() => onSelect(idx)}
-            className={`flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors ${
+            className={`flex flex-col rounded-xl px-3 py-2.5 text-left transition-colors ${
               isSelected
                 ? 'bg-primary/10 border border-primary/40'
                 : 'bg-surface border border-transparent hover:bg-border/50'
             }`}
           >
-            {/* Rank badge */}
-            <span
-              className={`flex-shrink-0 mt-0.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
-                isSelected
-                  ? 'bg-primary text-white'
-                  : 'bg-border text-text-medium'
-              }`}
-            >
-              {idx + 1}
-            </span>
+            <div className="flex items-start gap-2.5 w-full">
+              {/* Rank badge */}
+              <span
+                className={`flex-shrink-0 mt-0.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                  isSelected
+                    ? 'bg-primary text-white'
+                    : 'bg-border text-text-medium'
+                }`}
+              >
+                {idx + 1}
+              </span>
 
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-text-dark truncate">{s.label}</p>
-              {s.tip && (
-                <p className="text-xs text-text-muted mt-0.5">{s.tip}</p>
-              )}
+              <div className="flex-1 min-w-0">
+                {opt && (
+                  <p className="text-xs font-semibold text-primary mb-0.5">{opt.strategyName}</p>
+                )}
+                <p className="text-sm font-medium text-text-dark truncate">{s.label}</p>
+                {s.tip && (
+                  <p className="text-xs text-text-muted mt-0.5">{s.tip}</p>
+                )}
+              </div>
+
+              <div className="flex-shrink-0 flex items-center mt-0.5">
+                <span className="text-sm font-semibold text-primary">
+                  {s.expectedStrokes.toFixed(1)} xS
+                </span>
+                {opt && <BlowupBadge risk={opt.blowupRisk} />}
+              </div>
             </div>
 
-            <span className="flex-shrink-0 text-sm font-semibold text-primary mt-0.5">
-              {s.expectedStrokes.toFixed(1)} xS
-            </span>
+            {opt && <ScoreBar dist={opt.scoreDistribution} />}
           </button>
         );
       })}

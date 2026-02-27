@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 import { useYardageBookShots } from './useYardageBook';
-import { buildDistributions, findBestApproaches } from '../services/monte-carlo';
+import { buildDistributions } from '../services/monte-carlo';
+import { optimizeHole } from '../services/strategy-optimizer';
 import { projectPoint, computeEllipsePoints } from '../utils/geo';
 import type { ClubDistribution, ApproachStrategy } from '../services/monte-carlo';
+import type { OptimizedStrategy, StrategyMode } from '../services/strategy-optimizer';
 import type { CourseHole } from '../models/course';
 
 export interface LandingZone {
@@ -54,11 +56,39 @@ export function computeLandingZones(
   return zones;
 }
 
+/** Compute landing zone ellipses from OptimizedStrategy aimPoints instead of projecting from tee */
+export function computeLandingZonesFromAimPoints(
+  strategy: OptimizedStrategy,
+  distributions: ClubDistribution[],
+  heading: number,
+): LandingZone[] {
+  const zones: LandingZone[] = [];
+
+  for (const aim of strategy.aimPoints) {
+    const dist = distributions.find((d) => d.clubName === aim.clubName);
+    if (!dist) continue;
+
+    const center = aim.position;
+    const sigma1 = computeEllipsePoints(center, heading, dist.stdCarry, dist.stdOffline, 36);
+    const sigma2 = computeEllipsePoints(center, heading, dist.stdCarry * 2, dist.stdOffline * 2, 36);
+
+    zones.push({
+      clubName: aim.clubName,
+      center,
+      sigma1,
+      sigma2,
+    });
+  }
+
+  return zones;
+}
+
 export function useHoleStrategy(
   hole: CourseHole | undefined,
   teeBox: string,
   enabled: boolean,
   selectedStrategyIdx: number,
+  mode: StrategyMode = 'scoring',
 ): {
   strategies: ApproachStrategy[];
   distributions: ClubDistribution[];
@@ -88,15 +118,26 @@ export function useHoleStrategy(
   }, [hole, teeBox]);
 
   const strategies = useMemo(() => {
-    if (!enabled || distributions.length === 0 || distance === 0) return [];
-    return findBestApproaches(distance, distributions);
-  }, [enabled, distributions, distance]);
+    if (!enabled || distributions.length === 0 || distance === 0 || !hole) return [];
+    return optimizeHole(hole, teeBox, distributions, mode);
+  }, [enabled, distributions, distance, hole, teeBox, mode]);
 
   const landingZones = useMemo(() => {
     if (!enabled || !hole || strategies.length === 0) return [];
     const idx = Math.min(selectedStrategyIdx, strategies.length - 1);
+    const strategy = strategies[idx];
+
+    // Use aim-point based zones for OptimizedStrategy, fall back for plain ApproachStrategy
+    if ('aimPoints' in strategy && (strategy as OptimizedStrategy).aimPoints.length > 0) {
+      return computeLandingZonesFromAimPoints(
+        strategy as OptimizedStrategy,
+        distributions,
+        hole.heading,
+      );
+    }
+
     return computeLandingZones(
-      strategies[idx],
+      strategy,
       distributions,
       { lat: hole.tee.lat, lng: hole.tee.lng },
       hole.heading,

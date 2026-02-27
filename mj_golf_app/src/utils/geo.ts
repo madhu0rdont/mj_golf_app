@@ -50,6 +50,41 @@ export function projectPoint(
   return { lat: toDeg(lat2), lng: toDeg(lng2) };
 }
 
+/** Ray-casting point-in-polygon test.
+ *  Returns true if `point` lies inside the given polygon (array of {lat, lng}). */
+export function pointInPolygon(
+  point: { lat: number; lng: number },
+  polygon: { lat: number; lng: number }[],
+): boolean {
+  if (polygon.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].lng, yi = polygon[i].lat;
+    const xj = polygon[j].lng, yj = polygon[j].lat;
+    const intersect =
+      yi > point.lat !== yj > point.lat &&
+      point.lng < ((xj - xi) * (point.lat - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+/** Initial compass bearing (0-360) from point A to point B */
+export function bearingBetween(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  const brng = toDeg(Math.atan2(y, x));
+  return (brng + 360) % 360;
+}
+
 /** Generate polygon boundary for a rotated ellipse on the earth's surface.
  *  Semi-major axis aligned along bearingDeg (carry direction), semi-minor perpendicular. */
 export function computeEllipsePoints(

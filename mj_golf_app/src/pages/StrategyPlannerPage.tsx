@@ -9,6 +9,7 @@ import { HoleInfoPanel } from '../components/strategy/HoleInfoPanel';
 import { StrategyPanel } from '../components/strategy/StrategyPanel';
 import { useCourses, useCourse } from '../hooks/useCourses';
 import { useHoleStrategy } from '../hooks/useHoleStrategy';
+import type { StrategyMode } from '../services/strategy-optimizer';
 
 const TEE_BOXES = [
   { key: 'blue', label: 'Blue', color: '#3B82F6' },
@@ -27,6 +28,7 @@ export function StrategyPlannerPage() {
   );
   const [teeBox, setTeeBox] = useState('blue');
   const [showSim, setShowSim] = useState(false);
+  const [strategyMode, setStrategyMode] = useState<StrategyMode>('scoring');
   const [selectedStrategyIdx, setSelectedStrategyIdx] = useState(0);
 
   // Default to first course when courses load
@@ -49,12 +51,12 @@ export function StrategyPlannerPage() {
   const totalHoles = course?.holes.length ?? 18;
 
   const { strategies, landingZones, shotCount } =
-    useHoleStrategy(hole, teeBox, showSim, selectedStrategyIdx);
+    useHoleStrategy(hole, teeBox, showSim, selectedStrategyIdx, strategyMode);
 
-  // Reset strategy selection when hole or tee changes
+  // Reset strategy selection when hole, tee, or mode changes
   useEffect(() => {
     setSelectedStrategyIdx(0);
-  }, [holeNumber, teeBox]);
+  }, [holeNumber, teeBox, strategyMode]);
 
   // Keyboard nav
   useEffect(() => {
@@ -147,6 +149,26 @@ export function StrategyPlannerPage() {
           >
             Sim
           </button>
+
+          {/* Scoring / Safe toggle (only visible when sim is on) */}
+          {showSim && (
+            <>
+              <div className="h-5 w-px bg-border mx-1" />
+              {(['scoring', 'safe'] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setStrategyMode(m)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    strategyMode === m
+                      ? 'bg-primary text-white'
+                      : 'bg-surface text-text-medium hover:bg-border'
+                  }`}
+                >
+                  {m === 'scoring' ? 'Scoring' : 'Safe'}
+                </button>
+              ))}
+            </>
+          )}
         </div>
 
         {/* Hole selector */}
