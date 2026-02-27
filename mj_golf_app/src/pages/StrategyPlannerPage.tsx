@@ -114,16 +114,14 @@ export function StrategyPlannerPage() {
       <TopBar title="Strategy" />
       <div className="flex flex-col gap-3 px-4 py-3 pb-24">
         {/* Course selector */}
-        {courses.length > 1 && (
-          <Select
-            value={courseId ?? ''}
-            onChange={(e) => {
-              setCourseId(e.target.value);
-              setHoleNumber(1);
-            }}
-            options={courses.map((c) => ({ value: c.id, label: c.name }))}
-          />
-        )}
+        <Select
+          value={courseId ?? ''}
+          onChange={(e) => {
+            setCourseId(e.target.value);
+            setHoleNumber(1);
+          }}
+          options={courses.map((c) => ({ value: c.id, label: c.name }))}
+        />
 
         {/* View mode toggle */}
         <div className="flex items-center gap-1.5">
