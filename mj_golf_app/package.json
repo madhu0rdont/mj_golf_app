@@ -25,6 +25,8 @@
     "express": "^5.2.1",
     "express-session": "^1.19.0",
     "fast-xml-parser": "^5.4.1",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.0",
     "katex": "^0.16.33",
     "lucide-react": "^0.574.0",
     "multer": "^2.1.0",

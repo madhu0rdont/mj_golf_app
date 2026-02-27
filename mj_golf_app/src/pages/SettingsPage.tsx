@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Link } from 'react-router';
-import { Download, Upload, Trash2, LogOut } from 'lucide-react';
+import { Download, Upload, Trash2, LogOut, Settings } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
@@ -127,12 +127,16 @@ export function SettingsPage() {
         </section>
 
         {/* About & Admin */}
-        <section className="flex flex-col items-center gap-1">
+        <section className="flex items-center justify-center gap-3">
           <Link to="/about" className="text-xs text-text-muted hover:text-primary transition">
             MJ Golf v1.0.0 &middot; About
           </Link>
-          <Link to="/admin" className="text-xs text-text-muted hover:text-primary transition">
-            Admin Tools
+          <Link
+            to="/admin"
+            className="flex items-center justify-center h-7 w-7 rounded-full bg-surface hover:bg-border transition"
+            title="Admin Tools"
+          >
+            <Settings size={14} className="text-text-muted" />
           </Link>
         </section>
       </div>

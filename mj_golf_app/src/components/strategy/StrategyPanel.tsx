@@ -1,11 +1,13 @@
 import type { ApproachStrategy } from '../../services/monte-carlo';
 import type { OptimizedStrategy, ScoreDistribution } from '../../services/strategy-optimizer';
+import { Skeleton } from '../ui/Skeleton';
 
 interface StrategyPanelProps {
   strategies: ApproachStrategy[];
   selectedIdx: number;
   onSelect: (idx: number) => void;
   shotCount: number;
+  isLoading?: boolean;
 }
 
 function isOptimized(s: ApproachStrategy): s is OptimizedStrategy {
@@ -50,7 +52,28 @@ function BlowupBadge({ risk }: { risk: number }) {
   );
 }
 
-export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount }: StrategyPanelProps) {
+export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount, isLoading }: StrategyPanelProps) {
+  if (isLoading || (strategies.length === 0 && shotCount > 0)) {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-2">
+        <Skeleton className="h-4 w-40" />
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="rounded-xl bg-surface px-3 py-2.5 flex flex-col gap-2">
+            <div className="flex items-start gap-2.5">
+              <Skeleton className="h-5 w-5 rounded-full" />
+              <div className="flex-1 flex flex-col gap-1.5">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-4 w-48" />
+              </div>
+              <Skeleton className="h-4 w-12" />
+            </div>
+            <Skeleton className="h-2 w-full rounded-full" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (strategies.length === 0) {
     return (
       <div className="rounded-2xl border border-border bg-card p-4 text-center">

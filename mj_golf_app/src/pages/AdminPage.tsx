@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Upload, Pencil, RefreshCw } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { Button } from '../components/ui/Button';
 import { LoadingPage } from '../components/ui/LoadingPage';
 import { KmlImporter } from '../components/admin/KmlImporter';
 import { HazardMapper } from '../components/admin/HazardMapper';
+import { CourseEditor } from '../components/admin/CourseEditor';
+import { ElevationRefresh } from '../components/admin/ElevationRefresh';
 import { useCourses, mutateCourses } from '../hooks/useCourses';
 
 export function AdminPage() {
@@ -90,26 +92,14 @@ export function AdminPage() {
           )}
         </section>
 
-        {/* Future Tools */}
+        {/* Course Editor */}
         <section>
-          <h2 className="text-sm font-semibold text-text-medium mb-2">
-            Tools
-          </h2>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { icon: Pencil, label: 'Course Editor' },
-              { icon: RefreshCw, label: 'Elevation Refresh' },
-            ].map(({ icon: Icon, label }) => (
-              <div
-                key={label}
-                className="flex flex-col items-center gap-1.5 rounded-2xl border border-border-light bg-surface p-4 text-center opacity-50"
-              >
-                <Icon size={20} className="text-text-muted" />
-                <span className="text-xs text-text-muted">{label}</span>
-                <span className="text-[10px] text-text-muted">Coming Soon</span>
-              </div>
-            ))}
-          </div>
+          <CourseEditor />
+        </section>
+
+        {/* Elevation Refresh */}
+        <section>
+          <ElevationRefresh />
         </section>
       </div>
     </>

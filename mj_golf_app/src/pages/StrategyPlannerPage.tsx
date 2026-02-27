@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import { TopBar } from '../components/layout/TopBar';
 import { LoadingPage } from '../components/ui/LoadingPage';
@@ -7,8 +7,11 @@ import { HoleSelector } from '../components/strategy/HoleSelector';
 import { HoleViewer } from '../components/strategy/HoleViewer';
 import { HoleInfoPanel } from '../components/strategy/HoleInfoPanel';
 import { StrategyPanel } from '../components/strategy/StrategyPanel';
+import { GamePlanView } from '../components/strategy/GamePlanView';
 import { useCourses, useCourse } from '../hooks/useCourses';
 import { useHoleStrategy } from '../hooks/useHoleStrategy';
+import { useYardageBookShots } from '../hooks/useYardageBook';
+import { buildDistributions } from '../services/monte-carlo';
 import type { StrategyMode } from '../services/strategy-optimizer';
 
 const TEE_BOXES = [
@@ -16,6 +19,8 @@ const TEE_BOXES = [
   { key: 'white', label: 'White', color: '#E5E7EB' },
   { key: 'red', label: 'Red', color: '#EF4444' },
 ];
+
+type ViewMode = 'hole' | 'gameplan';
 
 export function StrategyPlannerPage() {
   const params = useParams<{ courseId?: string; holeNumber?: string }>();
@@ -30,6 +35,7 @@ export function StrategyPlannerPage() {
   const [showSim, setShowSim] = useState(false);
   const [strategyMode, setStrategyMode] = useState<StrategyMode>('scoring');
   const [selectedStrategyIdx, setSelectedStrategyIdx] = useState(0);
+  const [viewMode, setViewMode] = useState<ViewMode>('hole');
 
   // Default to first course when courses load
   useEffect(() => {
@@ -53,13 +59,21 @@ export function StrategyPlannerPage() {
   const { strategies, landingZones, shotCount } =
     useHoleStrategy(hole, teeBox, showSim, selectedStrategyIdx, strategyMode);
 
+  // Build distributions for GamePlanView (always, not gated by showSim)
+  const shotGroups = useYardageBookShots();
+  const distributions = useMemo(() => {
+    if (!shotGroups) return [];
+    return buildDistributions(shotGroups);
+  }, [shotGroups]);
+
   // Reset strategy selection when hole, tee, or mode changes
   useEffect(() => {
     setSelectedStrategyIdx(0);
   }, [holeNumber, teeBox, strategyMode]);
 
-  // Keyboard nav
+  // Keyboard nav (only in hole view)
   useEffect(() => {
+    if (viewMode !== 'hole') return;
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'ArrowLeft') {
         setHoleNumber((n) => (n === 1 ? totalHoles : n - 1));
@@ -69,7 +83,7 @@ export function StrategyPlannerPage() {
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [totalHoles]);
+  }, [totalHoles, viewMode]);
 
   if (coursesLoading) {
     return <LoadingPage title="Strategy" />;
@@ -111,8 +125,9 @@ export function StrategyPlannerPage() {
           />
         )}
 
-        {/* Tee box selector + Sim toggle */}
+        {/* View mode toggle */}
         <div className="flex items-center gap-1.5">
+          {/* Tee box selector */}
           {TEE_BOXES.map((t) => (
             <button
               key={t.key}
@@ -134,24 +149,26 @@ export function StrategyPlannerPage() {
           {/* Vertical divider */}
           <div className="h-5 w-px bg-border mx-1" />
 
-          {/* Sim toggle */}
-          <button
-            onClick={() => shotCount > 0 && setShowSim((s) => !s)}
-            disabled={shotCount === 0}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              showSim
-                ? 'text-black'
-                : shotCount === 0
-                  ? 'bg-surface text-text-muted opacity-50 cursor-not-allowed'
-                  : 'bg-surface text-text-medium hover:bg-border'
-            }`}
-            style={showSim ? { backgroundColor: '#00E5FF' } : undefined}
-          >
-            Sim
-          </button>
+          {/* Sim toggle (hole view only) */}
+          {viewMode === 'hole' && (
+            <button
+              onClick={() => shotCount > 0 && setShowSim((s) => !s)}
+              disabled={shotCount === 0}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                showSim
+                  ? 'text-black'
+                  : shotCount === 0
+                    ? 'bg-surface text-text-muted opacity-50 cursor-not-allowed'
+                    : 'bg-surface text-text-medium hover:bg-border'
+              }`}
+              style={showSim ? { backgroundColor: '#00E5FF' } : undefined}
+            >
+              Sim
+            </button>
+          )}
 
-          {/* Scoring / Safe toggle (only visible when sim is on) */}
-          {showSim && (
+          {/* Scoring / Safe toggle */}
+          {(showSim || viewMode === 'gameplan') && (
             <>
               <div className="h-5 w-px bg-border mx-1" />
               {(['scoring', 'safe'] as const).map((m) => (
@@ -171,35 +188,71 @@ export function StrategyPlannerPage() {
           )}
         </div>
 
-        {/* Hole selector */}
-        <HoleSelector
-          totalHoles={totalHoles}
-          current={holeNumber}
-          onChange={setHoleNumber}
-        />
+        {/* View mode segmented control */}
+        <div className="flex rounded-lg bg-surface border border-border overflow-hidden">
+          {(['hole', 'gameplan'] as const).map((vm) => (
+            <button
+              key={vm}
+              onClick={() => setViewMode(vm)}
+              className={`flex-1 py-1.5 text-xs font-medium transition-colors ${
+                viewMode === vm
+                  ? 'bg-primary text-white'
+                  : 'text-text-medium hover:bg-border'
+              }`}
+            >
+              {vm === 'hole' ? 'Hole View' : 'Game Plan'}
+            </button>
+          ))}
+        </div>
 
-        {/* Map */}
-        {courseLoading ? (
-          <div className="flex items-center justify-center h-[55vh] rounded-2xl border border-border bg-surface">
-            <div className="animate-spin rounded-full h-7 w-7 border-2 border-primary border-t-transparent" />
-          </div>
-        ) : hole ? (
+        {/* Content */}
+        {viewMode === 'hole' ? (
           <>
-            <HoleViewer hole={hole} teeBox={teeBox} landingZones={showSim ? landingZones : undefined} />
-            {showSim && (
-              <StrategyPanel
-                strategies={strategies}
-                selectedIdx={selectedStrategyIdx}
-                onSelect={setSelectedStrategyIdx}
-                shotCount={shotCount}
-              />
+            {/* Hole selector */}
+            <HoleSelector
+              totalHoles={totalHoles}
+              current={holeNumber}
+              onChange={setHoleNumber}
+            />
+
+            {/* Map */}
+            {courseLoading ? (
+              <div className="flex items-center justify-center h-[55vh] rounded-2xl border border-border bg-surface">
+                <div className="animate-spin rounded-full h-7 w-7 border-2 border-primary border-t-transparent" />
+              </div>
+            ) : hole ? (
+              <>
+                <HoleViewer hole={hole} teeBox={teeBox} landingZones={showSim ? landingZones : undefined} />
+                {showSim && (
+                  <StrategyPanel
+                    strategies={strategies}
+                    selectedIdx={selectedStrategyIdx}
+                    onSelect={setSelectedStrategyIdx}
+                    shotCount={shotCount}
+                  />
+                )}
+                <HoleInfoPanel hole={hole} teeBox={teeBox} />
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-[55vh] rounded-2xl border border-border bg-surface">
+                <p className="text-sm text-text-muted">Hole not found</p>
+              </div>
             )}
-            <HoleInfoPanel hole={hole} teeBox={teeBox} />
           </>
         ) : (
-          <div className="flex items-center justify-center h-[55vh] rounded-2xl border border-border bg-surface">
-            <p className="text-sm text-text-muted">Hole not found</p>
-          </div>
+          /* Game Plan view */
+          course ? (
+            <GamePlanView
+              course={course}
+              teeBox={teeBox}
+              distributions={distributions}
+              mode={strategyMode}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-[55vh] rounded-2xl border border-border bg-surface">
+              <div className="animate-spin rounded-full h-7 w-7 border-2 border-primary border-t-transparent" />
+            </div>
+          )
         )}
       </div>
     </>
