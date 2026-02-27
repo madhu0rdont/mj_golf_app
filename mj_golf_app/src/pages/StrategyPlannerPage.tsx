@@ -6,7 +6,9 @@ import { Select } from '../components/ui/Select';
 import { HoleSelector } from '../components/strategy/HoleSelector';
 import { HoleViewer } from '../components/strategy/HoleViewer';
 import { HoleInfoPanel } from '../components/strategy/HoleInfoPanel';
+import { StrategyPanel } from '../components/strategy/StrategyPanel';
 import { useCourses, useCourse } from '../hooks/useCourses';
+import { useHoleStrategy } from '../hooks/useHoleStrategy';
 
 const TEE_BOXES = [
   { key: 'blue', label: 'Blue', color: '#3B82F6' },
@@ -24,6 +26,8 @@ export function StrategyPlannerPage() {
     params.holeNumber ? parseInt(params.holeNumber, 10) : 1,
   );
   const [teeBox, setTeeBox] = useState('blue');
+  const [showSim, setShowSim] = useState(false);
+  const [selectedStrategyIdx, setSelectedStrategyIdx] = useState(0);
 
   // Default to first course when courses load
   useEffect(() => {
@@ -43,6 +47,14 @@ export function StrategyPlannerPage() {
 
   const hole = course?.holes.find((h) => h.holeNumber === holeNumber);
   const totalHoles = course?.holes.length ?? 18;
+
+  const { strategies, landingZones, shotCount } =
+    useHoleStrategy(hole, teeBox, showSim, selectedStrategyIdx);
+
+  // Reset strategy selection when hole or tee changes
+  useEffect(() => {
+    setSelectedStrategyIdx(0);
+  }, [holeNumber, teeBox]);
 
   // Keyboard nav
   useEffect(() => {
@@ -97,7 +109,7 @@ export function StrategyPlannerPage() {
           />
         )}
 
-        {/* Tee box selector */}
+        {/* Tee box selector + Sim toggle */}
         <div className="flex items-center gap-1.5">
           {TEE_BOXES.map((t) => (
             <button
@@ -116,6 +128,25 @@ export function StrategyPlannerPage() {
               {t.label}
             </button>
           ))}
+
+          {/* Vertical divider */}
+          <div className="h-5 w-px bg-border mx-1" />
+
+          {/* Sim toggle */}
+          <button
+            onClick={() => shotCount > 0 && setShowSim((s) => !s)}
+            disabled={shotCount === 0}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              showSim
+                ? 'text-black'
+                : shotCount === 0
+                  ? 'bg-surface text-text-muted opacity-50 cursor-not-allowed'
+                  : 'bg-surface text-text-medium hover:bg-border'
+            }`}
+            style={showSim ? { backgroundColor: '#00E5FF' } : undefined}
+          >
+            Sim
+          </button>
         </div>
 
         {/* Hole selector */}
@@ -132,7 +163,15 @@ export function StrategyPlannerPage() {
           </div>
         ) : hole ? (
           <>
-            <HoleViewer hole={hole} teeBox={teeBox} />
+            <HoleViewer hole={hole} teeBox={teeBox} landingZones={showSim ? landingZones : undefined} />
+            {showSim && (
+              <StrategyPanel
+                strategies={strategies}
+                selectedIdx={selectedStrategyIdx}
+                onSelect={setSelectedStrategyIdx}
+                shotCount={shotCount}
+              />
+            )}
             <HoleInfoPanel hole={hole} teeBox={teeBox} />
           </>
         ) : (

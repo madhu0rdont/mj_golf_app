@@ -3,10 +3,12 @@ import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { Loader2 } from 'lucide-react';
 import { haversineYards } from '../../utils/geo';
 import type { CourseHole } from '../../models/course';
+import type { LandingZone } from '../../hooks/useHoleStrategy';
 
 interface HoleViewerProps {
   hole: CourseHole;
   teeBox?: string;
+  landingZones?: LandingZone[];
 }
 
 const HAZARD_COLORS: Record<string, string> = {
@@ -20,10 +22,11 @@ const FAIRWAY_COLOR = '#90EE90';
 
 let mapsInitialized = false;
 
-export function HoleViewer({ hole }: HoleViewerProps) {
+export function HoleViewer({ hole, landingZones }: HoleViewerProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const overlaysRef = useRef<(google.maps.Polygon | google.maps.Polyline | google.maps.marker.AdvancedMarkerElement)[]>([]);
+  const simOverlaysRef = useRef<(google.maps.Polygon | google.maps.marker.AdvancedMarkerElement)[]>([]);
   const measureRef = useRef<{
     marker: google.maps.marker.AdvancedMarkerElement | null;
     listener: google.maps.MapsEventListener | null;
@@ -107,12 +110,77 @@ export function HoleViewer({ hole }: HoleViewerProps) {
     setMeasureInfo(null);
   }, []);
 
+  // Clear sim overlays (independent of hole overlays)
+  const clearSimOverlays = useCallback(() => {
+    for (const o of simOverlaysRef.current) {
+      if ('setMap' in o && typeof o.setMap === 'function') {
+        o.setMap(null);
+      } else if ('map' in o) {
+        (o as google.maps.marker.AdvancedMarkerElement).map = null;
+      }
+    }
+    simOverlaysRef.current = [];
+  }, []);
+
+  // Render sim ellipse overlays
+  const renderSimOverlays = useCallback(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    clearSimOverlays();
+    if (!landingZones || landingZones.length === 0) return;
+
+    for (const zone of landingZones) {
+      // 2σ ellipse (outer, lighter)
+      const sigma2Poly = new google.maps.Polygon({
+        map,
+        paths: zone.sigma2,
+        fillColor: '#00BCD4',
+        fillOpacity: 0.15,
+        strokeColor: '#00BCD4',
+        strokeWeight: 1,
+        strokeOpacity: 0.5,
+        editable: false,
+        clickable: false,
+      });
+      simOverlaysRef.current.push(sigma2Poly);
+
+      // 1σ ellipse (inner, brighter)
+      const sigma1Poly = new google.maps.Polygon({
+        map,
+        paths: zone.sigma1,
+        fillColor: '#00E5FF',
+        fillOpacity: 0.35,
+        strokeColor: '#00E5FF',
+        strokeWeight: 2,
+        editable: false,
+        clickable: false,
+      });
+      simOverlaysRef.current.push(sigma1Poly);
+
+      // Club name label at zone center
+      const labelEl = document.createElement('div');
+      labelEl.style.cssText =
+        'background:#00E5FF;color:#000;font-size:10px;font-weight:600;' +
+        'padding:2px 6px;border-radius:8px;white-space:nowrap;pointer-events:none;';
+      labelEl.textContent = zone.clubName;
+
+      const labelMarker = new google.maps.marker.AdvancedMarkerElement({
+        map,
+        position: zone.center,
+        content: labelEl,
+      });
+      simOverlaysRef.current.push(labelMarker);
+    }
+  }, [landingZones, clearSimOverlays]);
+
   // Render all overlays when hole changes
   const renderOverlays = useCallback(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
     clearOverlays();
+    clearSimOverlays();
     clearMeasure();
 
     // Update map center/heading
@@ -270,7 +338,7 @@ export function HoleViewer({ hole }: HoleViewerProps) {
     overlaysRef.current.push(pinMarker);
 
     currentHoleRef.current = hole.id;
-  }, [hole, clearOverlays, clearMeasure]);
+  }, [hole, clearOverlays, clearSimOverlays, clearMeasure]);
 
   // Set up tap-to-measure click listener
   useEffect(() => {
@@ -337,6 +405,11 @@ export function HoleViewer({ hole }: HoleViewerProps) {
   useEffect(() => {
     if (mapReady) renderOverlays();
   }, [mapReady, renderOverlays]);
+
+  // Render sim overlays when landing zones change (independent of hole overlays)
+  useEffect(() => {
+    if (mapReady) renderSimOverlays();
+  }, [mapReady, renderSimOverlays]);
 
   if (error) {
     return (
