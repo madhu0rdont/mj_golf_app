@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Upload, MapPin, Pencil, RefreshCw } from 'lucide-react';
+import { Upload, Pencil, RefreshCw } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { Button } from '../components/ui/Button';
 import { LoadingPage } from '../components/ui/LoadingPage';
 import { KmlImporter } from '../components/admin/KmlImporter';
+import { HazardMapper } from '../components/admin/HazardMapper';
 import { useCourses, mutateCourses } from '../hooks/useCourses';
 
 export function AdminPage() {
@@ -11,6 +12,8 @@ export function AdminPage() {
   const [showImporter, setShowImporter] = useState(false);
 
   if (isLoading) return <LoadingPage title="Admin" showBack />;
+
+  const hasCourses = courses && courses.length > 0;
 
   return (
     <>
@@ -41,7 +44,7 @@ export function AdminPage() {
           <h2 className="text-sm font-semibold text-text-medium mb-2">
             Imported Courses
           </h2>
-          {!courses || courses.length === 0 ? (
+          {!hasCourses ? (
             <p className="text-sm text-text-muted py-4 text-center">
               No courses imported yet
             </p>
@@ -73,6 +76,20 @@ export function AdminPage() {
           )}
         </section>
 
+        {/* Hazard Mapper */}
+        <section>
+          {hasCourses ? (
+            <HazardMapper />
+          ) : (
+            <div className="flex flex-col items-center gap-1.5 rounded-2xl border border-border-light bg-surface p-4 text-center opacity-50">
+              <span className="text-xs text-text-muted">Hazard Mapper</span>
+              <span className="text-[10px] text-text-muted">
+                Import a course first
+              </span>
+            </div>
+          )}
+        </section>
+
         {/* Future Tools */}
         <section>
           <h2 className="text-sm font-semibold text-text-medium mb-2">
@@ -80,7 +97,6 @@ export function AdminPage() {
           </h2>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { icon: MapPin, label: 'Hazard Mapper' },
               { icon: Pencil, label: 'Course Editor' },
               { icon: RefreshCw, label: 'Elevation Refresh' },
             ].map(({ icon: Icon, label }) => (

@@ -28,3 +28,7 @@ export function useHole(courseId: string | undefined, holeNumber: number | undef
 export function mutateCourses() {
   return mutate('/api/courses');
 }
+
+export function mutateCourse(id: string) {
+  return mutate(`/api/courses/${id}`);
+}

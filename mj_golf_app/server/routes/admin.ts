@@ -8,6 +8,11 @@ import {
   playsLikeYards,
   computeTargetDistances,
 } from '../services/geo-utils.js';
+import {
+  computeZoom,
+  latLngToImagePixel,
+  imagePixelToLatLng,
+} from '../services/web-mercator.js';
 
 const router = Router();
 const upload = multer({
@@ -213,6 +218,178 @@ router.post('/import-kml/confirm', async (req, res) => {
   } finally {
     client.release();
   }
+});
+
+// POST /api/admin/hazard-detect — detect hazards via satellite imagery + Claude Vision
+router.post('/hazard-detect', async (req, res) => {
+  const { courseId, holeNumber } = req.body;
+  if (!courseId || holeNumber == null) {
+    return res.status(400).json({ error: 'courseId and holeNumber are required' });
+  }
+
+  const apiKey = process.env.CLAUDE_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: 'CLAUDE_API_KEY not configured' });
+  }
+  const mapsKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!mapsKey) {
+    return res.status(500).json({ error: 'GOOGLE_MAPS_API_KEY not configured' });
+  }
+
+  // 1. Fetch hole data
+  const { rows } = await query(
+    'SELECT * FROM course_holes WHERE course_id = $1 AND hole_number = $2',
+    [courseId, holeNumber],
+  );
+  if (rows.length === 0) {
+    return res.status(404).json({ error: 'Hole not found' });
+  }
+  const hole = toCamel(rows[0]) as {
+    par: number;
+    yardages: Record<string, number>;
+    heading: number;
+    tee: { lat: number; lng: number; elevation: number };
+    pin: { lat: number; lng: number; elevation: number };
+  };
+
+  // 2. Compute satellite image parameters
+  const PADDING_DEG = 0.002; // ~200m padding around tee/pin
+  const bounds = {
+    minLat: Math.min(hole.tee.lat, hole.pin.lat) - PADDING_DEG,
+    maxLat: Math.max(hole.tee.lat, hole.pin.lat) + PADDING_DEG,
+    minLng: Math.min(hole.tee.lng, hole.pin.lng) - PADDING_DEG,
+    maxLng: Math.max(hole.tee.lng, hole.pin.lng) + PADDING_DEG,
+  };
+  const IMAGE_SIZE = 640; // scale=2 gives 1280×1280 actual pixels
+  const ACTUAL_SIZE = IMAGE_SIZE * 2;
+  const zoom = computeZoom(bounds, ACTUAL_SIZE);
+  const centerLat = (hole.tee.lat + hole.pin.lat) / 2;
+  const centerLng = (hole.tee.lng + hole.pin.lng) / 2;
+
+  // 3. Fetch satellite image from Google Static Maps
+  const staticUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${IMAGE_SIZE}x${IMAGE_SIZE}&scale=2&maptype=satellite&key=${mapsKey}`;
+
+  let imageBase64: string;
+  try {
+    const imgRes = await fetch(staticUrl);
+    if (!imgRes.ok) {
+      throw new Error(`Static Maps HTTP ${imgRes.status}`);
+    }
+    const buffer = Buffer.from(await imgRes.arrayBuffer());
+    imageBase64 = buffer.toString('base64');
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to fetch satellite image';
+    return res.status(502).json({ error: message });
+  }
+
+  // 4. Convert tee/pin to pixel coordinates
+  const teePx = latLngToImagePixel(hole.tee.lat, hole.tee.lng, centerLat, centerLng, zoom, ACTUAL_SIZE, ACTUAL_SIZE);
+  const pinPx = latLngToImagePixel(hole.pin.lat, hole.pin.lng, centerLat, centerLng, zoom, ACTUAL_SIZE, ACTUAL_SIZE);
+
+  const firstTee = Object.keys(hole.yardages)[0];
+  const yards = firstTee ? hole.yardages[firstTee] : 0;
+
+  // 5. Send to Claude Vision
+  const systemPrompt = `You are a golf course hazard detection assistant analyzing satellite imagery.
+Identify all visible hazards (bunkers, water hazards, out-of-bounds areas, significant tree lines) and the fairway boundary.
+Return ONLY valid JSON — no markdown fences, no other text.
+Use this exact structure:
+{
+  "hazards": [
+    {
+      "name": "descriptive name",
+      "type": "bunker" or "water" or "ob" or "trees",
+      "confidence": "high" or "medium" or "low",
+      "polygon": [{"x": number, "y": number}, ...]
+    }
+  ],
+  "fairway": [{"x": number, "y": number}, ...]
+}
+Coordinates are image pixels where (0,0) is top-left and (${ACTUAL_SIZE},${ACTUAL_SIZE}) is bottom-right.
+Each polygon must have at least 3 points and trace the outline of the feature.
+For the fairway, trace the mowed fairway area from tee to green.`;
+
+  const userPrompt = `Analyze this satellite image of a golf hole.
+The tee is at pixel (${teePx.x}, ${teePx.y}), the pin is at pixel (${pinPx.x}, ${pinPx.y}).
+This is hole ${holeNumber}, par ${hole.par}, playing ${yards} yards at heading ${Math.round(hole.heading)}°.
+Detect all hazards and trace the fairway boundary.`;
+
+  let claudeResponse: { hazards: { name: string; type: string; confidence: string; polygon: { x: number; y: number }[] }[]; fairway: { x: number; y: number }[] };
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8192,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: 'image/png',
+                  data: imageBase64,
+                },
+              },
+              { type: 'text', text: userPrompt },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Anthropic API error (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    let text = data.content?.[0]?.text ?? '';
+
+    // Strip markdown code fences if present
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+
+    claudeResponse = JSON.parse(text);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Claude Vision failed';
+    return res.status(502).json({ error: message });
+  }
+
+  // 6. Validate and convert pixel polygons to GPS coordinates
+  const hazards = (claudeResponse.hazards ?? [])
+    .filter((h) => Array.isArray(h.polygon) && h.polygon.length >= 3)
+    .filter((h) => ['bunker', 'water', 'ob', 'trees'].includes(h.type))
+    .map((h) => ({
+      name: h.name || 'Unknown',
+      type: h.type as 'bunker' | 'water' | 'ob' | 'trees',
+      penalty: h.type === 'water' || h.type === 'ob' ? 1 : 0,
+      confidence: (['high', 'medium', 'low'].includes(h.confidence) ? h.confidence : 'medium') as 'high' | 'medium' | 'low',
+      source: 'claude-vision' as const,
+      status: 'pending' as const,
+      polygon: h.polygon
+        .filter((p) => p.x >= 0 && p.x <= ACTUAL_SIZE && p.y >= 0 && p.y <= ACTUAL_SIZE)
+        .map((p) => imagePixelToLatLng(p.x, p.y, centerLat, centerLng, zoom, ACTUAL_SIZE, ACTUAL_SIZE)),
+    }))
+    .filter((h) => h.polygon.length >= 3);
+
+  const fairway = (claudeResponse.fairway ?? [])
+    .filter((p) => p.x >= 0 && p.x <= ACTUAL_SIZE && p.y >= 0 && p.y <= ACTUAL_SIZE)
+    .map((p) => imagePixelToLatLng(p.x, p.y, centerLat, centerLng, zoom, ACTUAL_SIZE, ACTUAL_SIZE));
+
+  res.json({
+    hazards,
+    fairway: fairway.length >= 3 ? fairway : [],
+    imageParams: { centerLat, centerLng, zoom, width: ACTUAL_SIZE, height: ACTUAL_SIZE },
+  });
 });
 
 // PATCH /api/courses/:id/holes/:number — update hole fields
