@@ -60,15 +60,10 @@ export function parseKml(kmlContent: string): ParsedCourse {
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
     removeNSPrefix: true,
-    isArray: (_name, jpath) => {
+    isArray: (name, jpath) => {
       // Force arrays for elements that may appear once or multiple times
-      return (
-        jpath === 'kml.Document.Folder.Placemark' ||
-        jpath === 'kml.Document.Placemark' ||
-        jpath === 'kml.Document.Folder' ||
-        jpath === 'kml.Document.Tour' ||
-        jpath === 'kml.Document.Folder.Tour'
-      );
+      if (name === 'Placemark' || name === 'Folder' || name === 'Tour') return true;
+      return false;
     },
   });
 
@@ -192,6 +187,13 @@ function extractPointCoords(placemark: Record<string, unknown>): ParsedCoordinat
   const point = placemark.Point as Record<string, unknown> | undefined;
   if (point?.coordinates) {
     return parseCoord(String(point.coordinates));
+  }
+  // LineString > coordinates — some KMLs use vertical LineStrings for tee/pin markers
+  // (two identical lat/lng at different altitudes). Take the first coordinate.
+  const lineString = placemark.LineString as Record<string, unknown> | undefined;
+  if (lineString?.coordinates) {
+    const coords = parseLineCoords(String(lineString.coordinates));
+    if (coords.length > 0) return coords[0];
   }
   // Sometimes coordinates are directly on the placemark
   if (placemark.coordinates) {
