@@ -16,6 +16,7 @@ import { ClubDetailPage } from './pages/ClubDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AboutPage } from './pages/AboutPage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
+import { AdminPage } from './pages/AdminPage';
 
 export const router = createBrowserRouter([
   {
@@ -41,6 +42,7 @@ export const router = createBrowserRouter([
       { path: 'settings', element: <SettingsPage /> },
       { path: 'about', element: <AboutPage /> },
       { path: 'faq', element: <HowItWorksPage /> },
+      { path: 'admin', element: <AdminPage /> },
     ],
   },
 ]);

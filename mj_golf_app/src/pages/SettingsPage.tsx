@@ -126,10 +126,13 @@ export function SettingsPage() {
           </Button>
         </section>
 
-        {/* About */}
-        <section className="text-center">
+        {/* About & Admin */}
+        <section className="flex flex-col items-center gap-1">
           <Link to="/about" className="text-xs text-text-muted hover:text-primary transition">
             MJ Golf v1.0.0 &middot; About
+          </Link>
+          <Link to="/admin" className="text-xs text-text-muted hover:text-primary transition">
+            Admin Tools
           </Link>
         </section>
       </div>

@@ -108,5 +108,43 @@ export async function migrate() {
   // Preferred shot shape per club for yardage book filtering
   await query(`ALTER TABLE clubs ADD COLUMN IF NOT EXISTS preferred_shape TEXT`);
 
+  // Course strategy tables
+  await query(`
+    CREATE TABLE IF NOT EXISTS courses (
+      id          TEXT PRIMARY KEY,
+      name        TEXT NOT NULL,
+      par         INTEGER,
+      slope       INTEGER,
+      rating      NUMERIC(4,1),
+      designers   TEXT[],
+      created_at  BIGINT NOT NULL,
+      updated_at  BIGINT NOT NULL
+    )
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS course_holes (
+      id               TEXT PRIMARY KEY,
+      course_id        TEXT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+      hole_number      INTEGER NOT NULL,
+      par              INTEGER NOT NULL,
+      yardages         JSONB NOT NULL,
+      heading          NUMERIC(6,2),
+      tee              JSONB NOT NULL,
+      pin              JSONB NOT NULL,
+      targets          JSONB DEFAULT '[]',
+      center_line      JSONB DEFAULT '[]',
+      hazards          JSONB DEFAULT '[]',
+      fairway          JSONB DEFAULT '[]',
+      plays_like_yards JSONB,
+      notes            TEXT,
+      UNIQUE(course_id, hole_number)
+    )
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_course_holes_course ON course_holes(course_id)
+  `);
+
   console.log('Database migration complete');
 }
