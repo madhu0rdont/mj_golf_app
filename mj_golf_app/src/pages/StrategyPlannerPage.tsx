@@ -220,7 +220,7 @@ export function StrategyPlannerPage() {
               </div>
             ) : hole ? (
               <>
-                <HoleInfoPanel hole={hole} teeBox={teeBox} />
+                <HoleInfoPanel hole={hole} teeBox={teeBox} allHoles={course!.holes} />
                 {showSim && (
                   <StrategyPanel
                     strategies={strategies}
