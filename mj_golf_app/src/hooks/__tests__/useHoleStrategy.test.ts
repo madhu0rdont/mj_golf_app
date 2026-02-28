@@ -97,6 +97,71 @@ describe('computeLandingZones', () => {
     const maxDist2 = Math.max(...zones[0].sigma2.map((p) => haversineYards(center, p)));
     expect(maxDist2).toBeGreaterThan(maxDist1 * 1.5);
   });
+
+  it('outer ellipse extends ~3σ along carry axis', () => {
+    const dist = makeDist({ stdCarry: 12, stdOffline: 8 });
+    const strategy: ApproachStrategy = {
+      clubs: [{ clubId: 'driver', clubName: 'Driver' }],
+      expectedStrokes: 3.5,
+      label: 'Driver (275)',
+    };
+    const zones = computeLandingZones(strategy, [dist], tee, bearing);
+    const center = zones[0].center;
+    // Outer ellipse semi-major = carryAxis * 3 = max(12, 8*1.5) * 3 = 12 * 3 = 36
+    // The max distance from center in the carry direction should be ~36 yards.
+    const maxDist2 = Math.max(...zones[0].sigma2.map((p) => haversineYards(center, p)));
+    expect(maxDist2).toBeCloseTo(36, -1); // within ~10 yards
+  });
+
+  it('minimum aspect ratio enforced when offline > carry std', () => {
+    // stdCarry=5, stdOffline=8 — offline is larger than carry
+    // carryAxis = max(5, 8 * 1.5) = max(5, 12) = 12
+    // So inner carry semi = 12 * 1.5 = 18, inner offline semi = 8 * 1.5 = 12
+    const dist = makeDist({ stdCarry: 5, stdOffline: 8 });
+    const strategy: ApproachStrategy = {
+      clubs: [{ clubId: 'driver', clubName: 'Driver' }],
+      expectedStrokes: 3.5,
+      label: 'Driver (275)',
+    };
+    const zones = computeLandingZones(strategy, [dist], tee, bearing);
+    const center = zones[0].center;
+
+    // Measure distances of sigma1 ellipse points along bearing (carry direction = north)
+    // and perpendicular (offline direction = east/west)
+    const carryDistances = zones[0].sigma1.map((p) => {
+      // Along-bearing distance: difference in lat (bearing=0 is due north)
+      return Math.abs(haversineYards(center, { lat: p.lat, lng: center.lng }));
+    });
+    const offlineDistances = zones[0].sigma1.map((p) => {
+      return Math.abs(haversineYards(center, { lat: center.lat, lng: p.lng }));
+    });
+
+    const maxCarry = Math.max(...carryDistances);
+    const maxOffline = Math.max(...offlineDistances);
+
+    // The carry axis should be larger than the offline axis (enforced 1.5x ratio)
+    expect(maxCarry).toBeGreaterThan(maxOffline);
+    // Inner carry semi should be ~18 yards (12 * 1.5)
+    expect(maxCarry).toBeCloseTo(18, -1);
+    // Inner offline semi should be ~12 yards (8 * 1.5)
+    expect(maxOffline).toBeCloseTo(12, -1);
+  });
+
+  it('outer ellipse is 2× inner in max distance', () => {
+    const dist = makeDist({ stdCarry: 12, stdOffline: 8 });
+    const strategy: ApproachStrategy = {
+      clubs: [{ clubId: 'driver', clubName: 'Driver' }],
+      expectedStrokes: 3.5,
+      label: 'Driver (275)',
+    };
+    const zones = computeLandingZones(strategy, [dist], tee, bearing);
+    const center = zones[0].center;
+    const maxDist1 = Math.max(...zones[0].sigma1.map((p) => haversineYards(center, p)));
+    const maxDist2 = Math.max(...zones[0].sigma2.map((p) => haversineYards(center, p)));
+    // Outer = 3σ, Inner = 1.5σ → ratio should be 2:1
+    const ratio = maxDist2 / maxDist1;
+    expect(ratio).toBeCloseTo(2.0, 1);
+  });
 });
 
 describe('computeLandingZonesFromAimPoints', () => {
@@ -169,5 +234,67 @@ describe('computeLandingZonesFromAimPoints', () => {
     const zones = computeLandingZonesFromAimPoints(strategy, [driverDist], 0);
     expect(zones[0].sigma1).toHaveLength(36);
     expect(zones[0].sigma2).toHaveLength(36);
+  });
+
+  it('aim-point zones enforce minimum aspect ratio', () => {
+    // stdCarry=5, stdOffline=8 → carryAxis = max(5, 8*1.5) = 12
+    const narrowDist = makeDist({
+      clubId: 'driver',
+      clubName: 'Driver',
+      stdCarry: 5,
+      stdOffline: 8,
+    });
+    const aimPos = { lat: 33.0025, lng: -117.0 };
+    const strategy: OptimizedStrategy = {
+      clubs: [{ clubId: 'driver', clubName: 'Driver' }],
+      expectedStrokes: 3.5,
+      label: 'Driver (275)',
+      strategyName: 'Test',
+      strategyType: 'scoring',
+      scoreDistribution: { eagle: 0, birdie: 0, par: 1, bogey: 0, double: 0, worse: 0 },
+      blowupRisk: 0,
+      aimPoints: [{ position: aimPos, clubName: 'Driver', shotNumber: 1 }],
+    };
+
+    const zones = computeLandingZonesFromAimPoints(strategy, [narrowDist], 0);
+    const center = zones[0].center;
+
+    // Measure along-bearing (carry, north) and perpendicular (offline) distances
+    const carryDistances = zones[0].sigma1.map((p) =>
+      Math.abs(haversineYards(center, { lat: p.lat, lng: center.lng })),
+    );
+    const offlineDistances = zones[0].sigma1.map((p) =>
+      Math.abs(haversineYards(center, { lat: center.lat, lng: p.lng })),
+    );
+
+    const maxCarry = Math.max(...carryDistances);
+    const maxOffline = Math.max(...offlineDistances);
+
+    // Carry axis forced to 12 (1.5 * 8), inner = 12 * 1.5 = 18
+    // Offline axis stays at 8, inner = 8 * 1.5 = 12
+    // The ellipse should be elongated along bearing (carry > offline)
+    expect(maxCarry).toBeGreaterThan(maxOffline);
+  });
+
+  it('aim-point zone outer ellipse is 2× inner', () => {
+    const aimPos = { lat: 33.0025, lng: -117.0 };
+    const strategy: OptimizedStrategy = {
+      clubs: [{ clubId: 'driver', clubName: 'Driver' }],
+      expectedStrokes: 3.5,
+      label: 'Driver (275)',
+      strategyName: 'Test',
+      strategyType: 'scoring',
+      scoreDistribution: { eagle: 0, birdie: 0, par: 1, bogey: 0, double: 0, worse: 0 },
+      blowupRisk: 0,
+      aimPoints: [{ position: aimPos, clubName: 'Driver', shotNumber: 1 }],
+    };
+
+    const zones = computeLandingZonesFromAimPoints(strategy, [driverDist], 0);
+    const center = zones[0].center;
+    const maxDist1 = Math.max(...zones[0].sigma1.map((p) => haversineYards(center, p)));
+    const maxDist2 = Math.max(...zones[0].sigma2.map((p) => haversineYards(center, p)));
+    // 3σ / 1.5σ = 2:1
+    const ratio = maxDist2 / maxDist1;
+    expect(ratio).toBeCloseTo(2.0, 1);
   });
 });

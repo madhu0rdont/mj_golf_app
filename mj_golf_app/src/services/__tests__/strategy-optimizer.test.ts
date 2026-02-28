@@ -262,6 +262,87 @@ describe('generateNamedStrategies', () => {
     const plans = generateNamedStrategies(hole, 'blue', dists);
     expect(plans.length).toBeGreaterThanOrEqual(2);
   });
+
+  it('bias compensation shifts aim points for clubs with meanOffline', () => {
+    // All clubs fade 10 yards right (positive meanOffline)
+    const biasedDists = makeDistributions().map((d) => ({
+      ...d,
+      meanOffline: 10,
+    }));
+    const hole = makeHole(4, 400);
+    const plans = generateNamedStrategies(hole, 'blue', biasedDists);
+    const conservative = plans.find((p) => p.name === 'Conservative')!;
+
+    // The target is due north (bearing ~0°), so perpendicular-right is east (+lng).
+    // compensateForBias shifts by -meanOffline along bearing+90, i.e., 10y west (lower lng).
+    // The aim point should be shifted LEFT (lower lng) relative to the target lng (-117.0).
+    expect(conservative.shots[0].aimPoint.lng).toBeLessThan(-117.0);
+  });
+
+  it('no shift when meanOffline is near zero', () => {
+    // All clubs have meanOffline = 0 (default from makeDistributions)
+    const zeroBiasDists = makeDistributions();
+    const hole = makeHole(4, 400);
+    const plans = generateNamedStrategies(hole, 'blue', zeroBiasDists);
+    const conservative = plans.find((p) => p.name === 'Conservative')!;
+
+    // With zero bias, aim point should stay on the center line (lng ≈ -117.0)
+    expect(conservative.shots[0].aimPoint.lng).toBeCloseTo(-117.0, 4);
+  });
+
+  it('expected landing chains correctly with bias', () => {
+    // All clubs have large rightward bias (25 yards). This shifts where the ball
+    // actually lands via expectedLanding, changing the remaining distance and
+    // the approach bearing to the pin.
+    const largeBiasDists = makeDistributions().map((d) => ({
+      ...d,
+      meanOffline: 25,
+    }));
+    const noBiasDists = makeDistributions();
+
+    const hole = makeHole(4, 400);
+
+    const biasedPlans = generateNamedStrategies(hole, 'blue', largeBiasDists);
+    const noBiasPlans = generateNamedStrategies(hole, 'blue', noBiasDists);
+
+    const biasedConservative = biasedPlans.find((p) => p.name === 'Conservative')!;
+    const noBiasConservative = noBiasPlans.find((p) => p.name === 'Conservative')!;
+
+    // With a 25y lateral bias the expected landing is offline from the center line,
+    // so the remaining distance to the pin changes. The second-shot club should
+    // differ (or at minimum the second-shot aim bearing shifts noticeably).
+    const biasedShot2Club = biasedConservative.shots[1].clubDist.clubId;
+    const noBiasShot2Club = noBiasConservative.shots[1].clubDist.clubId;
+
+    // The second-shot aim points should differ because the approach bearing changes
+    // (biased landing is off the center line, so approach to pin is from a different angle)
+    const biasedAim2 = biasedConservative.shots[1].aimPoint;
+    const noBiasAim2 = noBiasConservative.shots[1].aimPoint;
+    const aimDiffLng = Math.abs(biasedAim2.lng - noBiasAim2.lng);
+    const aimDiffLat = Math.abs(biasedAim2.lat - noBiasAim2.lat);
+
+    // Either the club changes OR the aim point shifts noticeably
+    const clubChanged = biasedShot2Club !== noBiasShot2Club;
+    const aimShifted = aimDiffLng > 0.00001 || aimDiffLat > 0.00001;
+    expect(clubChanged || aimShifted).toBe(true);
+  });
+
+  it('heading uses bearingBetween not hole.heading', () => {
+    // Create a hole where hole.heading is intentionally wrong (90° = due east)
+    // but tee-to-pin is due north (bearing ~0°)
+    const hole = makeHole(4, 400);
+    hole.heading = 90; // intentionally wrong — points east
+
+    const plans = generateNamedStrategies(hole, 'blue', dists);
+    const conservative = plans.find((p) => p.name === 'Conservative')!;
+
+    // If heading=90 were used, aim points would shift east (higher lng).
+    // Since bearingBetween(tee, pin) ≈ 0° (due north), aim points should stay
+    // on the tee-to-pin line, meaning lng ≈ -117.0.
+    expect(conservative.shots[0].aimPoint.lng).toBeCloseTo(-117.0, 3);
+    // And lat should be north of tee (higher lat)
+    expect(conservative.shots[0].aimPoint.lat).toBeGreaterThan(33.0);
+  });
 });
 
 // ---------------------------------------------------------------------------
