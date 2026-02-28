@@ -16,6 +16,8 @@ const HAZARD_COLORS: Record<string, string> = {
   water: '#4169E1',
   ob: '#FF4444',
   trees: '#228B22',
+  rough: '#8B7355',
+  green: '#00C853',
 };
 
 const FAIRWAY_COLOR = '#90EE90';

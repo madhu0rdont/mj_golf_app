@@ -30,7 +30,7 @@ export interface CourseHole {
 
 export interface HazardFeature {
   name: string;
-  type: 'bunker' | 'water' | 'ob' | 'trees';
+  type: 'bunker' | 'water' | 'ob' | 'trees' | 'rough' | 'green';
   penalty: number;
   confidence: 'high' | 'medium' | 'low';
   source: 'claude-vision' | 'manual';

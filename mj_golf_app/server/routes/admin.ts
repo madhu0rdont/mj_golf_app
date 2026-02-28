@@ -290,15 +290,15 @@ router.post('/hazard-detect', async (req, res) => {
   const yards = firstTee ? hole.yardages[firstTee] : 0;
 
   // 5. Send to Claude Vision
-  const systemPrompt = `You are a golf course hazard detection assistant analyzing satellite imagery.
-Identify all visible hazards (bunkers, water hazards, out-of-bounds areas, significant tree lines) and the fairway boundary.
+  const systemPrompt = `You are a golf course feature detection assistant analyzing satellite imagery.
+Identify all visible features: bunkers, water hazards, out-of-bounds areas, significant tree lines, rough areas, and the putting green. Also trace the fairway boundary.
 Return ONLY valid JSON — no markdown fences, no other text.
 Use this exact structure:
 {
   "hazards": [
     {
       "name": "descriptive name",
-      "type": "bunker" or "water" or "ob" or "trees",
+      "type": "bunker" or "water" or "ob" or "trees" or "rough" or "green",
       "confidence": "high" or "medium" or "low",
       "polygon": [{"x": number, "y": number}, ...]
     }
@@ -307,12 +307,14 @@ Use this exact structure:
 }
 Coordinates are image pixels where (0,0) is top-left and (${ACTUAL_SIZE},${ACTUAL_SIZE}) is bottom-right.
 Each polygon must have at least 3 points and trace the outline of the feature.
+For "green", trace the putting surface around the pin.
+For "rough", trace areas of unmowed or thick grass bordering the fairway.
 For the fairway, trace the mowed fairway area from tee to green.`;
 
   const userPrompt = `Analyze this satellite image of a golf hole.
 The tee is at pixel (${teePx.x}, ${teePx.y}), the pin is at pixel (${pinPx.x}, ${pinPx.y}).
 This is hole ${holeNumber}, par ${hole.par}, playing ${yards} yards at heading ${Math.round(hole.heading)}°.
-Detect all hazards and trace the fairway boundary.`;
+Detect all features (bunkers, water, OB, trees, rough, green) and trace the fairway boundary.`;
 
   let claudeResponse: { hazards: { name: string; type: string; confidence: string; polygon: { x: number; y: number }[] }[]; fairway: { x: number; y: number }[] };
 
@@ -367,10 +369,10 @@ Detect all hazards and trace the fairway boundary.`;
   // 6. Validate and convert pixel polygons to GPS coordinates
   const hazards = (claudeResponse.hazards ?? [])
     .filter((h) => Array.isArray(h.polygon) && h.polygon.length >= 3)
-    .filter((h) => ['bunker', 'water', 'ob', 'trees'].includes(h.type))
+    .filter((h) => ['bunker', 'water', 'ob', 'trees', 'rough', 'green'].includes(h.type))
     .map((h) => ({
       name: h.name || 'Unknown',
-      type: h.type as 'bunker' | 'water' | 'ob' | 'trees',
+      type: h.type as 'bunker' | 'water' | 'ob' | 'trees' | 'rough' | 'green',
       penalty: h.type === 'water' || h.type === 'ob' ? 1 : 0,
       confidence: (['high', 'medium', 'low'].includes(h.confidence) ? h.confidence : 'medium') as 'high' | 'medium' | 'low',
       source: 'claude-vision' as const,
