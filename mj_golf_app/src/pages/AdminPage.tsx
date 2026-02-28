@@ -1,106 +1,90 @@
 import { useState } from 'react';
-import { Upload } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
-import { Button } from '../components/ui/Button';
 import { LoadingPage } from '../components/ui/LoadingPage';
+import { Select } from '../components/ui/Select';
 import { KmlImporter } from '../components/admin/KmlImporter';
 import { HazardMapper } from '../components/admin/HazardMapper';
-import { CourseEditor } from '../components/admin/CourseEditor';
 import { ElevationRefresh } from '../components/admin/ElevationRefresh';
+import { PenaltyEditor } from '../components/admin/PenaltyEditor';
 import { useCourses, mutateCourses } from '../hooks/useCourses';
+
+type Tab = 'courses' | 'penalties' | 'import';
+
+const TABS: { value: Tab; label: string }[] = [
+  { value: 'courses', label: 'Edit Courses' },
+  { value: 'penalties', label: 'Edit Penalties' },
+  { value: 'import', label: 'Import Course' },
+];
 
 export function AdminPage() {
   const { courses, isLoading } = useCourses();
-  const [showImporter, setShowImporter] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('courses');
+  const [courseId, setCourseId] = useState('');
 
   if (isLoading) return <LoadingPage title="Admin" showBack />;
 
-  const hasCourses = courses && courses.length > 0;
+  // Auto-select first course if none selected
+  if (!courseId && courses?.length) {
+    setCourseId(courses[0].id);
+  }
 
   return (
     <>
       <TopBar title="Admin" showBack />
-      <div className="px-4 py-4 pb-24 flex flex-col gap-6">
-        {/* KML Importer */}
-        <section>
-          {showImporter ? (
-            <KmlImporter
-              onComplete={() => {
-                setShowImporter(false);
-                mutateCourses();
-              }}
-            />
-          ) : (
-            <Button
-              onClick={() => setShowImporter(true)}
-              className="w-full"
+      <div className="px-4 py-4 pb-24 flex flex-col gap-4">
+        {/* Tab toggle */}
+        <div className="flex rounded-xl bg-surface p-1 gap-1">
+          {TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setActiveTab(tab.value)}
+              className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                activeTab === tab.value
+                  ? 'bg-card text-text-dark shadow-sm'
+                  : 'text-text-muted hover:text-text-medium'
+              }`}
             >
-              <Upload size={18} />
-              Import New Course
-            </Button>
-          )}
-        </section>
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-        {/* Imported Courses */}
-        <section>
-          <h2 className="text-sm font-semibold text-text-medium mb-2">
-            Imported Courses
-          </h2>
-          {!hasCourses ? (
-            <p className="text-sm text-text-muted py-4 text-center">
-              No courses imported yet
-            </p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {courses.map((course) => (
-                <div
-                  key={course.id}
-                  className="rounded-2xl border border-border bg-card shadow-sm p-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-text-dark text-sm">
-                        {course.name}
-                      </p>
-                      <p className="text-xs text-text-muted">
-                        {course.par ? `Par ${course.par}` : ''}
-                        {course.slope ? ` · Slope ${course.slope}` : ''}
-                        {course.rating ? ` · Rating ${course.rating}` : ''}
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-primary-pale px-2 py-0.5 text-[10px] font-medium text-primary">
-                      Imported
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+        {/* Tab: Edit Courses */}
+        {activeTab === 'courses' && (
+          <div className="flex flex-col gap-4">
+            {!courses?.length ? (
+              <p className="text-sm text-text-muted py-4 text-center">
+                No courses imported yet. Use the Import tab to add one.
+              </p>
+            ) : (
+              <>
+                <Select
+                  label="Course"
+                  value={courseId}
+                  onChange={(e) => setCourseId(e.target.value)}
+                  options={courses.map((c) => ({ value: c.id, label: c.name }))}
+                />
 
-        {/* Hazard Mapper */}
-        <section>
-          {hasCourses ? (
-            <HazardMapper />
-          ) : (
-            <div className="flex flex-col items-center gap-1.5 rounded-2xl border border-border-light bg-surface p-4 text-center opacity-50">
-              <span className="text-xs text-text-muted">Hazard Mapper</span>
-              <span className="text-[10px] text-text-muted">
-                Import a course first
-              </span>
-            </div>
-          )}
-        </section>
+                <ElevationRefresh courseId={courseId} />
 
-        {/* Course Editor */}
-        <section>
-          <CourseEditor />
-        </section>
+                <HazardMapper courseId={courseId} />
+              </>
+            )}
+          </div>
+        )}
 
-        {/* Elevation Refresh */}
-        <section>
-          <ElevationRefresh />
-        </section>
+        {/* Tab: Edit Penalties */}
+        {activeTab === 'penalties' && <PenaltyEditor />}
+
+        {/* Tab: Import Course */}
+        {activeTab === 'import' && (
+          <KmlImporter
+            onComplete={() => {
+              mutateCourses();
+              setActiveTab('courses');
+            }}
+          />
+        )}
       </div>
     </>
   );

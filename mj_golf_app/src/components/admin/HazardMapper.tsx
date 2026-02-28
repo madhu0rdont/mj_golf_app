@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Loader2, Radar } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { Select } from '../ui/Select';
-import { useCourses, useCourse, mutateCourse } from '../../hooks/useCourses';
+import { useCourse, mutateCourse } from '../../hooks/useCourses';
 import { HoleHazardEditor } from './HoleHazardEditor';
 import type { CourseHole, HazardFeature } from '../../models/course';
 
@@ -20,14 +19,16 @@ const STATUS_COLORS: Record<HoleStatus, string> = {
   accepted: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-600',
 };
 
-export function HazardMapper() {
-  const { courses } = useCourses();
-  const [selectedCourseId, setSelectedCourseId] = useState<string>('');
+interface HazardMapperProps {
+  courseId: string;
+}
+
+export function HazardMapper({ courseId }: HazardMapperProps) {
   const [selectedHole, setSelectedHole] = useState<number | null>(null);
   const [detectingAll, setDetectingAll] = useState(false);
   const [detectProgress, setDetectProgress] = useState(0);
 
-  const { course } = useCourse(selectedCourseId || undefined);
+  const { course } = useCourse(courseId || undefined);
 
   async function handleDetectAll() {
     if (!course) return;
@@ -42,14 +43,14 @@ export function HazardMapper() {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            courseId: selectedCourseId,
+            courseId,
             holeNumber: hole.holeNumber,
           }),
         });
         if (res.ok) {
           const data = await res.json();
           // Save detected hazards + fairway to the hole
-          await fetch(`/api/admin/${selectedCourseId}/holes/${hole.holeNumber}`, {
+          await fetch(`/api/admin/${courseId}/holes/${hole.holeNumber}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -65,28 +66,12 @@ export function HazardMapper() {
       setDetectProgress(i + 1);
     }
 
-    await mutateCourse(selectedCourseId);
+    await mutateCourse(courseId);
     setDetectingAll(false);
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-sm font-semibold text-text-medium">Hazard Mapper</h2>
-
-      {/* Course selector */}
-      <Select
-        label="Course"
-        value={selectedCourseId}
-        onChange={(e) => {
-          setSelectedCourseId(e.target.value);
-          setSelectedHole(null);
-        }}
-        options={[
-          { value: '', label: 'Select a course...' },
-          ...(courses ?? []).map((c) => ({ value: c.id, label: c.name })),
-        ]}
-      />
-
       {course && (
         <>
           {/* Auto-detect all */}
@@ -142,9 +127,9 @@ export function HazardMapper() {
           {/* Hole editor */}
           {selectedHole != null && (
             <HoleHazardEditor
-              courseId={selectedCourseId}
+              courseId={courseId}
               holeNumber={selectedHole}
-              onSave={() => mutateCourse(selectedCourseId)}
+              onSave={() => mutateCourse(courseId)}
             />
           )}
         </>

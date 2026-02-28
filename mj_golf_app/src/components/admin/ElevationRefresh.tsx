@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
-import { useCourses } from '../../hooks/useCourses';
 import { api } from '../../lib/api';
 
 interface HoleComparison {
@@ -11,18 +9,14 @@ interface HoleComparison {
   after: Record<string, number>;
 }
 
-export function ElevationRefresh() {
-  const { courses } = useCourses();
-  const [courseId, setCourseId] = useState('');
+interface ElevationRefreshProps {
+  courseId: string;
+}
+
+export function ElevationRefresh({ courseId }: ElevationRefreshProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [comparison, setComparison] = useState<HoleComparison[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!courseId && courses?.length) {
-      setCourseId(courses[0].id);
-    }
-  }, [courses, courseId]);
 
   const handleRefresh = async () => {
     if (!courseId) return;
@@ -47,31 +41,9 @@ export function ElevationRefresh() {
     ? Object.keys(comparison[0].after)[0]
     : 'blue';
 
-  if (!courses?.length) {
-    return (
-      <div className="flex flex-col items-center gap-1.5 rounded-2xl border border-border-light bg-surface p-4 text-center opacity-50">
-        <span className="text-xs text-text-muted">Elevation Refresh</span>
-        <span className="text-[10px] text-text-muted">Import a course first</span>
-      </div>
-    );
-  }
-
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-4">
-      <h3 className="text-sm font-semibold text-text-dark">Elevation Refresh</h3>
-
-      <Select
-        label="Course"
-        value={courseId}
-        onChange={(e) => {
-          setCourseId(e.target.value);
-          setComparison(null);
-          setError(null);
-        }}
-        options={(courses ?? []).map((c) => ({ value: c.id, label: c.name }))}
-      />
-
-      <Button onClick={handleRefresh} disabled={isRefreshing || !courseId} className="w-full">
+    <div className="flex flex-col gap-3">
+      <Button onClick={handleRefresh} disabled={isRefreshing || !courseId} variant="ghost" className="w-full">
         {isRefreshing ? (
           <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
         ) : (
