@@ -255,30 +255,34 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
       const h = hazards[idx];
       if (h.polygon.length < 3) continue;
       const color = HAZARD_COLORS[h.type] ?? '#FFFFFF';
+      const isAccepted = h.status === 'accepted';
       const poly = new google.maps.Polygon({
         map,
         paths: h.polygon,
         fillColor: color,
-        fillOpacity: h.status === 'pending' ? 0.2 : 0.35,
+        fillOpacity: isAccepted ? 0.35 : 0.2,
         strokeColor: color,
         strokeWeight: 2,
-        strokeOpacity: h.status === 'pending' ? 0.5 : 1,
-        editable: true,
+        strokeOpacity: isAccepted ? 1 : 0.5,
+        editable: !isAccepted,
+        clickable: true,
       });
 
       const hazardIdx = idx;
-      const updatePath = () => {
-        const path = poly.getPath();
-        const coords = Array.from({ length: path.getLength() }, (_, i) => ({
-          lat: path.getAt(i).lat(),
-          lng: path.getAt(i).lng(),
-        }));
-        setHazards((prev) =>
-          prev.map((hz, i) => (i === hazardIdx ? { ...hz, polygon: coords } : hz)),
-        );
-      };
-      poly.getPath().addListener('set_at', updatePath);
-      poly.getPath().addListener('insert_at', updatePath);
+      if (!isAccepted) {
+        const updatePath = () => {
+          const path = poly.getPath();
+          const coords = Array.from({ length: path.getLength() }, (_, i) => ({
+            lat: path.getAt(i).lat(),
+            lng: path.getAt(i).lng(),
+          }));
+          setHazards((prev) =>
+            prev.map((hz, i) => (i === hazardIdx ? { ...hz, polygon: coords } : hz)),
+          );
+        };
+        poly.getPath().addListener('set_at', updatePath);
+        poly.getPath().addListener('insert_at', updatePath);
+      }
 
       polygonsRef.current.push(poly);
     }
