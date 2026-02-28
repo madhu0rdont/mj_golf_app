@@ -26,6 +26,7 @@ type ViewMode = 'hole' | 'gameplan';
 
 const COURSE_LOGOS: Record<string, string> = {
   claremont: '/course-logos/claremont.svg',
+  presidio: '/course-logos/presidio.webp',
 };
 
 function getCourseLogoKey(name: string): string | undefined {
