@@ -263,8 +263,9 @@ describe('generateNamedStrategies', () => {
     expect(plans.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('aim points are at target positions, not shifted by bias', () => {
-    // All clubs fade 10 yards right (positive meanOffline)
+  it('plan targets stay on center line regardless of bias', () => {
+    // Plan targets are landing ZONES (where the ball should end up).
+    // Bias compensation is applied to OUTPUT aimPoints in simulateHoleGPS.
     const biasedDists = makeDistributions().map((d) => ({
       ...d,
       meanOffline: 10,
@@ -273,15 +274,12 @@ describe('generateNamedStrategies', () => {
     const plans = generateNamedStrategies(hole, 'blue', biasedDists);
     const conservative = plans.find((p) => p.name === 'Conservative')!;
 
-    // Aim points should be at the TARGET, not shifted for bias.
-    // Bias compensation is applied only in simulateHoleGPS.
-    // Shot 1 aim should be at target[0] (lng ≈ -117.0)
+    // Plan targets are on the center line (lng ≈ -117.0)
     expect(conservative.shots[0].aimPoint.lng).toBeCloseTo(-117.0, 4);
-    // Shot 2 aim should be at pin (lng ≈ -117.0)
     expect(conservative.shots[1].aimPoint.lng).toBeCloseTo(-117.0, 4);
   });
 
-  it('aim points unchanged regardless of meanOffline', () => {
+  it('plan targets unchanged regardless of meanOffline', () => {
     const biasedDists = makeDistributions().map((d) => ({ ...d, meanOffline: 15 }));
     const zeroBiasDists = makeDistributions();
     const hole = makeHole(4, 400);
@@ -292,50 +290,62 @@ describe('generateNamedStrategies', () => {
     const biasedConserv = biasedPlans.find((p) => p.name === 'Conservative')!;
     const zeroConserv = zeroBiasPlans.find((p) => p.name === 'Conservative')!;
 
-    // Shot 2 aim is always the pin regardless of bias
+    // Shot 2 target is always the pin regardless of bias
     expect(biasedConserv.shots[1].aimPoint.lat).toBeCloseTo(zeroConserv.shots[1].aimPoint.lat, 6);
     expect(biasedConserv.shots[1].aimPoint.lng).toBeCloseTo(zeroConserv.shots[1].aimPoint.lng, 6);
   });
 
-  it('aim points stay on center line even with large bias', () => {
-    // All clubs have large rightward bias (50 yards).
-    // Aim points should still be along the center line (lng ≈ -117.0),
-    // NOT shifted by meanOffline. Only expectedLanding (used for club
-    // selection chaining) accounts for bias.
-    const largeBiasDists = makeDistributions().map((d) => ({
+  it('output aim points are shifted to compensate for lateral bias', () => {
+    // All clubs miss 15 yards right (positive meanOffline).
+    // Output aimPoints should be shifted LEFT to compensate.
+    const biasedDists = makeDistributions().map((d) => ({
       ...d,
-      meanOffline: 50,
+      meanOffline: 15,
     }));
-
     const hole = makeHole(4, 400);
-    const plans = generateNamedStrategies(hole, 'blue', largeBiasDists);
-    const layup = plans.find((p) => p.name === 'Layup')!;
+    const plans = generateNamedStrategies(hole, 'blue', biasedDists);
+    const result = simulateHoleGPS(plans[0], hole, biasedDists, 500);
 
-    // Layup aim point 1 should be on the center line (heading=0° = due north, lng stays ≈ -117.0)
-    expect(layup.shots[0].aimPoint.lng).toBeCloseTo(-117.0, 4);
+    // Heading ≈ 0° (due north), so "right" is east (positive lng).
+    // CompensateForBias shifts aim WEST (more negative lng).
+    expect(result.aimPoints[0].position.lng).toBeLessThan(-117.0);
   });
 
-  it('bias affects club selection via expectedLanding but not aim points', () => {
-    // With 50y rightward bias, the expected landing is 50y right of center.
-    // This changes the remaining distance to pin, potentially changing the
-    // second-shot club. But aim points should not shift.
-    const largeBiasDists = makeDistributions().map((d) => ({
-      ...d,
-      meanOffline: 50,
-    }));
-    const noBiasDists = makeDistributions();
+  it('output aim points match targets when no bias', () => {
+    // With zero meanOffline, aim points = targets (no compensation needed)
+    const zeroBiasDists = makeDistributions(); // meanOffline = 0
+    const hole = makeHole(4, 400);
+    const plans = generateNamedStrategies(hole, 'blue', zeroBiasDists);
+    const result = simulateHoleGPS(plans[0], hole, zeroBiasDists, 500);
 
-    const hole = makeHole(5, 540);
-    const biasedPlans = generateNamedStrategies(hole, 'blue', largeBiasDists);
-    const noBiasPlans = generateNamedStrategies(hole, 'blue', noBiasDists);
+    // No bias → aim point should be at target (lng ≈ -117.0)
+    expect(result.aimPoints[0].position.lng).toBeCloseTo(-117.0, 4);
+  });
 
-    const biasedGoForIt = biasedPlans.find((p) => p.name === 'Go-For-It')!;
-    const noBiasGoForIt = noBiasPlans.find((p) => p.name === 'Go-For-It')!;
+  it('findSafeLanding shifts target away from hazards', () => {
+    const hole = makeHole(4, 400);
+    // Place a hazard right where the conservative target would land (~275y = driver carry)
+    const hazardLat = 33.0 + 275 / 121100;
+    // Narrow bunker (~10y wide) straddling the center line at 275y
+    hole.hazards = [
+      makeHazard({
+        type: 'fairway_bunker',
+        penalty: 0.3,
+        polygon: [
+          { lat: hazardLat - 0.0003, lng: -117.00005 },
+          { lat: hazardLat - 0.0003, lng: -116.99995 },
+          { lat: hazardLat + 0.0003, lng: -116.99995 },
+          { lat: hazardLat + 0.0003, lng: -117.00005 },
+        ],
+      }),
+    ];
+    hole.targets = []; // force center-line fallback
 
-    // Aim points should be the same (both on center line)
-    expect(biasedGoForIt.shots[0].aimPoint.lng).toBeCloseTo(noBiasGoForIt.shots[0].aimPoint.lng, 6);
-    // But the second-shot club may differ due to different remaining distance
-    // (biased landing is further from pin via Pythagorean theorem)
+    const plans = generateNamedStrategies(hole, 'blue', makeDistributions());
+    const conservative = plans.find((p) => p.name === 'Conservative')!;
+
+    // Target should have been nudged away from the bunker (lng ≠ -117.0)
+    expect(Math.abs(conservative.shots[0].aimPoint.lng - (-117.0))).toBeGreaterThan(0.00005);
   });
 
   it('heading uses bearingBetween not hole.heading', () => {

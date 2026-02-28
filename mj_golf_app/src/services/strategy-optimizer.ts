@@ -172,8 +172,8 @@ function shiftToward(
 }
 
 /** Offset aim point to compensate for the player's lateral bias.
- *  If meanOffline is +8 (fades right), shift aim 8y left so expected
- *  landing ends up on the intended target. */
+ *  If meanOffline is +8 (misses right), shift aim 8y left so expected
+ *  landing ends up on the intended target. Works for any handedness. */
 function compensateForBias(
   target: { lat: number; lng: number },
   shotBearing: number,
@@ -181,6 +181,56 @@ function compensateForBias(
 ): { lat: number; lng: number } {
   if (Math.abs(club.meanOffline) <= 0.5) return target;
   return projectPoint(target, shotBearing + 90, -club.meanOffline);
+}
+
+/** Find the point along the center line at a given distance from the start.
+ *  Falls back to projecting along fallbackBearing if center line is too short. */
+function centerLinePoint(
+  centerLine: { lat: number; lng: number }[],
+  from: { lat: number; lng: number },
+  targetDist: number,
+  fallbackBearing: number,
+): { lat: number; lng: number } {
+  if (centerLine.length < 2) {
+    return projectPoint(from, fallbackBearing, targetDist);
+  }
+
+  let cumDist = 0;
+  let prev = centerLine[0];
+  for (let i = 1; i < centerLine.length; i++) {
+    const segDist = haversineYards(prev, centerLine[i]);
+    if (cumDist + segDist >= targetDist) {
+      // Interpolate along this segment
+      const remaining = targetDist - cumDist;
+      const fraction = segDist > 0 ? remaining / segDist : 0;
+      return {
+        lat: prev.lat + (centerLine[i].lat - prev.lat) * fraction,
+        lng: prev.lng + (centerLine[i].lng - prev.lng) * fraction,
+      };
+    }
+    cumDist += segDist;
+    prev = centerLine[i];
+  }
+
+  // Past the end of center line — project from the last point toward the pin
+  return projectPoint(prev, fallbackBearing, targetDist - cumDist);
+}
+
+/** Nudge a target away from hazards. Tries small perpendicular shifts
+ *  if the target sits inside a hazard polygon. */
+function findSafeLanding(
+  target: { lat: number; lng: number },
+  heading: number,
+  hazards: HazardFeature[],
+): { lat: number; lng: number } {
+  if (hazards.length === 0 || !checkHazards(target, hazards).inHazard) return target;
+  for (const dir of [-1, 1]) {
+    for (const offset of [10, 20, 30]) {
+      const shifted = projectPoint(target, heading + 90, dir * offset);
+      if (!checkHazards(shifted, hazards).inHazard) return shifted;
+    }
+  }
+  return target;
 }
 
 /** Project expected landing position including lateral bias */
@@ -209,6 +259,7 @@ export function generateNamedStrategies(
   if (distance === 0) return [];
 
   const heading = bearingBetween(tee, pin);
+  const cl = hole.centerLine ?? [];
   const plans: NamedStrategyPlan[] = [];
 
   if (hole.par === 3) {
@@ -267,9 +318,13 @@ export function generateNamedStrategies(
     const longest = longestClub(distributions);
 
     // Conservative: aim at target[0] if available, else project along heading
-    const conservTarget = hole.targets.length > 0
-      ? { lat: hole.targets[0].coordinate.lat, lng: hole.targets[0].coordinate.lng }
-      : projectPoint(tee, heading, longest.meanCarry);
+    const conservTarget = findSafeLanding(
+      hole.targets.length > 0
+        ? { lat: hole.targets[0].coordinate.lat, lng: hole.targets[0].coordinate.lng }
+        : centerLinePoint(cl, tee, longest.meanCarry, heading),
+      heading,
+      hole.hazards,
+    );
     const conservDist1 = haversineYards(tee, conservTarget);
     const conservClub1 = closestClub(conservDist1, distributions)!;
     const conservLanding = expectedLanding(tee, heading, conservClub1);
@@ -285,7 +340,7 @@ export function generateNamedStrategies(
     });
 
     // Aggressive: shift aim 12y toward pin from conservative target
-    const aggTarget = shiftToward(conservTarget, pin, 12);
+    const aggTarget = findSafeLanding(shiftToward(conservTarget, pin, 12), heading, hole.hazards);
     const aggDist1 = haversineYards(tee, aggTarget);
     const aggClub1 = closestClub(aggDist1, distributions)!;
     const aggLanding = expectedLanding(tee, heading, aggClub1);
@@ -303,7 +358,7 @@ export function generateNamedStrategies(
     // Layup: shorter club off tee, then approach
     const midClubs = distributions.filter((d) => d.meanCarry < longest.meanCarry - 20);
     const layupClub1 = midClubs.length > 0 ? longestClub(midClubs) : longest;
-    const layupTarget = projectPoint(tee, heading, layupClub1.meanCarry); // aim along center line
+    const layupTarget = findSafeLanding(centerLinePoint(cl, tee, layupClub1.meanCarry, heading), heading, hole.hazards);
     const layupLanding = expectedLanding(tee, heading, layupClub1); // actual landing (for club selection)
     const layupRemaining = haversineYards(layupLanding, pin);
     const layupClub2 = closestClub(layupRemaining, distributions)!;
@@ -322,12 +377,20 @@ export function generateNamedStrategies(
 
     // Conservative 3-Shot: use targets as waypoints, or compute 3 equal segments
     const segDist = distance / 3;
-    const wp1 = hole.targets.length >= 2
-      ? { lat: hole.targets[0].coordinate.lat, lng: hole.targets[0].coordinate.lng }
-      : projectPoint(tee, heading, segDist);
-    const wp2 = hole.targets.length >= 2
-      ? { lat: hole.targets[1].coordinate.lat, lng: hole.targets[1].coordinate.lng }
-      : projectPoint(tee, heading, segDist * 2);
+    const wp1 = findSafeLanding(
+      hole.targets.length >= 2
+        ? { lat: hole.targets[0].coordinate.lat, lng: hole.targets[0].coordinate.lng }
+        : centerLinePoint(cl, tee, segDist, heading),
+      heading,
+      hole.hazards,
+    );
+    const wp2 = findSafeLanding(
+      hole.targets.length >= 2
+        ? { lat: hole.targets[1].coordinate.lat, lng: hole.targets[1].coordinate.lng }
+        : centerLinePoint(cl, tee, segDist * 2, heading),
+      heading,
+      hole.hazards,
+    );
 
     const c3Club1 = closestClub(haversineYards(tee, wp1), distributions)!;
     const c3Landing1 = expectedLanding(tee, heading, c3Club1);
@@ -346,7 +409,7 @@ export function generateNamedStrategies(
     });
 
     // Go-For-It: driver + longest feasible, 2 shots
-    const goTarget = projectPoint(tee, heading, longest.meanCarry); // aim along center line
+    const goTarget = findSafeLanding(centerLinePoint(cl, tee, longest.meanCarry, heading), heading, hole.hazards);
     const goLanding = expectedLanding(tee, heading, longest); // actual landing (for club selection)
     const goRemaining = haversineYards(goLanding, pin);
     const goClub2 = closestClub(goRemaining, distributions)!;
@@ -360,7 +423,7 @@ export function generateNamedStrategies(
     });
 
     // Safe Layup: driver + mid-iron + wedge
-    const safeTarget1 = projectPoint(tee, heading, longest.meanCarry); // aim along center line
+    const safeTarget1 = findSafeLanding(centerLinePoint(cl, tee, longest.meanCarry, heading), heading, hole.hazards);
     const safeLanding1 = expectedLanding(tee, heading, longest); // actual landing (for club selection)
     const safeRemaining1 = distance - longest.meanCarry;
     const midDist = safeRemaining1 * 0.55;
@@ -478,11 +541,20 @@ export function simulateHoleGPS(
   const scoreDist = computeScoreDistribution(trialScores, hole.par);
   const blowupRisk = scoreDist.double + scoreDist.worse;
 
-  const aimPoints: AimPoint[] = plan.shots.map((s, i) => ({
-    position: s.aimPoint,
-    clubName: s.clubDist.clubName,
-    shotNumber: i + 1,
-  }));
+  // Build aim points: show WHERE TO AIM (compensated for lateral bias)
+  // so the expected landing ≈ the plan targets (on fairway).
+  const aimPoints: AimPoint[] = [];
+  let aimFrom = { lat: tee.lat, lng: tee.lng };
+  for (let i = 0; i < plan.shots.length; i++) {
+    const s = plan.shots[i];
+    const bearing = bearingBetween(aimFrom, s.aimPoint);
+    aimPoints.push({
+      position: compensateForBias(s.aimPoint, bearing, s.clubDist),
+      clubName: s.clubDist.clubName,
+      shotNumber: i + 1,
+    });
+    aimFrom = s.aimPoint; // next shot fires from expected landing ≈ target
+  }
 
   // Build label from club sequence
   const label = plan.shots
