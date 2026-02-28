@@ -17,6 +17,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { AboutPage } from './pages/AboutPage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
 import { AdminPage } from './pages/AdminPage';
+import { PlayPage } from './pages/PlayPage';
 import { PracticePage } from './pages/PracticePage';
 import { StrategyPlannerPage } from './pages/StrategyPlannerPage';
 
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <HomePage /> },
+      { path: 'play', element: <PlayPage /> },
       { path: 'practice', element: <PracticePage /> },
       { path: 'bag', element: <ClubBagPage /> },
       { path: 'bag/new', element: <ClubEditPage /> },

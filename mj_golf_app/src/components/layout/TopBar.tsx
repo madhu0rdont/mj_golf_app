@@ -4,6 +4,7 @@ import { ArrowLeft, Settings, Menu, X, Home, Briefcase, BookOpen, MapPin, HelpCi
 
 const NAV_LINKS = [
   { to: '/', icon: Home, label: 'Home' },
+  { to: '/play', icon: MapPin, label: 'Play' },
   { to: '/practice', icon: Plus, label: 'Practice' },
   { to: '/bag', icon: Briefcase, label: 'Bag' },
   { to: '/yardage', icon: BookOpen, label: 'Yardage' },
