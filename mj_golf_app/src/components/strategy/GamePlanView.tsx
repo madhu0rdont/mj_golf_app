@@ -103,7 +103,7 @@ function HoleCard({ hole }: { hole: HolePlan }) {
 
           <p className="text-xs font-semibold text-primary mt-1">{hole.strategy.strategyName}</p>
           <p className="text-[11px] text-text-medium truncate">
-            {hole.strategy.clubs.map((c) => c.clubName).join(' → ')}
+            {hole.strategy.label}
           </p>
 
           {(hole.carryToAvoid || hole.missSide) && (

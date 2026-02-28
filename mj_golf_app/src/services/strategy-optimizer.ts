@@ -216,11 +216,11 @@ export function generateNamedStrategies(
     const pinClub = closestClub(distance, distributions);
     if (!pinClub) return [];
 
-    // Pin Hunting: aim directly at pin (offset for bias)
+    // Pin Hunting: aim directly at pin
     plans.push({
       name: 'Pin Hunting',
       type: 'scoring',
-      shots: [{ clubDist: pinClub, aimPoint: compensateForBias(pin, heading, pinClub) }],
+      shots: [{ clubDist: pinClub, aimPoint: pin }],
     });
 
     // Center Green: aim at midpoint between tee projection and pin (green center proxy)
@@ -232,7 +232,7 @@ export function generateNamedStrategies(
       plans.push({
         name: 'Center Green',
         type: 'balanced',
-        shots: [{ clubDist: centerClub, aimPoint: compensateForBias(greenCenter, heading, centerClub) }],
+        shots: [{ clubDist: centerClub, aimPoint: greenCenter }],
       });
     }
 
@@ -259,7 +259,7 @@ export function generateNamedStrategies(
       plans.push({
         name: 'Bail Out',
         type: 'safe',
-        shots: [{ clubDist: bailClub, aimPoint: compensateForBias(bailPoint, heading, bailClub) }],
+        shots: [{ clubDist: bailClub, aimPoint: bailPoint }],
       });
     }
   } else if (hole.par === 4) {
@@ -275,13 +275,12 @@ export function generateNamedStrategies(
     const conservLanding = expectedLanding(tee, heading, conservClub1);
     const conservRemaining = haversineYards(conservLanding, pin);
     const conservClub2 = closestClub(conservRemaining, distributions)!;
-    const conservApproachBearing = bearingBetween(conservLanding, pin);
     plans.push({
       name: 'Conservative',
       type: 'balanced',
       shots: [
-        { clubDist: conservClub1, aimPoint: compensateForBias(conservTarget, heading, conservClub1) },
-        { clubDist: conservClub2, aimPoint: compensateForBias(pin, conservApproachBearing, conservClub2) },
+        { clubDist: conservClub1, aimPoint: conservTarget },
+        { clubDist: conservClub2, aimPoint: pin },
       ],
     });
 
@@ -292,13 +291,12 @@ export function generateNamedStrategies(
     const aggLanding = expectedLanding(tee, heading, aggClub1);
     const aggRemaining = haversineYards(aggLanding, pin);
     const aggClub2 = closestClub(aggRemaining, distributions)!;
-    const aggApproachBearing = bearingBetween(aggLanding, pin);
     plans.push({
       name: 'Aggressive',
       type: 'scoring',
       shots: [
-        { clubDist: aggClub1, aimPoint: compensateForBias(aggTarget, heading, aggClub1) },
-        { clubDist: aggClub2, aimPoint: compensateForBias(pin, aggApproachBearing, aggClub2) },
+        { clubDist: aggClub1, aimPoint: aggTarget },
+        { clubDist: aggClub2, aimPoint: pin },
       ],
     });
 
@@ -308,13 +306,12 @@ export function generateNamedStrategies(
     const layupLanding = expectedLanding(tee, heading, layupClub1);
     const layupRemaining = haversineYards(layupLanding, pin);
     const layupClub2 = closestClub(layupRemaining, distributions)!;
-    const layupApproachBearing = bearingBetween(layupLanding, pin);
     plans.push({
       name: 'Layup',
       type: 'safe',
       shots: [
-        { clubDist: layupClub1, aimPoint: compensateForBias(layupLanding, heading, layupClub1) },
-        { clubDist: layupClub2, aimPoint: compensateForBias(pin, layupApproachBearing, layupClub2) },
+        { clubDist: layupClub1, aimPoint: layupLanding },
+        { clubDist: layupClub2, aimPoint: pin },
       ],
     });
   } else if (hole.par === 5) {
@@ -337,14 +334,13 @@ export function generateNamedStrategies(
     const c3Bearing2 = bearingBetween(c3Landing1, wp2);
     const c3Landing2 = expectedLanding(c3Landing1, c3Bearing2, c3Club2);
     const c3Club3 = closestClub(haversineYards(c3Landing2, pin), distributions)!;
-    const c3Bearing3 = bearingBetween(c3Landing2, pin);
     plans.push({
       name: 'Conservative 3-Shot',
       type: 'balanced',
       shots: [
-        { clubDist: c3Club1, aimPoint: compensateForBias(wp1, heading, c3Club1) },
-        { clubDist: c3Club2, aimPoint: compensateForBias(wp2, c3Bearing2, c3Club2) },
-        { clubDist: c3Club3, aimPoint: compensateForBias(pin, c3Bearing3, c3Club3) },
+        { clubDist: c3Club1, aimPoint: wp1 },
+        { clubDist: c3Club2, aimPoint: wp2 },
+        { clubDist: c3Club3, aimPoint: pin },
       ],
     });
 
@@ -352,13 +348,12 @@ export function generateNamedStrategies(
     const goLanding = expectedLanding(tee, heading, longest);
     const goRemaining = haversineYards(goLanding, pin);
     const goClub2 = closestClub(goRemaining, distributions)!;
-    const goBearing2 = bearingBetween(goLanding, pin);
     plans.push({
       name: 'Go-For-It',
       type: 'scoring',
       shots: [
-        { clubDist: longest, aimPoint: compensateForBias(goLanding, heading, longest) },
-        { clubDist: goClub2, aimPoint: compensateForBias(pin, goBearing2, goClub2) },
+        { clubDist: longest, aimPoint: goLanding },
+        { clubDist: goClub2, aimPoint: pin },
       ],
     });
 
@@ -371,14 +366,13 @@ export function generateNamedStrategies(
     const safeLanding2 = expectedLanding(safeLanding1, safeBearing2, safeMidClub);
     const safeRemaining2 = haversineYards(safeLanding2, pin);
     const safeWedge = closestClub(safeRemaining2, distributions) ?? shortest;
-    const safeBearing3 = bearingBetween(safeLanding2, pin);
     plans.push({
       name: 'Safe Layup',
       type: 'safe',
       shots: [
-        { clubDist: longest, aimPoint: compensateForBias(safeLanding1, heading, longest) },
-        { clubDist: safeMidClub, aimPoint: compensateForBias(safeLanding2, safeBearing2, safeMidClub) },
-        { clubDist: safeWedge, aimPoint: compensateForBias(pin, safeBearing3, safeWedge) },
+        { clubDist: longest, aimPoint: safeLanding1 },
+        { clubDist: safeMidClub, aimPoint: safeLanding2 },
+        { clubDist: safeWedge, aimPoint: pin },
       ],
     });
   }
@@ -412,8 +406,10 @@ export function simulateHoleGPS(
       const carry = gaussianSample(shot.clubDist.meanCarry, shot.clubDist.stdCarry);
       const offline = gaussianSample(shot.clubDist.meanOffline, shot.clubDist.stdOffline);
 
-      // Direction from current position toward aim point
-      const shotBearing = bearingBetween(currentPos, shot.aimPoint);
+      // Compensate aim direction for lateral bias so expected landing ≈ target
+      const rawBearing = bearingBetween(currentPos, shot.aimPoint);
+      const compensatedAim = compensateForBias(shot.aimPoint, rawBearing, shot.clubDist);
+      const shotBearing = bearingBetween(currentPos, compensatedAim);
 
       // Project carry along shot bearing
       let landing = projectPoint(currentPos, shotBearing, carry);
@@ -445,7 +441,9 @@ export function simulateHoleGPS(
       const club = greedyClub(distToPin, distributions);
       const carry = gaussianSample(club.meanCarry, club.stdCarry);
       const offline = gaussianSample(club.meanOffline, club.stdOffline);
-      const shotBearing = bearingBetween(currentPos, pin);
+      const greedyBearing = bearingBetween(currentPos, pin);
+      const compensatedGreedyAim = compensateForBias(pin, greedyBearing, club);
+      const shotBearing = bearingBetween(currentPos, compensatedGreedyAim);
 
       let landing = projectPoint(currentPos, shotBearing, carry);
       if (Math.abs(offline) > 0.5) {

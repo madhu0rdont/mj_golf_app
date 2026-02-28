@@ -5,10 +5,17 @@ import { haversineYards, bearingBetween } from '../../utils/geo';
 import type { CourseHole } from '../../models/course';
 import type { LandingZone } from '../../hooks/useHoleStrategy';
 
+interface AimPointInfo {
+  position: { lat: number; lng: number };
+  clubName: string;
+  shotNumber: number;
+}
+
 interface HoleViewerProps {
   hole: CourseHole;
   teeBox?: string;
   landingZones?: LandingZone[];
+  aimPoints?: AimPointInfo[];
 }
 
 const HAZARD_COLORS: Record<string, string> = {
@@ -26,7 +33,7 @@ const GREEN_COLOR = '#00C853';
 
 let mapsInitialized = false;
 
-export function HoleViewer({ hole, landingZones }: HoleViewerProps) {
+export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const overlaysRef = useRef<(google.maps.Polygon | google.maps.Polyline | google.maps.marker.AdvancedMarkerElement)[]>([]);
@@ -164,27 +171,34 @@ export function HoleViewer({ hole, landingZones }: HoleViewerProps) {
       });
       simOverlaysRef.current.push(sigma1Poly);
 
-      // Numbered aim point circle at zone center
+    }
+
+    // Numbered aim point markers (at aim points, not landing zone centers)
+    const aimPositions = aimPoints && aimPoints.length > 0
+      ? aimPoints.map((a) => a.position)
+      : landingZones.map((z) => z.center);
+
+    for (let j = 0; j < aimPositions.length; j++) {
       const circleEl = document.createElement('div');
       circleEl.style.cssText =
         'width:24px;height:24px;border-radius:50%;background:#00E5FF;' +
         'display:flex;align-items:center;justify-content:center;' +
         'font-size:12px;font-weight:700;color:#000;pointer-events:none;' +
         'border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.4);';
-      circleEl.textContent = String(i + 1);
+      circleEl.textContent = String(j + 1);
 
       const circleMarker = new google.maps.marker.AdvancedMarkerElement({
         map,
-        position: zone.center,
+        position: aimPositions[j],
         content: circleEl,
       });
       simOverlaysRef.current.push(circleMarker);
     }
 
-    // Shot sequence arrow polyline: tee → zone centers → pin
+    // Shot sequence arrow polyline: tee → aim points → pin
     const arrowPath: google.maps.LatLngLiteral[] = [
       { lat: hole.tee.lat, lng: hole.tee.lng },
-      ...landingZones.map((z) => z.center),
+      ...aimPositions,
       { lat: hole.pin.lat, lng: hole.pin.lng },
     ];
 
@@ -211,7 +225,7 @@ export function HoleViewer({ hole, landingZones }: HoleViewerProps) {
       clickable: false,
     });
     simOverlaysRef.current.push(arrowLine);
-  }, [landingZones, clearSimOverlays, hole.tee.lat, hole.tee.lng, hole.pin.lat, hole.pin.lng]);
+  }, [landingZones, aimPoints, clearSimOverlays, hole.tee.lat, hole.tee.lng, hole.pin.lat, hole.pin.lng]);
 
   // Render all overlays when hole changes
   const renderOverlays = useCallback(() => {

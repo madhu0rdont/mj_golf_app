@@ -117,7 +117,7 @@ export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount, is
                 {opt && (
                   <p className="text-xs font-semibold text-primary mb-0.5">{opt.strategyName}</p>
                 )}
-                <p className="text-sm font-medium text-text-dark truncate">{s.label}</p>
+                <p className="text-sm font-medium text-text-dark">{s.label}</p>
                 {s.tip && (
                   <p className="text-xs text-text-muted mt-0.5">{s.tip}</p>
                 )}

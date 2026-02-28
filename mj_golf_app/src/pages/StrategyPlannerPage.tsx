@@ -56,7 +56,7 @@ export function StrategyPlannerPage() {
   const hole = course?.holes.find((h) => h.holeNumber === holeNumber);
   const totalHoles = course?.holes.length ?? 18;
 
-  const { strategies, landingZones, shotCount } =
+  const { strategies, landingZones, aimPoints, shotCount } =
     useHoleStrategy(hole, teeBox, showSim, selectedStrategyIdx, strategyMode);
 
   // Build distributions for GamePlanView (always, not gated by showSim)
@@ -220,7 +220,7 @@ export function StrategyPlannerPage() {
               </div>
             ) : hole ? (
               <>
-                <HoleViewer hole={hole} teeBox={teeBox} landingZones={showSim ? landingZones : undefined} />
+                <HoleViewer hole={hole} teeBox={teeBox} landingZones={showSim ? landingZones : undefined} aimPoints={showSim ? aimPoints : undefined} />
                 {showSim && (
                   <StrategyPanel
                     strategies={strategies}

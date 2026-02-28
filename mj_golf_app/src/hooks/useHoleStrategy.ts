@@ -4,7 +4,7 @@ import { buildDistributions } from '../services/monte-carlo';
 import { optimizeHole } from '../services/strategy-optimizer';
 import { projectPoint, computeEllipsePoints, bearingBetween } from '../utils/geo';
 import type { ClubDistribution, ApproachStrategy } from '../services/monte-carlo';
-import type { OptimizedStrategy, StrategyMode } from '../services/strategy-optimizer';
+import type { OptimizedStrategy, StrategyMode, AimPoint } from '../services/strategy-optimizer';
 import type { CourseHole } from '../models/course';
 
 export interface LandingZone {
@@ -59,7 +59,9 @@ export function computeLandingZones(
   return zones;
 }
 
-/** Compute landing zone ellipses from OptimizedStrategy aimPoints instead of projecting from tee */
+/** Compute landing zone ellipses from OptimizedStrategy aimPoints instead of projecting from tee.
+ *  Aim points represent where to AIM; ellipses are offset by meanOffline to show
+ *  where the ball actually lands given the player's lateral bias. */
 export function computeLandingZonesFromAimPoints(
   strategy: OptimizedStrategy,
   distributions: ClubDistribution[],
@@ -71,7 +73,12 @@ export function computeLandingZonesFromAimPoints(
     const dist = distributions.find((d) => d.clubName === aim.clubName);
     if (!dist) continue;
 
-    const center = aim.position;
+    // Shift ellipse center by meanOffline to show expected landing position
+    let center = aim.position;
+    if (Math.abs(dist.meanOffline) > 0.5) {
+      center = projectPoint(center, heading + 90, dist.meanOffline);
+    }
+
     // Ensure carry axis is at least 1.5× offline for a visibly elongated oval
     const carryAxis = Math.max(dist.stdCarry, dist.stdOffline * 1.5);
     const offlineAxis = dist.stdOffline;
@@ -99,6 +106,7 @@ export function useHoleStrategy(
   strategies: ApproachStrategy[];
   distributions: ClubDistribution[];
   landingZones: LandingZone[];
+  aimPoints: AimPoint[];
   shotCount: number;
   isLoading: boolean;
 } {
@@ -152,10 +160,21 @@ export function useHoleStrategy(
     );
   }, [enabled, hole, strategies, distributions, selectedStrategyIdx]);
 
+  const aimPoints = useMemo(() => {
+    if (!enabled || strategies.length === 0) return [];
+    const idx = Math.min(selectedStrategyIdx, strategies.length - 1);
+    const strategy = strategies[idx];
+    if ('aimPoints' in strategy) {
+      return (strategy as OptimizedStrategy).aimPoints;
+    }
+    return [];
+  }, [enabled, strategies, selectedStrategyIdx]);
+
   return {
     strategies,
     distributions,
     landingZones,
+    aimPoints,
     shotCount: totalShotCount,
     isLoading,
   };
