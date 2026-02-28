@@ -431,6 +431,45 @@ Trace polygons tightly around each feature's actual boundary. Individual bunkers
     return lateralDist <= maxDist;
   });
 
+  // 8. Import shared hazards from adjacent holes (OB, trees, water)
+  const SHARED_TYPES = ['ob', 'trees', 'water'];
+  const { rows: otherHoleRows } = await query(
+    'SELECT hazards FROM course_holes WHERE course_id = $1 AND hole_number != $2 AND hazards IS NOT NULL',
+    [courseId, holeNumber],
+  );
+  for (const row of otherHoleRows) {
+    const otherHazards = (row.hazards ?? []) as { name: string; type: string; penalty: number; confidence: string; source: string; status: string; polygon: { lat: number; lng: number }[] }[];
+    for (const oh of otherHazards) {
+      if (!SHARED_TYPES.includes(oh.type) || !Array.isArray(oh.polygon) || oh.polygon.length < 3) continue;
+      const centroid = {
+        lat: oh.polygon.reduce((s, p) => s + p.lat, 0) / oh.polygon.length,
+        lng: oh.polygon.reduce((s, p) => s + p.lng, 0) / oh.polygon.length,
+      };
+      const lateralDist = distanceToHoleCorridor(centroid);
+      const maxDist = (oh.type === 'ob' || oh.type === 'trees') ? MAX_LATERAL_YARDS * 2 : MAX_LATERAL_YARDS;
+      if (lateralDist > maxDist) continue;
+      // Deduplicate: skip if we already have a same-type hazard with centroid within 15 yards
+      const isDuplicate = hazards.some((h) => {
+        if (h.type !== oh.type) return false;
+        const hc = {
+          lat: h.polygon.reduce((s, p) => s + p.lat, 0) / h.polygon.length,
+          lng: h.polygon.reduce((s, p) => s + p.lng, 0) / h.polygon.length,
+        };
+        return haversineYards(hc, centroid) < 15;
+      });
+      if (isDuplicate) continue;
+      hazards.push({
+        name: oh.name,
+        type: oh.type as 'bunker' | 'water' | 'ob' | 'trees' | 'rough' | 'green',
+        penalty: oh.penalty,
+        confidence: 'high' as const,
+        source: 'claude-vision' as const,
+        status: 'pending' as const,
+        polygon: oh.polygon,
+      });
+    }
+  }
+
   // Extract green from hazards into its own top-level field
   const greenHazard = hazards.find((h) => h.type === 'green');
   const filteredHazards = hazards.filter((h) => h.type !== 'green');
