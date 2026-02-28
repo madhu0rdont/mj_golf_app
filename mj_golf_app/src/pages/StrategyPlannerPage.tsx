@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
+import { ChevronLeft, MapPin } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { LoadingPage } from '../components/ui/LoadingPage';
-import { Select } from '../components/ui/Select';
 import { HoleSelector } from '../components/strategy/HoleSelector';
 import { HoleViewer } from '../components/strategy/HoleViewer';
 import { HoleInfoPanel } from '../components/strategy/HoleInfoPanel';
@@ -13,6 +13,7 @@ import { useHoleStrategy } from '../hooks/useHoleStrategy';
 import { useYardageBookShots } from '../hooks/useYardageBook';
 import { useGamePlan } from '../hooks/useGamePlan';
 import { buildDistributions } from '../services/monte-carlo';
+import type { Course } from '../models/course';
 import type { StrategyMode } from '../services/strategy-optimizer';
 
 const TEE_BOXES = [
@@ -22,6 +23,29 @@ const TEE_BOXES = [
 ];
 
 type ViewMode = 'hole' | 'gameplan';
+
+function CourseCard({ course, onSelect }: { course: Course; onSelect: (id: string) => void }) {
+  const details = [
+    course.par ? `Par ${course.par}` : null,
+    course.rating ? `Rating ${course.rating}` : null,
+    course.slope ? `Slope ${course.slope}` : null,
+  ].filter(Boolean);
+
+  return (
+    <button
+      onClick={() => onSelect(course.id)}
+      className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 text-center hover:border-primary hover:shadow-sm transition-all"
+    >
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+        <MapPin size={20} className="text-primary" />
+      </div>
+      <p className="text-sm font-semibold text-text-dark leading-tight">{course.name}</p>
+      {details.length > 0 && (
+        <p className="text-[10px] text-text-muted">{details.join(' · ')}</p>
+      )}
+    </button>
+  );
+}
 
 export function StrategyPlannerPage() {
   const params = useParams<{ courseId?: string; holeNumber?: string }>();
@@ -38,17 +62,12 @@ export function StrategyPlannerPage() {
   const [selectedStrategyIdx, setSelectedStrategyIdx] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('hole');
 
-  // Default to first course when courses load
-  useEffect(() => {
-    if (!courseId && courses?.length) {
-      setCourseId(courses[0].id);
-    }
-  }, [courses, courseId]);
-
   // Sync URL when course/hole changes
   useEffect(() => {
     if (courseId) {
       navigate(`/strategy/${courseId}/${holeNumber}`, { replace: true });
+    } else {
+      navigate('/strategy', { replace: true });
     }
   }, [courseId, holeNumber, navigate]);
 
@@ -110,7 +129,7 @@ export function StrategyPlannerPage() {
     return <LoadingPage title="Course Management" />;
   }
 
-  // Empty state
+  // Empty state — no courses
   if (!courses?.length) {
     return (
       <>
@@ -130,19 +149,34 @@ export function StrategyPlannerPage() {
     );
   }
 
+  // Course grid — no course selected yet
+  if (!courseId) {
+    return (
+      <>
+        <TopBar title="Course Management" />
+        <div className="px-4 py-3 pb-24">
+          <div className="grid grid-cols-2 gap-3">
+            {courses.map((c) => (
+              <CourseCard key={c.id} course={c} onSelect={setCourseId} />
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <TopBar title="Course Management" />
       <div className="flex flex-col gap-3 px-4 py-3 pb-24">
-        {/* Course selector */}
-        <Select
-          value={courseId ?? ''}
-          onChange={(e) => {
-            setCourseId(e.target.value);
-            setHoleNumber(1);
-          }}
-          options={courses.map((c) => ({ value: c.id, label: c.name }))}
-        />
+        {/* Course header with back button */}
+        <button
+          onClick={() => { setCourseId(undefined); setHoleNumber(1); }}
+          className="flex items-center gap-1.5 text-sm text-text-muted hover:text-text-dark transition-colors self-start -ml-1"
+        >
+          <ChevronLeft size={18} />
+          <span className="font-medium">{course?.name ?? 'All Courses'}</span>
+        </button>
 
         {/* View mode toggle */}
         <div className="flex items-center gap-1.5">
