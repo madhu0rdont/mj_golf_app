@@ -24,6 +24,15 @@ const TEE_BOXES = [
 
 type ViewMode = 'hole' | 'gameplan';
 
+const COURSE_LOGOS: Record<string, string> = {
+  claremont: '/course-logos/claremont.svg',
+};
+
+function getCourseLogoKey(name: string): string | undefined {
+  const lower = name.toLowerCase();
+  return Object.keys(COURSE_LOGOS).find((key) => lower.includes(key));
+}
+
 function CourseCard({ course, onSelect }: { course: Course; onSelect: (id: string) => void }) {
   const details = [
     course.par ? `Par ${course.par}` : null,
@@ -31,14 +40,21 @@ function CourseCard({ course, onSelect }: { course: Course; onSelect: (id: strin
     course.slope ? `Slope ${course.slope}` : null,
   ].filter(Boolean);
 
+  const logoKey = getCourseLogoKey(course.name);
+  const logoUrl = logoKey ? COURSE_LOGOS[logoKey] : null;
+
   return (
     <button
       onClick={() => onSelect(course.id)}
       className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 text-center hover:border-primary hover:shadow-sm transition-all"
     >
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-        <MapPin size={20} className="text-primary" />
-      </div>
+      {logoUrl ? (
+        <img src={logoUrl} alt={course.name} className="h-12 w-12 object-contain" />
+      ) : (
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+          <MapPin size={20} className="text-primary" />
+        </div>
+      )}
       <p className="text-sm font-semibold text-text-dark leading-tight">{course.name}</p>
       {details.length > 0 && (
         <p className="text-[10px] text-text-muted">{details.join(' · ')}</p>
