@@ -303,14 +303,15 @@ export function generateNamedStrategies(
     // Layup: shorter club off tee, then approach
     const midClubs = distributions.filter((d) => d.meanCarry < longest.meanCarry - 20);
     const layupClub1 = midClubs.length > 0 ? longestClub(midClubs) : longest;
-    const layupLanding = expectedLanding(tee, heading, layupClub1);
+    const layupTarget = projectPoint(tee, heading, layupClub1.meanCarry); // aim along center line
+    const layupLanding = expectedLanding(tee, heading, layupClub1); // actual landing (for club selection)
     const layupRemaining = haversineYards(layupLanding, pin);
     const layupClub2 = closestClub(layupRemaining, distributions)!;
     plans.push({
       name: 'Layup',
       type: 'safe',
       shots: [
-        { clubDist: layupClub1, aimPoint: layupLanding },
+        { clubDist: layupClub1, aimPoint: layupTarget },
         { clubDist: layupClub2, aimPoint: pin },
       ],
     });
@@ -345,33 +346,36 @@ export function generateNamedStrategies(
     });
 
     // Go-For-It: driver + longest feasible, 2 shots
-    const goLanding = expectedLanding(tee, heading, longest);
+    const goTarget = projectPoint(tee, heading, longest.meanCarry); // aim along center line
+    const goLanding = expectedLanding(tee, heading, longest); // actual landing (for club selection)
     const goRemaining = haversineYards(goLanding, pin);
     const goClub2 = closestClub(goRemaining, distributions)!;
     plans.push({
       name: 'Go-For-It',
       type: 'scoring',
       shots: [
-        { clubDist: longest, aimPoint: goLanding },
+        { clubDist: longest, aimPoint: goTarget },
         { clubDist: goClub2, aimPoint: pin },
       ],
     });
 
     // Safe Layup: driver + mid-iron + wedge
-    const safeLanding1 = expectedLanding(tee, heading, longest);
+    const safeTarget1 = projectPoint(tee, heading, longest.meanCarry); // aim along center line
+    const safeLanding1 = expectedLanding(tee, heading, longest); // actual landing (for club selection)
     const safeRemaining1 = distance - longest.meanCarry;
     const midDist = safeRemaining1 * 0.55;
     const safeMidClub = closestClub(midDist, distributions)!;
     const safeBearing2 = bearingBetween(safeLanding1, pin);
-    const safeLanding2 = expectedLanding(safeLanding1, safeBearing2, safeMidClub);
+    const safeTarget2 = projectPoint(safeLanding1, safeBearing2, safeMidClub.meanCarry); // aim along line to pin
+    const safeLanding2 = expectedLanding(safeLanding1, safeBearing2, safeMidClub); // actual landing
     const safeRemaining2 = haversineYards(safeLanding2, pin);
     const safeWedge = closestClub(safeRemaining2, distributions) ?? shortest;
     plans.push({
       name: 'Safe Layup',
       type: 'safe',
       shots: [
-        { clubDist: longest, aimPoint: safeLanding1 },
-        { clubDist: safeMidClub, aimPoint: safeLanding2 },
+        { clubDist: longest, aimPoint: safeTarget1 },
+        { clubDist: safeMidClub, aimPoint: safeTarget2 },
         { clubDist: safeWedge, aimPoint: pin },
       ],
     });

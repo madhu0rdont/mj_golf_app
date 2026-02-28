@@ -297,32 +297,45 @@ describe('generateNamedStrategies', () => {
     expect(biasedConserv.shots[1].aimPoint.lng).toBeCloseTo(zeroConserv.shots[1].aimPoint.lng, 6);
   });
 
-  it('expected landing chains correctly with bias for club selection', () => {
-    // All clubs have large rightward bias (50 yards). This shifts where the ball
-    // actually lands via expectedLanding, changing the remaining distance.
-    // The Layup strategy is most visible because its first aim point is the
-    // expectedLanding position, which shifts laterally with bias.
+  it('aim points stay on center line even with large bias', () => {
+    // All clubs have large rightward bias (50 yards).
+    // Aim points should still be along the center line (lng ≈ -117.0),
+    // NOT shifted by meanOffline. Only expectedLanding (used for club
+    // selection chaining) accounts for bias.
+    const largeBiasDists = makeDistributions().map((d) => ({
+      ...d,
+      meanOffline: 50,
+    }));
+
+    const hole = makeHole(4, 400);
+    const plans = generateNamedStrategies(hole, 'blue', largeBiasDists);
+    const layup = plans.find((p) => p.name === 'Layup')!;
+
+    // Layup aim point 1 should be on the center line (heading=0° = due north, lng stays ≈ -117.0)
+    expect(layup.shots[0].aimPoint.lng).toBeCloseTo(-117.0, 4);
+  });
+
+  it('bias affects club selection via expectedLanding but not aim points', () => {
+    // With 50y rightward bias, the expected landing is 50y right of center.
+    // This changes the remaining distance to pin, potentially changing the
+    // second-shot club. But aim points should not shift.
     const largeBiasDists = makeDistributions().map((d) => ({
       ...d,
       meanOffline: 50,
     }));
     const noBiasDists = makeDistributions();
 
-    const hole = makeHole(4, 400);
-
+    const hole = makeHole(5, 540);
     const biasedPlans = generateNamedStrategies(hole, 'blue', largeBiasDists);
     const noBiasPlans = generateNamedStrategies(hole, 'blue', noBiasDists);
 
-    const biasedLayup = biasedPlans.find((p) => p.name === 'Layup')!;
-    const noBiasLayup = noBiasPlans.find((p) => p.name === 'Layup')!;
+    const biasedGoForIt = biasedPlans.find((p) => p.name === 'Go-For-It')!;
+    const noBiasGoForIt = noBiasPlans.find((p) => p.name === 'Go-For-It')!;
 
-    // The Layup first aim point is expectedLanding, which includes lateral bias.
-    // With 50y rightward bias (heading=0°, right=east), the aim point shifts east.
-    const biasedAim1Lng = biasedLayup.shots[0].aimPoint.lng;
-    const noBiasAim1Lng = noBiasLayup.shots[0].aimPoint.lng;
-
-    // Biased landing should be shifted east (higher lng) compared to center-line landing
-    expect(biasedAim1Lng).toBeGreaterThan(noBiasAim1Lng);
+    // Aim points should be the same (both on center line)
+    expect(biasedGoForIt.shots[0].aimPoint.lng).toBeCloseTo(noBiasGoForIt.shots[0].aimPoint.lng, 6);
+    // But the second-shot club may differ due to different remaining distance
+    // (biased landing is further from pin via Pythagorean theorem)
   });
 
   it('heading uses bearingBetween not hole.heading', () => {

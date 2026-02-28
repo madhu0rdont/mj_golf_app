@@ -248,11 +248,20 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
     }
     map.fitBounds(bounds, { top: 40, bottom: 40, left: 20, right: 20 });
 
-    // Set heading AFTER fitBounds so it isn't overridden
+    // Apply heading after fitBounds settles — fitBounds resets heading to 0.
+    // Use moveCamera to atomically set heading with the computed center/zoom.
     const heading = bearingBetween(hole.tee, hole.pin);
-    map.setHeading(heading);
     google.maps.event.addListenerOnce(map, 'idle', () => {
-      map.setHeading(heading);
+      try {
+        map.moveCamera({
+          center: map.getCenter()!,
+          zoom: map.getZoom()!,
+          heading,
+          tilt: 0,
+        });
+      } catch {
+        map.setHeading(heading);
+      }
     });
 
     // 1. Fairway polygon

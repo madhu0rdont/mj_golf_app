@@ -3,6 +3,7 @@ import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { Loader2, Radar, Pencil, Trash2, Check, Save } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useHole } from '../../hooks/useCourses';
+import { bearingBetween } from '../../utils/geo';
 import type { HazardFeature } from '../../models/course';
 
 interface HoleHazardEditorProps {
@@ -110,6 +111,8 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
         lng: (hole.tee.lng + hole.pin.lng) / 2,
       };
 
+      const heading = bearingBetween(hole.tee, hole.pin);
+
       const map = new Map(mapRef.current, {
         center,
         zoom: 17,
@@ -118,7 +121,21 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
         disableDefaultUI: true,
         zoomControl: true,
         gestureHandling: 'greedy',
-        heading: hole.heading,
+        heading,
+      });
+
+      // Re-apply heading after map tiles load (initial heading can get reset)
+      google.maps.event.addListenerOnce(map, 'idle', () => {
+        try {
+          map.moveCamera({
+            center: map.getCenter()!,
+            zoom: map.getZoom()!,
+            heading,
+            tilt: 0,
+          });
+        } catch {
+          map.setHeading(heading);
+        }
       });
 
       mapInstanceRef.current = map;
