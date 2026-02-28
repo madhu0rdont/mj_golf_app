@@ -23,6 +23,8 @@ export interface AimPoint {
   position: { lat: number; lng: number };
   clubName: string;
   shotNumber: number;
+  carry: number; // meanCarry in yards
+  carryNote: string | null; // e.g. "clears bunker +20y"
 }
 
 export interface OptimizedStrategy extends ApproachStrategy {
@@ -231,6 +233,56 @@ function findSafeLanding(
     }
   }
   return target;
+}
+
+const HAZARD_SHORT: Record<string, string> = {
+  fairway_bunker: 'bunker',
+  greenside_bunker: 'bunker',
+  bunker: 'bunker',
+  water: 'water',
+  ob: 'OB',
+  trees: 'trees',
+  rough: 'rough',
+};
+
+/** Find the most relevant hazard along the shot path and describe clearance. */
+function computeCarryNote(
+  from: { lat: number; lng: number },
+  carry: number,
+  bearing: number,
+  hazards: HazardFeature[],
+): string | null {
+  let bestNote: string | null = null;
+  let bestDist = 0;
+
+  for (const h of hazards) {
+    if (h.polygon.length < MIN_HAZARD_POINTS) continue;
+    const centroid = polygonCentroid(h.polygon);
+    const dist = haversineYards(from, centroid);
+
+    // Skip hazards too far, too close, or behind us
+    if (dist > carry + 50 || dist < 20) continue;
+
+    // Check if hazard is roughly along the bearing (within ±35°)
+    const hazBearing = bearingBetween(from, centroid);
+    let angleDiff = Math.abs(hazBearing - bearing);
+    if (angleDiff > 180) angleDiff = 360 - angleDiff;
+    if (angleDiff > 35) continue;
+
+    // Keep the farthest in-path hazard
+    if (dist > bestDist) {
+      bestDist = dist;
+      const label = HAZARD_SHORT[h.type] ?? h.type;
+      const clearance = Math.round(carry - dist);
+      if (clearance >= 0) {
+        bestNote = `+${clearance}y past ${label}`;
+      } else {
+        bestNote = `${clearance}y short of ${label}`;
+      }
+    }
+  }
+
+  return bestNote;
 }
 
 /** Project expected landing position including lateral bias */
@@ -552,6 +604,8 @@ export function simulateHoleGPS(
       position: compensateForBias(s.aimPoint, bearing, s.clubDist),
       clubName: s.clubDist.clubName,
       shotNumber: i + 1,
+      carry: Math.round(s.clubDist.meanCarry),
+      carryNote: computeCarryNote(aimFrom, s.clubDist.meanCarry, bearing, hole.hazards),
     });
     aimFrom = s.aimPoint; // next shot fires from expected landing ≈ target
   }

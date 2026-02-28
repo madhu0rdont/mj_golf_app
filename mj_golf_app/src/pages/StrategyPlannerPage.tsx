@@ -220,6 +220,7 @@ export function StrategyPlannerPage() {
               </div>
             ) : hole ? (
               <>
+                <HoleInfoPanel hole={hole} teeBox={teeBox} />
                 <HoleViewer hole={hole} teeBox={teeBox} landingZones={showSim ? landingZones : undefined} aimPoints={showSim ? aimPoints : undefined} />
                 {showSim && (
                   <StrategyPanel
@@ -229,7 +230,6 @@ export function StrategyPlannerPage() {
                     shotCount={shotCount}
                   />
                 )}
-                <HoleInfoPanel hole={hole} teeBox={teeBox} />
               </>
             ) : (
               <div className="flex items-center justify-center h-[55vh] rounded-2xl border border-border bg-surface">

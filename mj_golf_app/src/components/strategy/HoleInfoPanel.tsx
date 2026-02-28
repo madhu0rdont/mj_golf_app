@@ -20,6 +20,17 @@ const HAZARD_LABELS: Record<string, string> = {
   rough: 'Rough',
 };
 
+/** Plural label for hazard type counts */
+const HAZARD_PLURALS: Record<string, string> = {
+  bunker: 'Bunkers',
+  fairway_bunker: 'FW Bunkers',
+  greenside_bunker: 'GS Bunkers',
+  water: 'Water',
+  ob: 'OB',
+  trees: 'Trees',
+  rough: 'Rough',
+};
+
 interface HoleInfoPanelProps {
   hole: CourseHole;
   teeBox: string;
@@ -31,60 +42,62 @@ export function HoleInfoPanel({ hole, teeBox }: HoleInfoPanelProps) {
   const elevDeltaFeet = Math.round((hole.pin.elevation - hole.tee.elevation) * 3.281);
   const isUphill = elevDeltaFeet > 0;
 
+  // Summarize hazards by type
+  const hazardCounts = new Map<string, number>();
+  for (const h of hole.hazards) {
+    hazardCounts.set(h.type, (hazardCounts.get(h.type) ?? 0) + 1);
+  }
+
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3">
-      {/* Header */}
+    <div className="rounded-xl border border-border bg-card px-3 py-2 flex flex-col gap-1">
+      {/* Row 1: Hole info + yardage */}
       <div className="flex items-baseline justify-between">
-        <h3 className="text-base font-semibold text-text-dark">
-          Hole {hole.holeNumber} — Par {hole.par}
-        </h3>
-        <div className="text-right">
+        <div className="flex items-baseline gap-2">
+          <span className="text-sm font-bold text-text-dark">
+            Hole {hole.holeNumber}
+          </span>
+          <span className="text-xs font-medium text-text-medium">
+            Par {hole.par}
+          </span>
+          {elevDeltaFeet !== 0 && (
+            <span className={`text-xs font-medium ${isUphill ? 'text-coral' : 'text-primary'}`}>
+              {isUphill ? '+' : ''}{elevDeltaFeet}ft {isUphill ? '↑' : '↓'}
+            </span>
+          )}
+        </div>
+        <div className="flex items-baseline gap-1.5">
           <span className="text-lg font-bold text-text-dark">{yardage}</span>
-          <span className="text-xs text-text-muted ml-1">yds</span>
+          <span className="text-[10px] text-text-muted">yds</span>
           {playsLike && playsLike !== yardage && (
-            <span className={`ml-2 text-sm font-medium ${isUphill ? 'text-coral' : 'text-primary'}`}>
+            <span className={`text-xs font-medium ${isUphill ? 'text-coral' : 'text-primary'}`}>
               plays {playsLike}
             </span>
           )}
         </div>
       </div>
 
-      {/* Elevation */}
-      {elevDeltaFeet !== 0 && (
-        <div className="flex items-center gap-1.5 text-sm">
-          <span className="text-text-muted">Elevation:</span>
-          <span className={`font-medium ${isUphill ? 'text-coral' : 'text-primary'}`}>
-            {isUphill ? '+' : ''}{elevDeltaFeet} ft {isUphill ? '↑' : '↓'}
-          </span>
-        </div>
-      )}
-
-      {/* Hazards */}
-      {hole.hazards.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold text-text-medium">Hazards</span>
-          <div className="flex flex-wrap gap-1.5">
-            {hole.hazards.map((h, i) => (
+      {/* Row 2: Hazard summary + notes */}
+      {(hazardCounts.size > 0 || hole.notes) && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {[...hazardCounts.entries()].map(([type, count]) => (
+            <span
+              key={type}
+              className="inline-flex items-center gap-1 rounded-full bg-surface px-1.5 py-0.5 text-[10px] font-medium text-text-dark"
+            >
               <span
-                key={i}
-                className="inline-flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-xs text-text-dark"
-              >
-                <span
-                  className="inline-block h-2 w-2 rounded-full"
-                  style={{ backgroundColor: HAZARD_COLORS[h.type] ?? '#888' }}
-                />
-                {h.name} ({HAZARD_LABELS[h.type] ?? h.type})
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Notes */}
-      {hole.notes && (
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold text-text-medium">Notes</span>
-          <p className="text-sm text-text-dark">{hole.notes}</p>
+                className="inline-block h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: HAZARD_COLORS[type] ?? '#888' }}
+              />
+              {count > 1
+                ? `${count} ${HAZARD_PLURALS[type] ?? type}`
+                : HAZARD_LABELS[type] ?? type}
+            </span>
+          ))}
+          {hole.notes && (
+            <span className="text-[10px] text-text-muted italic truncate">
+              {hole.notes}
+            </span>
+          )}
         </div>
       )}
     </div>

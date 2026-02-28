@@ -9,6 +9,8 @@ interface AimPointInfo {
   position: { lat: number; lng: number };
   clubName: string;
   shotNumber: number;
+  carry?: number;
+  carryNote?: string | null;
 }
 
 interface HoleViewerProps {
@@ -179,18 +181,35 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
       : landingZones.map((z) => z.center);
 
     for (let j = 0; j < aimPositions.length; j++) {
+      const wrapEl = document.createElement('div');
+      wrapEl.style.cssText = 'display:flex;flex-direction:column;align-items:center;pointer-events:none;';
+
       const circleEl = document.createElement('div');
       circleEl.style.cssText =
         'width:24px;height:24px;border-radius:50%;background:#00E5FF;' +
         'display:flex;align-items:center;justify-content:center;' +
-        'font-size:12px;font-weight:700;color:#000;pointer-events:none;' +
+        'font-size:12px;font-weight:700;color:#000;' +
         'border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.4);';
       circleEl.textContent = String(j + 1);
+      wrapEl.appendChild(circleEl);
+
+      // Carry distance pill below the circle
+      const aimData = aimPoints?.[j];
+      if (aimData?.carry) {
+        const pill = document.createElement('div');
+        pill.style.cssText =
+          'margin-top:2px;background:rgba(0,0,0,0.75);border-radius:8px;padding:1px 5px;' +
+          'font-size:10px;font-weight:600;color:white;white-space:nowrap;';
+        pill.textContent = aimData.carryNote
+          ? `${aimData.carry}y · ${aimData.carryNote}`
+          : `${aimData.carry}y`;
+        wrapEl.appendChild(pill);
+      }
 
       const circleMarker = new google.maps.marker.AdvancedMarkerElement({
         map,
         position: aimPositions[j],
-        content: circleEl,
+        content: wrapEl,
       });
       simOverlaysRef.current.push(circleMarker);
     }
