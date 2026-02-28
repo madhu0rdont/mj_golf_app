@@ -106,15 +106,18 @@ function HoleCard({ hole }: { hole: HolePlan }) {
             {hole.strategy.label}
           </p>
 
-          {(hole.carryToAvoid || hole.missSide) && (
-            <p className="text-[10px] text-text-muted mt-1">
-              {[
-                hole.carryToAvoid ? `Carry: ${hole.carryToAvoid}y` : null,
-                hole.missSide,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
+          {hole.strategy.aimPoints.length > 0 && (
+            <div className="mt-1 flex flex-col gap-0.5">
+              {hole.strategy.aimPoints.map((ap) => (
+                <p key={ap.shotNumber} className="text-[10px] text-text-muted">
+                  <span className="font-semibold text-text-medium">{ap.shotNumber}.</span>{' '}
+                  {ap.carry > 0 && (
+                    <span className="font-medium">{ap.carry}y{ap.carryNote ? ` (${ap.carryNote})` : ''} — </span>
+                  )}
+                  {ap.tip}
+                </p>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -128,10 +131,12 @@ function copySummary(plan: GamePlan) {
     `${plan.mode === 'scoring' ? 'Scoring' : 'Safe'} Mode — ${plan.date}`,
     `Expected Total: ${plan.totalExpected.toFixed(1)} (Plays-Like: ${plan.totalPlaysLike}y)`,
     '',
-    ...plan.holes.map(
-      (h) =>
-        `#${h.holeNumber} Par ${h.par} ${h.yardage}y → ${h.strategy.strategyName}: ${h.strategy.clubs.map((c) => c.clubName).join(' → ')} (${h.strategy.expectedStrokes.toFixed(1)} xS)`,
-    ),
+    ...plan.holes.flatMap((h) => [
+      `#${h.holeNumber} Par ${h.par} ${h.yardage}y → ${h.strategy.strategyName}: ${h.strategy.clubs.map((c) => c.clubName).join(' → ')} (${h.strategy.expectedStrokes.toFixed(1)} xS)`,
+      ...h.strategy.aimPoints.map(
+        (ap) => `  ${ap.shotNumber}. ${ap.carry}y${ap.carryNote ? ` (${ap.carryNote})` : ''} — ${ap.tip}`,
+      ),
+    ]),
   ];
   navigator.clipboard.writeText(lines.join('\n'));
 }

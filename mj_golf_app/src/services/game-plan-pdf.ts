@@ -66,7 +66,8 @@ export function exportGamePlanPDF(plan: GamePlan): void {
     }
 
     const hole = plan.holes[i];
-    const cardHeight = 58;
+    const tipLines = hole.strategy.aimPoints.length;
+    const cardHeight = 50 + tipLines * 8;
 
     // Color-coded left bar
     const color = COLORS[hole.colorCode];
@@ -101,14 +102,16 @@ export function exportGamePlanPDF(plan: GamePlan): void {
     doc.setTextColor(...color);
     doc.text(`${hole.strategy.expectedStrokes.toFixed(1)} xS`, PAGE_WIDTH - MARGIN - 50, y + 14);
 
-    // Tips
-    const tips: string[] = [];
-    if (hole.carryToAvoid) tips.push(`Carry: ${hole.carryToAvoid}y`);
-    if (hole.missSide) tips.push(hole.missSide);
-    if (tips.length > 0) {
+    // Caddy tips per shot
+    if (hole.strategy.aimPoints.length > 0) {
       doc.setFontSize(7);
       doc.setTextColor(...COLORS.muted);
-      doc.text(tips.join('  ·  '), MARGIN + 12, y + 52);
+      let tipY = y + 50;
+      for (const ap of hole.strategy.aimPoints) {
+        const carryPart = ap.carry > 0 ? `${ap.carry}y${ap.carryNote ? ` (${ap.carryNote})` : ''} — ` : '';
+        doc.text(`${ap.shotNumber}. ${carryPart}${ap.tip}`, MARGIN + 12, tipY, { maxWidth: CONTENT_WIDTH - 20 });
+        tipY += 8;
+      }
     }
 
     y += cardHeight + 6;

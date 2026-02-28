@@ -1,8 +1,7 @@
 import { optimizeHole } from './strategy-optimizer';
 import type { OptimizedStrategy, ScoreDistribution, StrategyMode } from './strategy-optimizer';
 import type { ClubDistribution } from './monte-carlo';
-import type { CourseWithHoles, CourseHole } from '../models/course';
-import { haversineYards, bearingBetween } from '../utils/geo';
+import type { CourseWithHoles } from '../models/course';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -15,8 +14,6 @@ export interface HolePlan {
   playsLikeYardage: number | null;
   strategy: OptimizedStrategy;
   colorCode: 'green' | 'yellow' | 'red';
-  carryToAvoid: number | null;
-  missSide: string | null;
 }
 
 export interface GamePlan {
@@ -39,53 +36,6 @@ function colorCodeHole(strategy: OptimizedStrategy): 'green' | 'yellow' | 'red' 
   if (strategy.scoreDistribution.birdie > 0.15) return 'green';
   if (strategy.blowupRisk > 0.20) return 'red';
   return 'yellow';
-}
-
-function computeCarryToAvoid(hole: CourseHole): number | null {
-  if (hole.hazards.length === 0) return null;
-
-  const tee = { lat: hole.tee.lat, lng: hole.tee.lng };
-
-  // Find the nearest hazard's closest point distance from the tee
-  let minCarry = Infinity;
-  for (const h of hole.hazards) {
-    if (h.type === 'trees') continue; // skip tree lines
-    for (const p of h.polygon) {
-      const d = haversineYards(tee, p);
-      if (d < minCarry) minCarry = d;
-    }
-  }
-  return minCarry < Infinity ? Math.round(minCarry) : null;
-}
-
-function computeMissSide(hole: CourseHole): string | null {
-  if (hole.hazards.length === 0) return null;
-
-  const tee = { lat: hole.tee.lat, lng: hole.tee.lng };
-  const holeHeading = hole.heading;
-
-  // Determine which side has more hazards
-  let leftCount = 0;
-  let rightCount = 0;
-
-  for (const h of hole.hazards) {
-    if (h.polygon.length < 3) continue;
-    const centroid = {
-      lat: h.polygon.reduce((s, p) => s + p.lat, 0) / h.polygon.length,
-      lng: h.polygon.reduce((s, p) => s + p.lng, 0) / h.polygon.length,
-    };
-    const bearing = bearingBetween(tee, centroid);
-    const relativeBearing = ((bearing - holeHeading + 360) % 360);
-    if (relativeBearing > 0 && relativeBearing < 180) {
-      rightCount++;
-    } else {
-      leftCount++;
-    }
-  }
-
-  if (leftCount > rightCount) return 'Favor right';
-  if (rightCount > leftCount) return 'Favor left';
-  return null;
 }
 
 function aggregateScoreDistribution(holes: HolePlan[]): ScoreDistribution {
@@ -145,8 +95,6 @@ export async function generateGamePlan(
       playsLikeYardage,
       strategy: topStrategy,
       colorCode: colorCodeHole(topStrategy),
-      carryToAvoid: computeCarryToAvoid(hole),
-      missSide: computeMissSide(hole),
     });
   }
 
