@@ -142,7 +142,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
           const newHazard: HazardFeature = {
             name: 'Manual hazard',
             type: 'bunker',
-            penalty: 0,
+            penalty: 0.4,
             confidence: 'high',
             source: 'manual',
             status: 'accepted',
@@ -392,7 +392,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
     setHazards((prev) =>
       prev.map((h, i) =>
         i === idx
-          ? { ...h, type, penalty: type === 'water' || type === 'ob' ? 1 : 0 }
+          ? { ...h, type, penalty: { water: 1, ob: 1, bunker: 0.4, trees: 0.5, rough: 0.2, green: 0 }[type] ?? 0 }
           : h,
       ),
     );
