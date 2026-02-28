@@ -392,7 +392,7 @@ Trace polygons tightly around each feature's actual boundary. Individual bunkers
     .map((h) => ({
       name: h.name || 'Unknown',
       type: h.type as 'bunker' | 'water' | 'ob' | 'trees' | 'rough' | 'green',
-      penalty: { water: 1, ob: 1, bunker: 0.4, trees: 0.5, rough: 0.2, green: 0 }[h.type] ?? 0,
+      penalty: { water: 1, ob: 1, bunker: 0.4, trees: 0.5, rough: 0.2 }[h.type] ?? 0,
       confidence: (['high', 'medium', 'low'].includes(h.confidence) ? h.confidence : 'medium') as 'high' | 'medium' | 'low',
       source: 'claude-vision' as const,
       status: 'pending' as const,
@@ -431,13 +431,18 @@ Trace polygons tightly around each feature's actual boundary. Individual bunkers
     return lateralDist <= maxDist;
   });
 
+  // Extract green from hazards into its own top-level field
+  const greenHazard = hazards.find((h) => h.type === 'green');
+  const filteredHazards = hazards.filter((h) => h.type !== 'green');
+
   const fairway = (claudeResponse.fairway ?? [])
     .filter((p) => p.x >= 0 && p.x <= ACTUAL_SIZE && p.y >= 0 && p.y <= ACTUAL_SIZE)
     .map((p) => imagePixelToLatLng(p.x, p.y, centerLat, centerLng, zoom, ACTUAL_SIZE, ACTUAL_SIZE));
 
   res.json({
-    hazards,
+    hazards: filteredHazards,
     fairway: fairway.length >= 3 ? fairway : [],
+    green: greenHazard ? greenHazard.polygon : [],
     imageParams: { centerLat, centerLng, zoom, width: ACTUAL_SIZE, height: ACTUAL_SIZE },
   });
 });
@@ -548,7 +553,7 @@ router.post('/courses/:id/refresh-elevation', async (req, res) => {
 
 // PATCH /api/courses/:id/holes/:number — update hole fields
 router.patch('/:id/holes/:number', async (req, res) => {
-  const ALLOWED_FIELDS = ['hazards', 'fairway', 'notes', 'targets', 'plays_like_yards', 'yardages'];
+  const ALLOWED_FIELDS = ['hazards', 'fairway', 'green', 'notes', 'targets', 'plays_like_yards', 'yardages'];
   const updates = toSnake(req.body);
 
   const setClauses: string[] = [];

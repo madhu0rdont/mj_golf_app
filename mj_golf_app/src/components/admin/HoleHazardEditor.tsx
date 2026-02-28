@@ -17,7 +17,6 @@ const HAZARD_COLORS: Record<string, string> = {
   ob: '#FF4444',
   trees: '#228B22',
   rough: '#8B7355',
-  green: '#00C853',
 };
 
 const HAZARD_LABELS: Record<string, string> = {
@@ -26,10 +25,12 @@ const HAZARD_LABELS: Record<string, string> = {
   ob: 'OB',
   trees: 'Trees',
   rough: 'Rough',
-  green: 'Green',
 };
 
 const FAIRWAY_COLOR = '#90EE90';
+const GREEN_COLOR = '#00C853';
+
+type DrawingMode = 'hazard' | 'fairway' | 'green' | null;
 
 let mapsInitialized = false;
 
@@ -39,18 +40,21 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const polygonsRef = useRef<google.maps.Polygon[]>([]);
   const fairwayPolygonRef = useRef<google.maps.Polygon | null>(null);
+  const greenPolygonRef = useRef<google.maps.Polygon | null>(null);
   const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const polylineRef = useRef<google.maps.Polyline | null>(null);
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
-  const drawingModeRef = useRef<'hazard' | 'fairway' | null>(null);
+  const drawingModeRef = useRef<DrawingMode>(null);
 
   const [hazards, setHazards] = useState<HazardFeature[]>([]);
   const [fairway, setFairway] = useState<{ lat: number; lng: number }[]>([]);
+  const [green, setGreen] = useState<{ lat: number; lng: number }[]>([]);
   const [detecting, setDetecting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [mapReady, setMapReady] = useState(false);
-  const [drawingMode, setDrawingMode] = useState<'hazard' | 'fairway' | null>(null);
+  const [drawingMode, setDrawingMode] = useState<DrawingMode>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedHazardIdx, setSelectedHazardIdx] = useState<number | null>(null);
 
   // Sync ref with state
   useEffect(() => {
@@ -60,8 +64,13 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
   // Initialize state from hole data
   useEffect(() => {
     if (hole) {
-      setHazards(hole.hazards ?? []);
+      // Filter out any legacy 'green' hazards and migrate them
+      const legacyGreen = (hole.hazards ?? []).find((h) => h.type === 'green');
+      const filteredHazards = (hole.hazards ?? []).filter((h) => h.type !== 'green');
+      setHazards(filteredHazards);
       setFairway(hole.fairway ?? []);
+      // Prefer top-level green, fall back to legacy hazard green
+      setGreen(hole.green?.length ? hole.green : legacyGreen?.polygon ?? []);
     }
   }, [hole]);
 
@@ -138,6 +147,9 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
         if (mode === 'fairway') {
           setFairway(coords);
           setDrawingMode(null);
+        } else if (mode === 'green') {
+          setGreen(coords);
+          setDrawingMode(null);
         } else if (mode === 'hazard') {
           const newHazard: HazardFeature = {
             name: 'Manual hazard',
@@ -212,7 +224,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
     }
   }, [hole]);
 
-  // Render hazard/fairway polygons on map
+  // Render hazard/fairway/green polygons on map
   const renderPolygons = useCallback(() => {
     if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
@@ -224,6 +236,10 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
       fairwayPolygonRef.current.setMap(null);
       fairwayPolygonRef.current = null;
     }
+    if (greenPolygonRef.current) {
+      greenPolygonRef.current.setMap(null);
+      greenPolygonRef.current = null;
+    }
 
     // Fairway
     if (fairway.length >= 3) {
@@ -234,7 +250,8 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
         fillOpacity: 0.2,
         strokeColor: FAIRWAY_COLOR,
         strokeWeight: 2,
-        editable: true,
+        editable: false,
+        clickable: true,
       });
       const syncFairway = () => {
         const path = fp.getPath();
@@ -247,7 +264,39 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
       };
       fp.getPath().addListener('set_at', syncFairway);
       fp.getPath().addListener('insert_at', syncFairway);
+      fp.addListener('click', () => {
+        fp.setEditable(true);
+      });
       fairwayPolygonRef.current = fp;
+    }
+
+    // Green
+    if (green.length >= 3) {
+      const gp = new google.maps.Polygon({
+        map,
+        paths: green,
+        fillColor: GREEN_COLOR,
+        fillOpacity: 0.3,
+        strokeColor: GREEN_COLOR,
+        strokeWeight: 2,
+        editable: false,
+        clickable: true,
+      });
+      const syncGreen = () => {
+        const path = gp.getPath();
+        setGreen(
+          Array.from({ length: path.getLength() }, (_, i) => ({
+            lat: path.getAt(i).lat(),
+            lng: path.getAt(i).lng(),
+          })),
+        );
+      };
+      gp.getPath().addListener('set_at', syncGreen);
+      gp.getPath().addListener('insert_at', syncGreen);
+      gp.addListener('click', () => {
+        gp.setEditable(true);
+      });
+      greenPolygonRef.current = gp;
     }
 
     // Hazards
@@ -282,16 +331,33 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
       poly.getPath().addListener('set_at', updatePath);
       poly.getPath().addListener('insert_at', updatePath);
 
-      // Click accepted polygon to make it editable
-      if (isAccepted) {
-        poly.addListener('click', () => {
+      // Click polygon to select and make editable
+      poly.addListener('click', () => {
+        setSelectedHazardIdx((prev) => prev === hazardIdx ? null : hazardIdx);
+        if (isAccepted) {
           poly.setEditable(true);
-        });
-      }
+        }
+      });
 
       polygonsRef.current.push(poly);
     }
-  }, [hazards, fairway]);
+  }, [hazards, fairway, green]);
+
+  // Highlight selected hazard polygon
+  useEffect(() => {
+    for (let i = 0; i < polygonsRef.current.length; i++) {
+      const poly = polygonsRef.current[i];
+      const h = hazards[i];
+      if (!h) continue;
+      const color = HAZARD_COLORS[h.type] ?? '#FFFFFF';
+      const isSelected = i === selectedHazardIdx;
+      poly.setOptions({
+        strokeColor: isSelected ? '#FFFFFF' : color,
+        strokeWeight: isSelected ? 4 : 2,
+        fillOpacity: isSelected ? 0.55 : (h.status === 'accepted' ? 0.35 : 0.2),
+      });
+    }
+  }, [selectedHazardIdx, hazards]);
 
   useEffect(() => {
     if (mapReady) renderMarkers();
@@ -321,6 +387,9 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
       if (data.fairway?.length >= 3) {
         setFairway(data.fairway);
       }
+      if (data.green?.length >= 3) {
+        setGreen(data.green);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Detection failed');
     } finally {
@@ -329,12 +398,12 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
   }
 
   // Enter drawing mode
-  function startDrawing(mode: 'hazard' | 'fairway') {
+  function startDrawing(mode: 'hazard' | 'fairway' | 'green') {
     setDrawingMode(mode);
     if (drawingManagerRef.current) {
       drawingManagerRef.current.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
-      const color = mode === 'fairway' ? FAIRWAY_COLOR : '#FFD700';
-      const opacity = mode === 'fairway' ? 0.2 : 0.3;
+      const color = mode === 'fairway' ? FAIRWAY_COLOR : mode === 'green' ? GREEN_COLOR : '#FFD700';
+      const opacity = mode === 'hazard' ? 0.3 : 0.2;
       drawingManagerRef.current.setOptions({
         polygonOptions: {
           fillColor: color,
@@ -363,7 +432,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ hazards, fairway }),
+        body: JSON.stringify({ hazards, fairway, green }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: 'Save failed' }));
@@ -386,13 +455,17 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
 
   function deleteHazard(idx: number) {
     setHazards((prev) => prev.filter((_, i) => i !== idx));
+    if (selectedHazardIdx === idx) setSelectedHazardIdx(null);
+    else if (selectedHazardIdx !== null && selectedHazardIdx > idx) {
+      setSelectedHazardIdx(selectedHazardIdx - 1);
+    }
   }
 
   function changeHazardType(idx: number, type: HazardFeature['type']) {
     setHazards((prev) =>
       prev.map((h, i) =>
         i === idx
-          ? { ...h, type, penalty: { water: 1, ob: 1, bunker: 0.4, trees: 0.5, rough: 0.2, green: 0 }[type] ?? 0 }
+          ? { ...h, type, penalty: ({ water: 1, ob: 1, bunker: 0.4, trees: 0.5, rough: 0.2 } as Record<string, number>)[type] ?? 0 }
           : h,
       ),
     );
@@ -467,6 +540,14 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
               <Pencil size={14} />
               Draw Fairway
             </Button>
+            <Button
+              onClick={() => startDrawing('green')}
+              size="sm"
+              variant="ghost"
+            >
+              <Pencil size={14} />
+              Draw Green
+            </Button>
           </>
         )}
       </div>
@@ -487,7 +568,12 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
           {hazards.map((h, idx) => (
             <div
               key={idx}
-              className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2 py-1.5"
+              onClick={() => setSelectedHazardIdx((prev) => prev === idx ? null : idx)}
+              className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 cursor-pointer transition-colors ${
+                selectedHazardIdx === idx
+                  ? 'border-primary bg-primary/10 ring-1 ring-primary'
+                  : 'border-border bg-surface hover:bg-surface/80'
+              }`}
             >
               <div
                 className="h-3 w-3 rounded-sm flex-shrink-0"
@@ -495,6 +581,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
               />
               <input
                 value={h.name}
+                onClick={(e) => e.stopPropagation()}
                 onChange={(e) =>
                   setHazards((prev) =>
                     prev.map((hz, i) => (i === idx ? { ...hz, name: e.target.value } : hz)),
@@ -505,6 +592,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
               />
               <select
                 value={h.type}
+                onClick={(e) => e.stopPropagation()}
                 onChange={(e) =>
                   changeHazardType(idx, e.target.value as HazardFeature['type'])
                 }
@@ -527,7 +615,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
               </span>
               {h.status !== 'accepted' && (
                 <button
-                  onClick={() => acceptHazard(idx)}
+                  onClick={(e) => { e.stopPropagation(); acceptHazard(idx); }}
                   className="rounded p-0.5 text-emerald-600 hover:bg-emerald-500/10"
                   title="Accept"
                 >
@@ -535,7 +623,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
                 </button>
               )}
               <button
-                onClick={() => deleteHazard(idx)}
+                onClick={(e) => { e.stopPropagation(); deleteHazard(idx); }}
                 className="rounded p-0.5 text-coral hover:bg-coral/10"
                 title="Delete"
               >
@@ -546,12 +634,15 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
         </div>
       )}
 
-      {/* Fairway status */}
-      {fairway.length >= 3 && (
-        <p className="text-xs text-text-muted">
-          Fairway polygon: {fairway.length} points
-        </p>
-      )}
+      {/* Fairway & Green status */}
+      <div className="flex gap-3 text-xs text-text-muted">
+        {fairway.length >= 3 && (
+          <span>Fairway: {fairway.length} pts</span>
+        )}
+        {green.length >= 3 && (
+          <span>Green: {green.length} pts</span>
+        )}
+      </div>
 
       {/* Save */}
       <Button onClick={handleSave} disabled={saving} className="w-full">
@@ -563,7 +654,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
         ) : (
           <>
             <Save size={16} />
-            Save Hazards & Fairway
+            Save Hazards, Fairway & Green
           </>
         )}
       </Button>

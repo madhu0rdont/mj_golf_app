@@ -6,7 +6,6 @@ const HAZARD_COLORS: Record<string, string> = {
   ob: '#FF4444',
   trees: '#228B22',
   rough: '#8B7355',
-  green: '#00C853',
 };
 
 const HAZARD_LABELS: Record<string, string> = {
@@ -15,7 +14,6 @@ const HAZARD_LABELS: Record<string, string> = {
   ob: 'OB',
   trees: 'Trees',
   rough: 'Rough',
-  green: 'Green',
 };
 
 interface HoleInfoPanelProps {

@@ -65,6 +65,7 @@ function makeHole(par: number, distance: number = 400): CourseHole {
     centerLine: [tee, pin],
     hazards: [],
     fairway: [],
+    green: [],
     playsLikeYards: null,
     notes: null,
   };

@@ -24,6 +24,7 @@ export interface CourseHole {
   centerLine: Coordinate[];
   hazards: HazardFeature[];
   fairway: { lat: number; lng: number }[];
+  green: { lat: number; lng: number }[];
   playsLikeYards: Record<string, number> | null;
   notes: string | null;
 }

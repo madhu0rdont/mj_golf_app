@@ -17,10 +17,10 @@ const HAZARD_COLORS: Record<string, string> = {
   ob: '#FF4444',
   trees: '#228B22',
   rough: '#8B7355',
-  green: '#00C853',
 };
 
 const FAIRWAY_COLOR = '#90EE90';
+const GREEN_COLOR = '#00C853';
 
 let mapsInitialized = false;
 
@@ -253,6 +253,21 @@ export function HoleViewer({ hole, landingZones }: HoleViewerProps) {
         clickable: false,
       });
       overlaysRef.current.push(fp);
+    }
+
+    // 1b. Green polygon
+    if (hole.green?.length >= 3) {
+      const gp = new google.maps.Polygon({
+        map,
+        paths: hole.green,
+        fillColor: GREEN_COLOR,
+        fillOpacity: 0.3,
+        strokeColor: GREEN_COLOR,
+        strokeWeight: 1,
+        editable: false,
+        clickable: false,
+      });
+      overlaysRef.current.push(gp);
     }
 
     // 2. Hazard polygons
