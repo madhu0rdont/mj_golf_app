@@ -252,8 +252,8 @@ router.post('/hazard-detect', async (req, res) => {
     pin: { lat: number; lng: number; elevation: number };
   };
 
-  // 2. Compute satellite image parameters
-  const PADDING_DEG = 0.002; // ~200m padding around tee/pin
+  // 2. Compute satellite image parameters — tight crop to minimize adjacent hole bleed
+  const PADDING_DEG = 0.001; // ~110m — enough for hazards flanking this hole only
   const bounds = {
     minLat: Math.min(hole.tee.lat, hole.pin.lat) - PADDING_DEG,
     maxLat: Math.max(hole.tee.lat, hole.pin.lat) + PADDING_DEG,
@@ -289,9 +289,24 @@ router.post('/hazard-detect', async (req, res) => {
   const firstTee = Object.keys(hole.yardages)[0];
   const yards = firstTee ? hole.yardages[firstTee] : 0;
 
-  // 5. Send to Claude Vision
-  const systemPrompt = `You are a golf course feature detection assistant analyzing satellite imagery.
-Identify all visible features: bunkers, water hazards, out-of-bounds areas, significant tree lines, rough areas, and the putting green. Also trace the fairway boundary.
+  // 5. Compute center line pixels for the prompt
+  const centerLinePx = (hole as { centerLine?: { lat: number; lng: number }[] }).centerLine
+    ?.slice(0, 6)
+    .map((c: { lat: number; lng: number }) =>
+      latLngToImagePixel(c.lat, c.lng, centerLat, centerLng, zoom, ACTUAL_SIZE, ACTUAL_SIZE),
+    ) ?? [];
+  const clPixelStr = centerLinePx.map((p: { x: number; y: number }) => `(${p.x},${p.y})`).join(' → ');
+
+  // 5b. Send to Claude Vision
+  const systemPrompt = `You are a golf course feature detection assistant analyzing satellite imagery of a SINGLE golf hole.
+
+CRITICAL RULES:
+- ONLY detect features that belong to THIS specific hole (tee to pin along the center line).
+- Do NOT include bunkers, greens, or features from adjacent/neighboring holes visible in the image.
+- Trace each feature's actual boundary tightly — bunkers are typically 5-25 yards across, not 40-50.
+- Each bunker should be its own separate polygon. Do not merge nearby bunkers into one large polygon.
+- The putting green is the smooth, closely-mowed circular/oval area immediately surrounding the pin.
+
 Return ONLY valid JSON — no markdown fences, no other text.
 Use this exact structure:
 {
@@ -306,15 +321,19 @@ Use this exact structure:
   "fairway": [{"x": number, "y": number}, ...]
 }
 Coordinates are image pixels where (0,0) is top-left and (${ACTUAL_SIZE},${ACTUAL_SIZE}) is bottom-right.
-Each polygon must have at least 3 points and trace the outline of the feature.
-For "green", trace the putting surface around the pin.
-For "rough", trace areas of unmowed or thick grass bordering the fairway.
-For the fairway, trace the mowed fairway area from tee to green.`;
+Each polygon must have at least 4 points and trace the actual outline of the feature tightly.
+For "green", trace the putting surface — the distinctly lighter/smoother green area around the pin.
+For "rough", trace the thicker/darker grass areas flanking this hole's fairway.
+For "trees", trace significant tree lines that border THIS hole only.
+For "ob", trace boundaries where the course ends (roads, fences, property lines).
+For the fairway, trace the mowed fairway corridor from tee to green for THIS hole only.`;
 
-  const userPrompt = `Analyze this satellite image of a golf hole.
-The tee is at pixel (${teePx.x}, ${teePx.y}), the pin is at pixel (${pinPx.x}, ${pinPx.y}).
-This is hole ${holeNumber}, par ${hole.par}, playing ${yards} yards at heading ${Math.round(hole.heading)}°.
-Detect all features (bunkers, water, OB, trees, rough, green) and trace the fairway boundary.`;
+  const userPrompt = `Analyze this satellite image of hole ${holeNumber}, a par ${hole.par} playing ${yards} yards.
+The tee is at pixel (${teePx.x}, ${teePx.y}). The pin is at pixel (${pinPx.x}, ${pinPx.y}).
+The hole plays at heading ${Math.round(hole.heading)}°.${clPixelStr ? `\nThe center line runs: ${clPixelStr}` : ''}
+
+IMPORTANT: Only detect features that belong to THIS hole. Other holes may be visible — ignore them.
+Trace polygons tightly around each feature's actual boundary. Individual bunkers should be separate polygons.`;
 
   let claudeResponse: { hazards: { name: string; type: string; confidence: string; polygon: { x: number; y: number }[] }[]; fairway: { x: number; y: number }[] };
 
@@ -367,7 +386,7 @@ Detect all features (bunkers, water, OB, trees, rough, green) and trace the fair
   }
 
   // 6. Validate and convert pixel polygons to GPS coordinates
-  const hazards = (claudeResponse.hazards ?? [])
+  const allHazards = (claudeResponse.hazards ?? [])
     .filter((h) => Array.isArray(h.polygon) && h.polygon.length >= 3)
     .filter((h) => ['bunker', 'water', 'ob', 'trees', 'rough', 'green'].includes(h.type))
     .map((h) => ({
@@ -382,6 +401,35 @@ Detect all features (bunkers, water, OB, trees, rough, green) and trace the fair
         .map((p) => imagePixelToLatLng(p.x, p.y, centerLat, centerLng, zoom, ACTUAL_SIZE, ACTUAL_SIZE)),
     }))
     .filter((h) => h.polygon.length >= 3);
+
+  // 7. Post-processing: filter out hazards from adjacent holes
+  // Keep only hazards whose centroid is within a reasonable corridor around the hole
+  const MAX_LATERAL_YARDS = 60; // max distance from tee-to-pin line
+  const teeGps = { lat: hole.tee.lat, lng: hole.tee.lng };
+  const pinGps = { lat: hole.pin.lat, lng: hole.pin.lng };
+  const holeLength = haversineYards(teeGps, pinGps);
+
+  function distanceToHoleCorridor(point: { lat: number; lng: number }): number {
+    // Project point onto tee→pin line, clamp, compute perpendicular distance
+    const teeToPin = { lat: pinGps.lat - teeGps.lat, lng: pinGps.lng - teeGps.lng };
+    const teeToPoint = { lat: point.lat - teeGps.lat, lng: point.lng - teeGps.lng };
+    const dot = teeToPin.lat * teeToPoint.lat + teeToPin.lng * teeToPoint.lng;
+    const lenSq = teeToPin.lat * teeToPin.lat + teeToPin.lng * teeToPin.lng;
+    const t = Math.max(0, Math.min(1, lenSq > 0 ? dot / lenSq : 0));
+    const closest = { lat: teeGps.lat + t * teeToPin.lat, lng: teeGps.lng + t * teeToPin.lng };
+    return haversineYards(point, closest);
+  }
+
+  // OB and trees get wider corridor (they mark boundaries), others are tighter
+  const hazards = allHazards.filter((h) => {
+    const centroid = {
+      lat: h.polygon.reduce((s, p) => s + p.lat, 0) / h.polygon.length,
+      lng: h.polygon.reduce((s, p) => s + p.lng, 0) / h.polygon.length,
+    };
+    const lateralDist = distanceToHoleCorridor(centroid);
+    const maxDist = (h.type === 'ob' || h.type === 'trees') ? MAX_LATERAL_YARDS * 2 : MAX_LATERAL_YARDS;
+    return lateralDist <= maxDist;
+  });
 
   const fairway = (claudeResponse.fairway ?? [])
     .filter((p) => p.x >= 0 && p.x <= ACTUAL_SIZE && p.y >= 0 && p.y <= ACTUAL_SIZE)
