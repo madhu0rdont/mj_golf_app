@@ -294,6 +294,25 @@ function normalizeAngle(a: number): number {
   return d;
 }
 
+/** Build a descriptive hazard label like "left FW bunker at 230y" */
+function describeHazard(
+  h: HazardFeature,
+  centroid: { lat: number; lng: number },
+  from: { lat: number; lng: number },
+  side: 'left' | 'right',
+  isApproach: boolean,
+): string {
+  const typeName = HAZARD_SHORT[h.type] ?? h.type;
+  const dist = Math.round(haversineYards(from, centroid));
+
+  if (isApproach) {
+    // Near the green — use side + type: "left GS bunker"
+    return `${side} ${typeName}`;
+  }
+  // Off the tee / layup — use side + type + distance: "left FW bunker at 230y"
+  return `${side} ${typeName} at ${dist}y`;
+}
+
 /** Generate a caddy-style tip describing where to aim relative to nearby hazards
  *  and how the ball will move given the player's lateral bias. */
 function generateCaddyTip(
@@ -316,36 +335,40 @@ function generateCaddyTip(
   const ballWorks = ballDir ? `works ${ballDir}` : null;
 
   // Find hazards near the landing area (within 50y of target)
-  const nearHaz: { label: string; side: 'left' | 'right' }[] = [];
+  interface NearbyHaz { desc: string; side: 'left' | 'right'; dist: number }
+  const nearHaz: NearbyHaz[] = [];
   for (const h of hazards) {
     if (h.polygon.length < MIN_HAZARD_POINTS) continue;
     const c = polygonCentroid(h.polygon);
-    if (haversineYards(target, c) > 50) continue;
+    const distToTarget = haversineYards(target, c);
+    if (distToTarget > 50) continue;
 
     const relAngle = normalizeAngle(bearingBetween(from, c) - shotBearing);
+    const side: 'left' | 'right' = relAngle >= 0 ? 'right' : 'left';
     nearHaz.push({
-      label: HAZARD_SHORT[h.type] ?? h.type,
-      side: relAngle >= 0 ? 'right' : 'left',
+      desc: describeHazard(h, c, from, side, isApproach),
+      side,
+      dist: distToTarget,
     });
   }
 
-  // Dedupe by type+side
-  const seen = new Set<string>();
-  const hazards2 = nearHaz.filter((h) => {
-    const key = `${h.label}-${h.side}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  // Sort by distance to target (closest hazard first = most relevant)
+  nearHaz.sort((a, b) => a.dist - b.dist);
+
+  // Dedupe by side (keep closest per side)
+  const bySide = new Map<string, NearbyHaz>();
+  for (const h of nearHaz) {
+    if (!bySide.has(h.side)) bySide.set(h.side, h);
+  }
 
   const dest = isApproach ? 'the pin' : 'the fairway';
 
   // Approach shot to pin
   if (isApproach) {
     if (!aimSide) return 'Straight at the pin';
-    const avoiding = hazards2.find((h) => h.side !== aimSide);
+    const avoiding = [...bySide.values()].find((h) => h.side !== aimSide);
     if (avoiding) {
-      return `Aim ${aimSide} of the ${avoiding.label}${ballWorks ? `, ${ballWorks} to the pin` : ''}`;
+      return `Aim ${aimSide} of the ${avoiding.desc}${ballWorks ? `, ${ballWorks} to the pin` : ''}`;
     }
     return ballWorks ? `Start ${aimSide}, ${ballWorks} toward the pin` : 'Aim at the pin';
   }
@@ -353,17 +376,15 @@ function generateCaddyTip(
   // Tee or layup shot
   if (!aimSide && !ballWorks) return 'Down the center';
 
-  if (hazards2.length > 0 && aimSide) {
-    // Hazard on the same side as aim — we're starting at it, ball works away
-    const sameHaz = hazards2.find((h) => h.side === aimSide);
-    // Hazard on opposite side — we're aiming away from it
-    const oppHaz = hazards2.find((h) => h.side !== aimSide);
+  if (bySide.size > 0 && aimSide) {
+    const sameHaz = bySide.get(aimSide);
+    const oppHaz = bySide.get(aimSide === 'left' ? 'right' : 'left');
 
     if (sameHaz && ballWorks) {
-      return `Start at the ${sameHaz.side} ${sameHaz.label}, ${ballWorks} to ${dest}`;
+      return `Start at the ${sameHaz.desc}, ${ballWorks} to ${dest}`;
     }
     if (oppHaz) {
-      return `Aim ${aimSide} of the ${oppHaz.label}${ballWorks ? `, ${ballWorks} to ${dest}` : ''}`;
+      return `Aim ${aimSide} of the ${oppHaz.desc}${ballWorks ? `, ${ballWorks} to ${dest}` : ''}`;
     }
   }
 
