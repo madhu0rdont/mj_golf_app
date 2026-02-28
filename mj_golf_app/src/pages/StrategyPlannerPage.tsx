@@ -243,7 +243,6 @@ export function StrategyPlannerPage() {
                     selectedIdx={selectedStrategyIdx}
                     onSelect={setSelectedStrategyIdx}
                     shotCount={shotCount}
-                    par={hole.par}
                   />
                 )}
                 <HoleViewer hole={hole} teeBox={teeBox} landingZones={showSim ? landingZones : undefined} aimPoints={showSim ? aimPoints : undefined} />

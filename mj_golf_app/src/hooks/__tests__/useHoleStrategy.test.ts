@@ -184,6 +184,7 @@ describe('computeLandingZonesFromAimPoints', () => {
       strategyType: 'scoring',
       scoreDistribution: { eagle: 0, birdie: 0, par: 1, bogey: 0, double: 0, worse: 0 },
       blowupRisk: 0,
+      stdStrokes: 0.8,
       aimPoints: [{ position: aimPos, clubName: 'Driver', shotNumber: 1, carry: 275, carryNote: null, tip: 'Down the center' }],
     };
 
@@ -207,6 +208,7 @@ describe('computeLandingZonesFromAimPoints', () => {
       strategyType: 'balanced',
       scoreDistribution: { eagle: 0, birdie: 0, par: 1, bogey: 0, double: 0, worse: 0 },
       blowupRisk: 0,
+      stdStrokes: 0.8,
       aimPoints: [
         { position: aim1, clubName: 'Driver', shotNumber: 1, carry: 275, carryNote: null, tip: 'Down the center' },
         { position: aim2, clubName: '7 Iron', shotNumber: 2, carry: 165, carryNote: null, tip: 'Down the center' },
@@ -228,6 +230,7 @@ describe('computeLandingZonesFromAimPoints', () => {
       strategyType: 'scoring',
       scoreDistribution: { eagle: 0, birdie: 0, par: 1, bogey: 0, double: 0, worse: 0 },
       blowupRisk: 0,
+      stdStrokes: 0.8,
       aimPoints: [{ position: { lat: 33.0025, lng: -117.0 }, clubName: 'Driver', shotNumber: 1, carry: 275, carryNote: null, tip: 'Down the center' }],
     };
 
@@ -253,6 +256,7 @@ describe('computeLandingZonesFromAimPoints', () => {
       strategyType: 'scoring',
       scoreDistribution: { eagle: 0, birdie: 0, par: 1, bogey: 0, double: 0, worse: 0 },
       blowupRisk: 0,
+      stdStrokes: 0.8,
       aimPoints: [{ position: aimPos, clubName: 'Driver', shotNumber: 1, carry: 275, carryNote: null, tip: 'Down the center' }],
     };
 
@@ -286,6 +290,7 @@ describe('computeLandingZonesFromAimPoints', () => {
       strategyType: 'scoring',
       scoreDistribution: { eagle: 0, birdie: 0, par: 1, bogey: 0, double: 0, worse: 0 },
       blowupRisk: 0,
+      stdStrokes: 0.8,
       aimPoints: [{ position: aimPos, clubName: 'Driver', shotNumber: 1, carry: 275, carryNote: null, tip: 'Down the center' }],
     };
 

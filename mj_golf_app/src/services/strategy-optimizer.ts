@@ -33,6 +33,7 @@ export interface OptimizedStrategy extends ApproachStrategy {
   strategyType: 'scoring' | 'safe' | 'balanced';
   scoreDistribution: ScoreDistribution;
   blowupRisk: number; // P(double bogey or worse), 0-1
+  stdStrokes: number; // standard deviation of simulated scores
   aimPoints: AimPoint[];
 }
 
@@ -700,6 +701,8 @@ export function simulateHoleGPS(
   }
 
   const xS = trialScores.reduce((a, b) => a + b, 0) / trialScores.length;
+  const variance = trialScores.reduce((sum, s) => sum + (s - xS) ** 2, 0) / trialScores.length;
+  const stdStrokes = Math.sqrt(variance);
   const scoreDist = computeScoreDistribution(trialScores, hole.par);
   const blowupRisk = scoreDist.double + scoreDist.worse;
 
@@ -731,6 +734,7 @@ export function simulateHoleGPS(
   return {
     clubs: plan.shots.map((s) => ({ clubId: s.clubDist.clubId, clubName: s.clubDist.clubName })),
     expectedStrokes: xS,
+    stdStrokes,
     label,
     strategyName: plan.name,
     strategyType: plan.type,
