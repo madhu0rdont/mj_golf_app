@@ -483,9 +483,16 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
                 className="h-3 w-3 rounded-sm flex-shrink-0"
                 style={{ backgroundColor: HAZARD_COLORS[h.type] ?? '#888' }}
               />
-              <span className="flex-1 truncate text-xs text-text-dark">
-                {h.name}
-              </span>
+              <input
+                value={h.name}
+                onChange={(e) =>
+                  setHazards((prev) =>
+                    prev.map((hz, i) => (i === idx ? { ...hz, name: e.target.value } : hz)),
+                  )
+                }
+                className="flex-1 min-w-0 truncate text-xs text-text-dark bg-transparent border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-0 py-0"
+                placeholder="Name this hazard"
+              />
               <select
                 value={h.type}
                 onChange={(e) =>
