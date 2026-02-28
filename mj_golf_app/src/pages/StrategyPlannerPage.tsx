@@ -202,24 +202,24 @@ export function StrategyPlannerPage() {
                 <HoleInfoPanel hole={hole} teeBox={teeBox} allHoles={course!.holes} />
 
                 {/* Sim toggle + Scoring/Safe */}
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => shotCount > 0 && setShowSim((s) => !s)}
                     disabled={shotCount === 0}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    className={`rounded-lg px-5 py-2 text-sm font-bold tracking-wide transition-all ${
                       showSim
-                        ? 'text-black'
+                        ? 'text-black shadow-md'
                         : shotCount === 0
                           ? 'bg-surface text-text-muted opacity-50 cursor-not-allowed'
-                          : 'bg-surface text-text-medium hover:bg-border'
+                          : 'bg-surface text-text-dark border border-border hover:border-primary hover:text-primary'
                     }`}
-                    style={showSim ? { backgroundColor: '#00E5FF' } : undefined}
+                    style={showSim ? { backgroundColor: '#00E5FF', boxShadow: '0 0 12px rgba(0,229,255,0.4)' } : undefined}
                   >
-                    Sim
+                    {showSim ? 'Sim On' : 'Run Sim'}
                   </button>
                   {showSim && (
                     <>
-                      <div className="h-5 w-px bg-border mx-1" />
+                      <div className="h-6 w-px bg-border" />
                       {(['scoring', 'safe'] as const).map((m) => (
                         <button
                           key={m}
