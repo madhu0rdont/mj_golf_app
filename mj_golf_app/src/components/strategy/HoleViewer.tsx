@@ -194,34 +194,6 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
       circleEl.textContent = String(j + 1);
       wrapEl.appendChild(circleEl);
 
-      // Carry + tip pill below the circle
-      const aimData = aimPoints?.[j];
-      if (aimData?.carry || aimData?.tip) {
-        const pill = document.createElement('div');
-        pill.style.cssText =
-          'margin-top:2px;background:rgba(0,0,0,0.8);border-radius:8px;padding:2px 6px;' +
-          'font-size:10px;color:white;white-space:nowrap;text-align:center;' +
-          'display:flex;flex-direction:column;gap:1px;';
-
-        if (aimData.carry) {
-          const carryLine = document.createElement('div');
-          carryLine.style.cssText = 'font-weight:600;';
-          carryLine.textContent = aimData.carryNote
-            ? `${aimData.carry}y · ${aimData.carryNote}`
-            : `${aimData.carry}y`;
-          pill.appendChild(carryLine);
-        }
-
-        if (aimData.tip) {
-          const tipLine = document.createElement('div');
-          tipLine.style.cssText = 'font-weight:400;font-size:9px;opacity:0.85;';
-          tipLine.textContent = aimData.tip;
-          pill.appendChild(tipLine);
-        }
-
-        wrapEl.appendChild(pill);
-      }
-
       const circleMarker = new google.maps.marker.AdvancedMarkerElement({
         map,
         position: aimPositions[j],
