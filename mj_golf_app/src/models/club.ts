@@ -13,7 +13,6 @@ export interface Club {
   manualCarry?: number | null;
   manualTotal?: number | null;
   computedCarry?: number;
-  computedTotal?: number;
   preferredShape?: string | null;
   sortOrder: number;
   createdAt: number;

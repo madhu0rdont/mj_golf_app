@@ -12,7 +12,7 @@ import clubsRouter from './routes/clubs.js';
 import sessionsRouter from './routes/sessions.js';
 import shotsRouter from './routes/shots.js';
 import backupRouter from './routes/backup.js';
-import yardageRouter from './routes/yardage.js';
+
 import seedRouter from './routes/seed.js';
 import extractRouter from './routes/extract.js';
 import wedgeOverridesRouter from './routes/wedge-overrides.js';
@@ -60,7 +60,7 @@ app.use('/api/clubs', clubsRouter);
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/shots', shotsRouter);
 app.use('/api/backup', backupRouter);
-app.use('/api/yardage', yardageRouter);
+
 app.use('/api/seed', seedRouter);
 app.use('/api/extract', extractRouter);
 app.use('/api/wedge-overrides', wedgeOverridesRouter);
