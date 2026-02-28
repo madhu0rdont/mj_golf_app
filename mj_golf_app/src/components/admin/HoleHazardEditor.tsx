@@ -269,19 +269,24 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
       });
 
       const hazardIdx = idx;
-      if (!isAccepted) {
-        const updatePath = () => {
-          const path = poly.getPath();
-          const coords = Array.from({ length: path.getLength() }, (_, i) => ({
-            lat: path.getAt(i).lat(),
-            lng: path.getAt(i).lng(),
-          }));
-          setHazards((prev) =>
-            prev.map((hz, i) => (i === hazardIdx ? { ...hz, polygon: coords } : hz)),
-          );
-        };
-        poly.getPath().addListener('set_at', updatePath);
-        poly.getPath().addListener('insert_at', updatePath);
+      const updatePath = () => {
+        const path = poly.getPath();
+        const coords = Array.from({ length: path.getLength() }, (_, i) => ({
+          lat: path.getAt(i).lat(),
+          lng: path.getAt(i).lng(),
+        }));
+        setHazards((prev) =>
+          prev.map((hz, i) => (i === hazardIdx ? { ...hz, polygon: coords } : hz)),
+        );
+      };
+      poly.getPath().addListener('set_at', updatePath);
+      poly.getPath().addListener('insert_at', updatePath);
+
+      // Click accepted polygon to make it editable
+      if (isAccepted) {
+        poly.addListener('click', () => {
+          poly.setEditable(true);
+        });
       }
 
       polygonsRef.current.push(poly);
