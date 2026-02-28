@@ -86,14 +86,14 @@ export function StrategyPlannerPage() {
   }, [totalHoles, viewMode]);
 
   if (coursesLoading) {
-    return <LoadingPage title="Strategy" />;
+    return <LoadingPage title="Course Management" />;
   }
 
   // Empty state
   if (!courses?.length) {
     return (
       <>
-        <TopBar title="Strategy" />
+        <TopBar title="Course Management" />
         <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center">
           <p className="text-sm text-text-muted">
             No courses imported yet.
@@ -111,7 +111,7 @@ export function StrategyPlannerPage() {
 
   return (
     <>
-      <TopBar title="Strategy" />
+      <TopBar title="Course Management" />
       <div className="flex flex-col gap-3 px-4 py-3 pb-24">
         {/* Course selector */}
         <Select

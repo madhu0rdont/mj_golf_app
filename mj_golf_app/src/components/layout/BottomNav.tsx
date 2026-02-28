@@ -5,7 +5,7 @@ const NAV_ITEMS = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/bag', icon: Briefcase, label: 'Bag' },
   { to: '/yardage', icon: BookOpen, label: 'Yardage' },
-  { to: '/strategy', icon: MapPin, label: 'Strategy' },
+  { to: '/strategy', icon: MapPin, label: 'Course Mgmt' },
 ];
 
 export function BottomNav() {

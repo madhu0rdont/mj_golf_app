@@ -6,7 +6,7 @@ const NAV_LINKS = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/bag', icon: Briefcase, label: 'Bag' },
   { to: '/yardage', icon: BookOpen, label: 'Yardage' },
-  { to: '/strategy', icon: MapPin, label: 'Strategy' },
+  { to: '/strategy', icon: MapPin, label: 'Course Management' },
   { to: '/faq', icon: HelpCircle, label: 'How It Works' },
   { to: '/settings', icon: Settings, label: 'Settings' },
   { to: '/about', icon: Info, label: 'About' },

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useYardageBookShots } from './useYardageBook';
 import { buildDistributions } from '../services/monte-carlo';
 import { optimizeHole } from '../services/strategy-optimizer';
-import { projectPoint, computeEllipsePoints } from '../utils/geo';
+import { projectPoint, computeEllipsePoints, bearingBetween } from '../utils/geo';
 import type { ClubDistribution, ApproachStrategy } from '../services/monte-carlo';
 import type { OptimizedStrategy, StrategyMode } from '../services/strategy-optimizer';
 import type { CourseHole } from '../models/course';
@@ -39,8 +39,11 @@ export function computeLandingZones(
       center = projectPoint(center, perpBearing, dist.meanOffline);
     }
 
-    const sigma1 = computeEllipsePoints(center, bearing, dist.stdCarry, dist.stdOffline, 36);
-    const sigma2 = computeEllipsePoints(center, bearing, dist.stdCarry * 2, dist.stdOffline * 2, 36);
+    // Ensure carry axis is at least 1.5× offline for a visibly elongated oval
+    const carryAxis = Math.max(dist.stdCarry, dist.stdOffline * 1.5);
+    const offlineAxis = dist.stdOffline;
+    const sigma1 = computeEllipsePoints(center, bearing, carryAxis * 1.5, offlineAxis * 1.5, 36);
+    const sigma2 = computeEllipsePoints(center, bearing, carryAxis * 3, offlineAxis * 3, 36);
 
     zones.push({
       clubName: dist.clubName,
@@ -69,8 +72,11 @@ export function computeLandingZonesFromAimPoints(
     if (!dist) continue;
 
     const center = aim.position;
-    const sigma1 = computeEllipsePoints(center, heading, dist.stdCarry, dist.stdOffline, 36);
-    const sigma2 = computeEllipsePoints(center, heading, dist.stdCarry * 2, dist.stdOffline * 2, 36);
+    // Ensure carry axis is at least 1.5× offline for a visibly elongated oval
+    const carryAxis = Math.max(dist.stdCarry, dist.stdOffline * 1.5);
+    const offlineAxis = dist.stdOffline;
+    const sigma1 = computeEllipsePoints(center, heading, carryAxis * 1.5, offlineAxis * 1.5, 36);
+    const sigma2 = computeEllipsePoints(center, heading, carryAxis * 3, offlineAxis * 3, 36);
 
     zones.push({
       clubName: aim.clubName,
@@ -127,12 +133,14 @@ export function useHoleStrategy(
     const idx = Math.min(selectedStrategyIdx, strategies.length - 1);
     const strategy = strategies[idx];
 
+    const heading = bearingBetween(hole.tee, hole.pin);
+
     // Use aim-point based zones for OptimizedStrategy, fall back for plain ApproachStrategy
     if ('aimPoints' in strategy && (strategy as OptimizedStrategy).aimPoints.length > 0) {
       return computeLandingZonesFromAimPoints(
         strategy as OptimizedStrategy,
         distributions,
-        hole.heading,
+        heading,
       );
     }
 
@@ -140,7 +148,7 @@ export function useHoleStrategy(
       strategy,
       distributions,
       { lat: hole.tee.lat, lng: hole.tee.lng },
-      hole.heading,
+      heading,
     );
   }, [enabled, hole, strategies, distributions, selectedStrategyIdx]);
 

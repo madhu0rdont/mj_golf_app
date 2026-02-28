@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { Loader2 } from 'lucide-react';
-import { haversineYards } from '../../utils/geo';
+import { haversineYards, bearingBetween } from '../../utils/geo';
 import type { CourseHole } from '../../models/course';
 import type { LandingZone } from '../../hooks/useHoleStrategy';
 
@@ -76,7 +76,7 @@ export function HoleViewer({ hole, landingZones }: HoleViewerProps) {
         zoom: 17,
         mapTypeId: 'satellite',
         mapId: 'strategy-viewer',
-        heading: hole.heading,
+        heading: bearingBetween(hole.tee, hole.pin),
         tilt: 0,
         disableDefaultUI: true,
         zoomControl: true,
@@ -137,26 +137,26 @@ export function HoleViewer({ hole, landingZones }: HoleViewerProps) {
     for (let i = 0; i < landingZones.length; i++) {
       const zone = landingZones[i];
 
-      // 2σ ellipse (outer, lighter)
+      // Outer ellipse (3σ, lighter)
       const sigma2Poly = new google.maps.Polygon({
         map,
         paths: zone.sigma2,
         fillColor: '#00BCD4',
-        fillOpacity: 0.15,
+        fillOpacity: 0.2,
         strokeColor: '#00BCD4',
-        strokeWeight: 1,
-        strokeOpacity: 0.5,
+        strokeWeight: 1.5,
+        strokeOpacity: 0.7,
         editable: false,
         clickable: false,
       });
       simOverlaysRef.current.push(sigma2Poly);
 
-      // 1σ ellipse (inner, brighter)
+      // Inner ellipse (1.5σ, brighter)
       const sigma1Poly = new google.maps.Polygon({
         map,
         paths: zone.sigma1,
         fillColor: '#00E5FF',
-        fillOpacity: 0.35,
+        fillOpacity: 0.4,
         strokeColor: '#00E5FF',
         strokeWeight: 2,
         editable: false,
@@ -222,25 +222,24 @@ export function HoleViewer({ hole, landingZones }: HoleViewerProps) {
     clearSimOverlays();
     clearMeasure();
 
-    // Update map center/heading
-    const center = {
-      lat: (hole.tee.lat + hole.pin.lat) / 2,
-      lng: (hole.tee.lng + hole.pin.lng) / 2,
-    };
-    map.setCenter(center);
-    map.setHeading(hole.heading);
-
-    // Fit bounds with padding
+    // Fit bounds, then orient tee-to-pin upward
     const bounds = new google.maps.LatLngBounds();
     bounds.extend({ lat: hole.tee.lat, lng: hole.tee.lng });
     bounds.extend({ lat: hole.pin.lat, lng: hole.pin.lng });
-    for (const t of hole.targets) {
-      bounds.extend({ lat: t.coordinate.lat, lng: t.coordinate.lng });
+    if (landingZones) {
+      for (const z of landingZones) bounds.extend(z.center);
     }
     if (hole.fairway.length > 0) {
       for (const p of hole.fairway) bounds.extend(p);
     }
     map.fitBounds(bounds, { top: 40, bottom: 40, left: 20, right: 20 });
+
+    // Set heading AFTER fitBounds so it isn't overridden
+    const heading = bearingBetween(hole.tee, hole.pin);
+    map.setHeading(heading);
+    google.maps.event.addListenerOnce(map, 'idle', () => {
+      map.setHeading(heading);
+    });
 
     // 1. Fairway polygon
     if (hole.fairway.length >= 3) {
@@ -333,43 +332,7 @@ export function HoleViewer({ hole, landingZones }: HoleViewerProps) {
       overlaysRef.current.push(cl);
     }
 
-    // 4. Target markers with distance labels
-    for (const t of hole.targets) {
-      const el = document.createElement('div');
-      el.style.cssText = 'display:flex;flex-direction:column;align-items:center;pointer-events:none;';
-
-      // Gold circle
-      const circle = document.createElement('div');
-      circle.style.cssText = 'width:10px;height:10px;border-radius:50%;background:#FFD700;border:2px solid white;';
-      el.appendChild(circle);
-
-      // Distance label
-      const label = document.createElement('div');
-      label.style.cssText =
-        'margin-top:2px;background:rgba(0,0,0,0.7);border-radius:4px;padding:1px 4px;' +
-        'font-size:10px;white-space:nowrap;display:flex;gap:4px;';
-
-      const fromTee = document.createElement('span');
-      fromTee.style.color = '#FFD700';
-      fromTee.textContent = `${t.fromTee}`;
-      label.appendChild(fromTee);
-
-      const toPin = document.createElement('span');
-      toPin.style.color = '#FFFFFF';
-      toPin.textContent = `${t.toPin}`;
-      label.appendChild(toPin);
-
-      el.appendChild(label);
-
-      const marker = new google.maps.marker.AdvancedMarkerElement({
-        map,
-        position: { lat: t.coordinate.lat, lng: t.coordinate.lng },
-        content: el,
-      });
-      overlaysRef.current.push(marker);
-    }
-
-    // 5. Tee marker (blue)
+    // 4. Tee marker (blue)
     const teeEl = document.createElement('div');
     teeEl.style.cssText = 'width:14px;height:14px;border-radius:50%;background:#3B82F6;border:2px solid white;';
     const teeMarker = new google.maps.marker.AdvancedMarkerElement({
@@ -392,7 +355,7 @@ export function HoleViewer({ hole, landingZones }: HoleViewerProps) {
     overlaysRef.current.push(pinMarker);
 
     currentHoleRef.current = hole.id;
-  }, [hole, clearOverlays, clearSimOverlays, clearMeasure]);
+  }, [hole, landingZones, clearOverlays, clearSimOverlays, clearMeasure]);
 
   // Set up tap-to-measure click listener
   useEffect(() => {

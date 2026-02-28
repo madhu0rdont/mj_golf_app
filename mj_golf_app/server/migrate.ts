@@ -146,5 +146,8 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_course_holes_course ON course_holes(course_id)
   `);
 
+  // Green polygon for course holes
+  await query(`ALTER TABLE course_holes ADD COLUMN IF NOT EXISTS green JSONB DEFAULT '[]'`);
+
   console.log('Database migration complete');
 }
