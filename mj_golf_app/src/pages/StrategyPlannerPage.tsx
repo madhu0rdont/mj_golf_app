@@ -144,29 +144,8 @@ export function StrategyPlannerPage() {
             </button>
           ))}
 
-          {/* Vertical divider */}
-          <div className="h-5 w-px bg-border mx-1" />
-
-          {/* Sim toggle (hole view only) */}
-          {viewMode === 'hole' && (
-            <button
-              onClick={() => shotCount > 0 && setShowSim((s) => !s)}
-              disabled={shotCount === 0}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                showSim
-                  ? 'text-black'
-                  : shotCount === 0
-                    ? 'bg-surface text-text-muted opacity-50 cursor-not-allowed'
-                    : 'bg-surface text-text-medium hover:bg-border'
-              }`}
-              style={showSim ? { backgroundColor: '#00E5FF' } : undefined}
-            >
-              Sim
-            </button>
-          )}
-
-          {/* Scoring / Safe toggle */}
-          {(showSim || viewMode === 'gameplan') && (
+          {/* Scoring / Safe toggle (game plan view) */}
+          {viewMode === 'gameplan' && (
             <>
               <div className="h-5 w-px bg-border mx-1" />
               {(['scoring', 'safe'] as const).map((m) => (
@@ -221,6 +200,43 @@ export function StrategyPlannerPage() {
             ) : hole ? (
               <>
                 <HoleInfoPanel hole={hole} teeBox={teeBox} allHoles={course!.holes} />
+
+                {/* Sim toggle + Scoring/Safe */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => shotCount > 0 && setShowSim((s) => !s)}
+                    disabled={shotCount === 0}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      showSim
+                        ? 'text-black'
+                        : shotCount === 0
+                          ? 'bg-surface text-text-muted opacity-50 cursor-not-allowed'
+                          : 'bg-surface text-text-medium hover:bg-border'
+                    }`}
+                    style={showSim ? { backgroundColor: '#00E5FF' } : undefined}
+                  >
+                    Sim
+                  </button>
+                  {showSim && (
+                    <>
+                      <div className="h-5 w-px bg-border mx-1" />
+                      {(['scoring', 'safe'] as const).map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => setStrategyMode(m)}
+                          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                            strategyMode === m
+                              ? 'bg-primary text-white'
+                              : 'bg-surface text-text-medium hover:bg-border'
+                          }`}
+                        >
+                          {m === 'scoring' ? 'Scoring' : 'Safe'}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+
                 {showSim && (
                   <StrategyPanel
                     strategies={strategies}
