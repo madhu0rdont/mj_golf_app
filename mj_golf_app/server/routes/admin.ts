@@ -386,20 +386,43 @@ Trace polygons tightly around each feature's actual boundary. Individual bunkers
   }
 
   // 6. Validate and convert pixel polygons to GPS coordinates
+  const GREENSIDE_THRESHOLD_YARDS = 40; // bunkers within 40y of pin are greenside
   const allHazards = (claudeResponse.hazards ?? [])
     .filter((h) => Array.isArray(h.polygon) && h.polygon.length >= 3)
     .filter((h) => ['bunker', 'water', 'ob', 'trees', 'rough', 'green'].includes(h.type))
-    .map((h) => ({
-      name: h.name || 'Unknown',
-      type: h.type as 'bunker' | 'water' | 'ob' | 'trees' | 'rough' | 'green',
-      penalty: { water: 1, ob: 1, bunker: 0.4, trees: 0.5, rough: 0.2 }[h.type] ?? 0,
-      confidence: (['high', 'medium', 'low'].includes(h.confidence) ? h.confidence : 'medium') as 'high' | 'medium' | 'low',
-      source: 'claude-vision' as const,
-      status: 'pending' as const,
-      polygon: h.polygon
+    .map((h) => {
+      const polygon = h.polygon
         .filter((p) => p.x >= 0 && p.x <= ACTUAL_SIZE && p.y >= 0 && p.y <= ACTUAL_SIZE)
-        .map((p) => imagePixelToLatLng(p.x, p.y, centerLat, centerLng, zoom, ACTUAL_SIZE, ACTUAL_SIZE)),
-    }))
+        .map((p) => imagePixelToLatLng(p.x, p.y, centerLat, centerLng, zoom, ACTUAL_SIZE, ACTUAL_SIZE));
+
+      // Auto-classify bunkers as fairway or greenside based on distance to pin
+      let resolvedType = h.type;
+      let penalty = ({ water: 1, ob: 1, bunker: 0.4, trees: 0.5, rough: 0.2 } as Record<string, number>)[h.type] ?? 0;
+      if (h.type === 'bunker' && polygon.length >= 3) {
+        const centroid = {
+          lat: polygon.reduce((s, p) => s + p.lat, 0) / polygon.length,
+          lng: polygon.reduce((s, p) => s + p.lng, 0) / polygon.length,
+        };
+        const distToPin = haversineYards(centroid, { lat: hole.pin.lat, lng: hole.pin.lng });
+        if (distToPin <= GREENSIDE_THRESHOLD_YARDS) {
+          resolvedType = 'greenside_bunker';
+          penalty = 0.5;
+        } else {
+          resolvedType = 'fairway_bunker';
+          penalty = 0.3;
+        }
+      }
+
+      return {
+        name: h.name || 'Unknown',
+        type: resolvedType as 'bunker' | 'fairway_bunker' | 'greenside_bunker' | 'water' | 'ob' | 'trees' | 'rough' | 'green',
+        penalty,
+        confidence: (['high', 'medium', 'low'].includes(h.confidence) ? h.confidence : 'medium') as 'high' | 'medium' | 'low',
+        source: 'claude-vision' as const,
+        status: 'pending' as const,
+        polygon,
+      };
+    })
     .filter((h) => h.polygon.length >= 3);
 
   // 7. Post-processing: filter out hazards from adjacent holes
@@ -460,7 +483,7 @@ Trace polygons tightly around each feature's actual boundary. Individual bunkers
       if (isDuplicate) continue;
       hazards.push({
         name: oh.name,
-        type: oh.type as 'bunker' | 'water' | 'ob' | 'trees' | 'rough' | 'green',
+        type: oh.type as 'bunker' | 'fairway_bunker' | 'greenside_bunker' | 'water' | 'ob' | 'trees' | 'rough' | 'green',
         penalty: oh.penalty,
         confidence: 'high' as const,
         source: 'claude-vision' as const,

@@ -13,6 +13,8 @@ interface HoleViewerProps {
 
 const HAZARD_COLORS: Record<string, string> = {
   bunker: '#FFD700',
+  fairway_bunker: '#DAA520',
+  greenside_bunker: '#FFA500',
   water: '#4169E1',
   ob: '#FF4444',
   trees: '#228B22',

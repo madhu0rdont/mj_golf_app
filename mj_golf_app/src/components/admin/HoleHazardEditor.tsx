@@ -13,6 +13,8 @@ interface HoleHazardEditorProps {
 
 const HAZARD_COLORS: Record<string, string> = {
   bunker: '#FFD700',
+  fairway_bunker: '#DAA520',
+  greenside_bunker: '#FFA500',
   water: '#4169E1',
   ob: '#FF4444',
   trees: '#228B22',
@@ -20,7 +22,8 @@ const HAZARD_COLORS: Record<string, string> = {
 };
 
 const HAZARD_LABELS: Record<string, string> = {
-  bunker: 'Bunker',
+  fairway_bunker: 'FW Bunker',
+  greenside_bunker: 'GS Bunker',
   water: 'Water',
   ob: 'OB',
   trees: 'Trees',
@@ -153,8 +156,8 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
         } else if (mode === 'hazard') {
           const newHazard: HazardFeature = {
             name: 'Manual hazard',
-            type: 'bunker',
-            penalty: 0.4,
+            type: 'fairway_bunker',
+            penalty: 0.3,
             confidence: 'high',
             source: 'manual',
             status: 'accepted',
@@ -465,7 +468,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
     setHazards((prev) =>
       prev.map((h, i) =>
         i === idx
-          ? { ...h, type, penalty: ({ water: 1, ob: 1, bunker: 0.4, trees: 0.5, rough: 0.2 } as Record<string, number>)[type] ?? 0 }
+          ? { ...h, type, penalty: ({ water: 1, ob: 1, fairway_bunker: 0.3, greenside_bunker: 0.5, bunker: 0.4, trees: 0.5, rough: 0.2 } as Record<string, number>)[type] ?? 0 }
           : h,
       ),
     );
