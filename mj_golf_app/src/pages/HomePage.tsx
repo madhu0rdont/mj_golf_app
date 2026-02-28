@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router';
-import { Plus, BookOpen, AlertTriangle } from 'lucide-react';
+import { Plus, BookOpen, AlertTriangle, MapPin, ClipboardList } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { useRecentSessions } from '../hooks/useSessions';
 import { useAllClubs } from '../hooks/useClubs';
@@ -26,22 +26,46 @@ export function HomePage() {
           <p className="text-sm text-text-medium">Powered by real data and statistics.</p>
         </div>
 
-        {/* Quick Actions */}
-        <div className="mb-6 grid grid-cols-2 gap-2">
-          <Link
-            to="/session/new"
-            className="flex flex-col items-center gap-1.5 rounded-xl bg-primary p-3 text-center text-sm font-medium text-white transition-colors hover:bg-primary-light"
-          >
-            <Plus size={20} />
-            <span>Start Practice</span>
-          </Link>
-          <Link
-            to="/yardage"
-            className="flex flex-col items-center gap-1.5 rounded-xl bg-card border border-border shadow-sm p-3 text-center text-sm font-medium transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
-          >
-            <BookOpen size={20} />
-            <span>Yardage</span>
-          </Link>
+        {/* Play Section */}
+        <div className="mb-6">
+          <h3 className="mb-2 text-[10px] font-medium text-text-muted uppercase tracking-wide">Play</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              to="/strategy"
+              className="flex flex-col items-center gap-1.5 rounded-xl bg-primary p-3 text-center text-sm font-medium text-white transition-colors hover:bg-primary-light"
+            >
+              <MapPin size={20} />
+              <span>Course Mgmt</span>
+            </Link>
+            <Link
+              to="/yardage"
+              className="flex flex-col items-center gap-1.5 rounded-xl bg-card border border-border shadow-sm p-3 text-center text-sm font-medium transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
+            >
+              <BookOpen size={20} />
+              <span>Yardage Book</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* Practice Section */}
+        <div className="mb-6">
+          <h3 className="mb-2 text-[10px] font-medium text-text-muted uppercase tracking-wide">Practice</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              to="/session/new"
+              className="flex flex-col items-center gap-1.5 rounded-xl bg-primary p-3 text-center text-sm font-medium text-white transition-colors hover:bg-primary-light"
+            >
+              <Plus size={20} />
+              <span>Start Practice</span>
+            </Link>
+            <Link
+              to="/sessions"
+              className="flex flex-col items-center gap-1.5 rounded-xl bg-card border border-border shadow-sm p-3 text-center text-sm font-medium transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
+            >
+              <ClipboardList size={20} />
+              <span>Sessions</span>
+            </Link>
+          </div>
         </div>
 
         {/* Stale Clubs Warning */}
@@ -78,7 +102,7 @@ export function HomePage() {
         {/* Recent Sessions */}
         <div>
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-medium text-text-medium uppercase">Practice Rounds</h3>
+            <h3 className="text-sm font-medium text-text-medium uppercase">Recent Sessions</h3>
             {recentSessions && recentSessions.length > 0 && (
               <Link to="/sessions" className="text-xs font-medium text-primary">
                 View All
