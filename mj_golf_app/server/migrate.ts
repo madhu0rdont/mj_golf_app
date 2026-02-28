@@ -149,5 +149,8 @@ export async function migrate() {
   // Green polygon for course holes
   await query(`ALTER TABLE course_holes ADD COLUMN IF NOT EXISTS green JSONB DEFAULT '[]'`);
 
+  // Handicap (stroke index) per hole
+  await query(`ALTER TABLE course_holes ADD COLUMN IF NOT EXISTS handicap INTEGER`);
+
   console.log('Database migration complete');
 }

@@ -50,6 +50,7 @@ function makeHole(par: number, distance: number = 400): CourseHole {
     courseId: 'course-1',
     holeNumber: 1,
     par,
+    handicap: null,
     yardages: { blue: distance },
     heading: 0,
     tee,
@@ -416,6 +417,54 @@ describe('simulateHoleGPS', () => {
     expect(result.aimPoints[0].shotNumber).toBe(1);
     expect(result.aimPoints[1].shotNumber).toBe(2);
     expect(result.aimPoints[2].shotNumber).toBe(3);
+  });
+
+  it('aim points include carry distance', () => {
+    const hole = makeHole(4, 400);
+    const plans = generateNamedStrategies(hole, 'blue', dists);
+    const result = simulateHoleGPS(plans[0], hole, dists, 500);
+
+    for (const ap of result.aimPoints) {
+      expect(ap.carry).toBeGreaterThan(0);
+      expect(typeof ap.carry).toBe('number');
+      expect(Number.isInteger(ap.carry)).toBe(true);
+    }
+  });
+
+  it('aim points include caddy tips', () => {
+    const hole = makeHole(4, 400);
+    const plans = generateNamedStrategies(hole, 'blue', dists);
+    const result = simulateHoleGPS(plans[0], hole, dists, 500);
+
+    for (const ap of result.aimPoints) {
+      expect(typeof ap.tip).toBe('string');
+      expect(ap.tip.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('aim points have carryNote when hazards are along path', () => {
+    const hole = makeHole(4, 400);
+    // Place a bunker at 250y (shorter than driver carry of 275y)
+    const hazardLat = 33.0 + 250 / 121100;
+    hole.hazards = [
+      makeHazard({
+        type: 'fairway_bunker',
+        penalty: 0.3,
+        name: 'Fairway Bunker',
+        polygon: [
+          { lat: hazardLat - 0.0002, lng: -117.0003 },
+          { lat: hazardLat - 0.0002, lng: -116.9997 },
+          { lat: hazardLat + 0.0002, lng: -116.9997 },
+          { lat: hazardLat + 0.0002, lng: -117.0003 },
+        ],
+      }),
+    ];
+    const plans = generateNamedStrategies(hole, 'blue', dists);
+    const result = simulateHoleGPS(plans[0], hole, dists, 500);
+
+    // First shot should have a carryNote about the bunker
+    expect(result.aimPoints[0].carryNote).toBeTruthy();
+    expect(result.aimPoints[0].carryNote).toContain('bunker');
   });
 
   it('hazard penalties increase expected strokes', () => {

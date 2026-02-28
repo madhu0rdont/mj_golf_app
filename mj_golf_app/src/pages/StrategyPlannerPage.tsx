@@ -17,7 +17,7 @@ import type { StrategyMode } from '../services/strategy-optimizer';
 const TEE_BOXES = [
   { key: 'blue', label: 'Blue', color: '#3B82F6' },
   { key: 'white', label: 'White', color: '#E5E7EB' },
-  { key: 'red', label: 'Red', color: '#EF4444' },
+  { key: 'green', label: 'Green', color: '#22C55E' },
 ];
 
 type ViewMode = 'hole' | 'gameplan';

@@ -59,6 +59,11 @@ export function HoleInfoPanel({ hole, teeBox }: HoleInfoPanelProps) {
           <span className="text-xs font-medium text-text-medium">
             Par {hole.par}
           </span>
+          {hole.handicap != null && (
+            <span className="text-xs font-medium text-text-muted">
+              HCP {hole.handicap}
+            </span>
+          )}
           {elevDeltaFeet !== 0 && (
             <span className={`text-xs font-medium ${isUphill ? 'text-coral' : 'text-primary'}`}>
               {isUphill ? '+' : ''}{elevDeltaFeet}ft {isUphill ? '↑' : '↓'}

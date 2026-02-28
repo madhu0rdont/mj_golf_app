@@ -613,17 +613,105 @@ router.post('/courses/:id/refresh-elevation', async (req, res) => {
   res.json({ holes: comparison });
 });
 
+// POST /api/admin/courses/:id/scorecard — bulk update scorecard data (yardages, par, handicap)
+router.post('/courses/:id/scorecard', async (req, res) => {
+  const courseId = req.params.id;
+  const { holes: holeData, course: courseMeta } = req.body as {
+    holes: { holeNumber: number; yardages: Record<string, number>; par?: number; handicap?: number }[];
+    course?: { par?: number; slope?: number; rating?: number };
+  };
+
+  if (!Array.isArray(holeData) || holeData.length === 0) {
+    return res.status(400).json({ error: 'holes array is required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Update course-level metadata if provided
+    if (courseMeta) {
+      const sets: string[] = [];
+      const vals: unknown[] = [];
+      if (courseMeta.par != null) { vals.push(courseMeta.par); sets.push(`par = $${vals.length}`); }
+      if (courseMeta.slope != null) { vals.push(courseMeta.slope); sets.push(`slope = $${vals.length}`); }
+      if (courseMeta.rating != null) { vals.push(courseMeta.rating); sets.push(`rating = $${vals.length}`); }
+      if (sets.length > 0) {
+        vals.push(courseId);
+        await client.query(`UPDATE courses SET ${sets.join(', ')} WHERE id = $${vals.length}`, vals);
+      }
+    }
+
+    for (const h of holeData) {
+      const sets: string[] = [];
+      const vals: unknown[] = [];
+
+      vals.push(JSON.stringify(h.yardages));
+      sets.push(`yardages = $${vals.length}`);
+
+      if (h.par != null) {
+        vals.push(h.par);
+        sets.push(`par = $${vals.length}`);
+      }
+      if (h.handicap != null) {
+        vals.push(h.handicap);
+        sets.push(`handicap = $${vals.length}`);
+      }
+
+      // Recompute plays_like_yards using elevation delta
+      const { rows: holeRows } = await client.query(
+        'SELECT tee, pin FROM course_holes WHERE course_id = $1 AND hole_number = $2',
+        [courseId, h.holeNumber],
+      );
+      if (holeRows.length > 0) {
+        const teeData = holeRows[0].tee;
+        const pinData = holeRows[0].pin;
+        const elevDelta = (pinData?.elevation ?? 0) - (teeData?.elevation ?? 0);
+        const playsLike: Record<string, number> = {};
+        for (const [color, yards] of Object.entries(h.yardages)) {
+          playsLike[color] = playsLikeYards(yards, elevDelta);
+        }
+        vals.push(JSON.stringify(playsLike));
+        sets.push(`plays_like_yards = $${vals.length}`);
+      }
+
+      vals.push(courseId);
+      vals.push(h.holeNumber);
+      await client.query(
+        `UPDATE course_holes SET ${sets.join(', ')} WHERE course_id = $${vals.length - 1} AND hole_number = $${vals.length}`,
+        vals,
+      );
+    }
+
+    await client.query('COMMIT');
+
+    const { rows } = await query(
+      'SELECT * FROM course_holes WHERE course_id = $1 ORDER BY hole_number',
+      [courseId],
+    );
+    res.json({ holes: rows.map(toCamel) });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Scorecard update failed:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  } finally {
+    client.release();
+  }
+});
+
 // PATCH /api/courses/:id/holes/:number — update hole fields
 router.patch('/:id/holes/:number', async (req, res) => {
-  const ALLOWED_FIELDS = ['hazards', 'fairway', 'green', 'notes', 'targets', 'plays_like_yards', 'yardages'];
+  const ALLOWED_FIELDS = ['hazards', 'fairway', 'green', 'notes', 'targets', 'plays_like_yards', 'yardages', 'handicap', 'par'];
   const updates = toSnake(req.body);
 
   const setClauses: string[] = [];
   const values: unknown[] = [];
 
+  const SCALAR_FIELDS = ['notes', 'handicap', 'par'];
   for (const [key, val] of Object.entries(updates)) {
     if (!ALLOWED_FIELDS.includes(key)) continue;
-    values.push(key === 'notes' ? val : JSON.stringify(val));
+    values.push(SCALAR_FIELDS.includes(key) ? val : JSON.stringify(val));
     setClauses.push(`${key} = $${values.length}`);
   }
 

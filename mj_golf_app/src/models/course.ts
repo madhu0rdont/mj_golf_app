@@ -16,6 +16,7 @@ export interface CourseHole {
   courseId: string;
   holeNumber: number;
   par: number;
+  handicap: number | null;
   yardages: Record<string, number>;
   heading: number;
   tee: Coordinate;
