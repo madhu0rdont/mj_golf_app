@@ -59,8 +59,8 @@ function H4({ children }: { children: string }) {
   return <h4 className="text-sm font-semibold text-text-dark mt-5 mb-2">{children}</h4>;
 }
 
-function Card({ children }: { children: ReactNode }) {
-  return <div className="rounded-xl border border-border bg-card p-4 mb-4">{children}</div>;
+function Card({ children, id }: { children: ReactNode; id?: string }) {
+  return <div id={id} className="rounded-xl border border-border bg-card p-4 mb-4 scroll-mt-14">{children}</div>;
 }
 
 function DiagramCaption({ children }: { children: string }) {
@@ -352,14 +352,37 @@ function PuttingCurveDiagram() {
 
 /* ── Page ── */
 
+const SECTIONS = [
+  { id: 'interleaved', label: 'Interleaved' },
+  { id: 'yardage-book', label: 'Yardage Book' },
+  { id: 'club-selection', label: 'Club Selection' },
+  { id: 'course-mgmt', label: 'Course Mgmt' },
+];
+
 export function HowItWorksPage() {
   return (
     <>
       <TopBar title="How It Works" showBack />
+
+      {/* Sticky section nav */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-2">
+        <div className="flex gap-1.5 overflow-x-auto">
+          {SECTIONS.map((s) => (
+            <a
+              key={s.id}
+              href={`#${s.id}`}
+              className="flex-shrink-0 rounded-full bg-surface px-3 py-1 text-xs font-medium text-text-medium hover:bg-border hover:text-text-dark transition-colors"
+            >
+              {s.label}
+            </a>
+          ))}
+        </div>
+      </div>
+
       <div className="px-4 py-4">
 
         {/* ── Section 1: Why Interleaved Practice? ── */}
-        <Card>
+        <Card id="interleaved">
           <H3>Why Interleaved Practice?</H3>
 
           <H4>The problem with blocked practice</H4>
@@ -385,7 +408,7 @@ export function HowItWorksPage() {
         </Card>
 
         {/* ── Section 2: Yardage Book ── */}
-        <Card>
+        <Card id="yardage-book">
           <H3>Yardage Book</H3>
 
           <H4>Recency-weighted averages</H4>
@@ -427,7 +450,7 @@ Imputed clubs also get dispersion estimates for the Monte Carlo simulation. Carr
         </Card>
 
         {/* ── Section 3: Smart Club Selection ── */}
-        <Card>
+        <Card id="club-selection">
           <H3>Smart Club Selection</H3>
 
           <H4>How the simulation works</H4>
@@ -477,6 +500,35 @@ Once you're within wedge range, a simple greedy recommendation takes over — it
 
           <H4>Scoring zone</H4>
           <P>{String.raw`The scoring zone measures how efficiently you get the ball within 100 yards of the pin. On a par 4, you should reach 100 yards in $\text{par} - 2 = 2$ strokes. If it takes 3, your delta is +1. A negative delta means your long game is outperforming expectations.`}</P>
+        </Card>
+
+        {/* ── Section 4: Course Management ── */}
+        <Card id="course-mgmt">
+          <H3>Course Management</H3>
+
+          <H4>Importing a course</H4>
+          <P>{`Courses are imported from KML files via the Admin page. The KML contains GPS coordinates for every tee, pin, target, and center line on each hole. Once imported, each hole gets computed yardages, elevation deltas, heading, and plays-like yardages based on the elevation difference between tee and green.`}</P>
+
+          <H4>Hazard mapping</H4>
+          <P>{`Each hole can have hazards drawn as polygons — fairway bunkers, greenside bunkers, water, out-of-bounds, and trees. Each hazard type carries a default stroke penalty used by the strategy optimizer. Hazards can be imported automatically from adjacent holes (shared OB lines, tree lines, water features) and fine-tuned per hole.`}</P>
+
+          <H4>Hole descriptions</H4>
+          <P>{`Every hole gets a generated prose description that weaves together multiple data points: difficulty from the handicap rating ("challenging", "demanding"), relative length within its par group ("the longest par 3 on the course"), dogleg detection from the center line, elevation impact on playing distance ("the green sits well below the tee, playing just 135 yards"), and a natural-language summary of hazard positions ("3 greenside bunkers surround the green, trees short left and long right").`}</P>
+
+          <H4>Hole View</H4>
+          <P>{`The hole view shows an interactive satellite map of each hole with overlaid hazard polygons, landing zone ellipses, and aim point markers. When the simulation is enabled, it runs the Monte Carlo optimizer for the selected hole and tee box, showing up to 3 ranked strategies with expected strokes, standard deviation, score distributions, and blow-up risk.`}</P>
+          <P>{`Each strategy includes per-shot caddy tips: which side to aim, which hazards to avoid, and carry distances with context ("250y, +14y past bunker"). The aim points are compensated for your lateral bias — if you consistently fade right with your driver, the aim point shifts left so the expected landing is on target.`}</P>
+
+          <H4>Game Plan</H4>
+          <P>{`The game plan runs the optimizer across all 18 holes and produces a complete round strategy. For each hole, it picks the best strategy for the selected mode (Scoring or Safe) and displays the club sequence, expected strokes, caddy tips, and a score distribution bar.`}</P>
+          <P>{String.raw`The summary shows your expected total score, plays-like yardage, and an aggregate score breakdown. It also identifies "key holes" — the 4 holes where strategy choice has the biggest impact on your score. These are computed by finding the holes with the largest gap between the best and worst strategy:
+
+$$\text{delta}_h = xS_\text{worst} - xS_\text{best}$$
+
+The top 4 holes by delta are flagged with a gold KEY badge throughout the app so you know where to focus your game plan.`}</P>
+
+          <H4>Scoring vs Safe mode</H4>
+          <P>{`The optimizer generates strategies in two modes. Scoring mode picks the plan with the lowest expected strokes — it favors aggressive plays like going for par 5s in two. Safe mode penalizes blow-up risk, steering you away from water carries and tight layups. Both modes use the same Monte Carlo simulation; they differ only in how they rank the candidates.`}</P>
         </Card>
       </div>
     </>
