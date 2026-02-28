@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router';
-import { ArrowLeft, Settings, Menu, X, Home, Briefcase, BookOpen, MapPin, HelpCircle, Info } from 'lucide-react';
+import { ArrowLeft, Settings, Menu, X, Home, Briefcase, BookOpen, MapPin, HelpCircle, Info, Plus } from 'lucide-react';
 
 const NAV_LINKS = [
   { to: '/', icon: Home, label: 'Home' },
+  { to: '/practice', icon: Plus, label: 'Practice' },
   { to: '/bag', icon: Briefcase, label: 'Bag' },
   { to: '/yardage', icon: BookOpen, label: 'Yardage' },
   { to: '/strategy', icon: MapPin, label: 'Course Management' },
