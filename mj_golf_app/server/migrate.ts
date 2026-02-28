@@ -152,5 +152,9 @@ export async function migrate() {
   // Handicap (stroke index) per hole
   await query(`ALTER TABLE course_holes ADD COLUMN IF NOT EXISTS handicap INTEGER`);
 
+  // Indexes for filtered /api/shots queries
+  await query(`CREATE INDEX IF NOT EXISTS idx_shots_club_id ON shots (club_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_sessions_source ON sessions (source)`);
+
   console.log('Database migration complete');
 }
