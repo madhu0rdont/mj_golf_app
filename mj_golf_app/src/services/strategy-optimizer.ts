@@ -24,7 +24,8 @@ export interface AimPoint {
   clubName: string;
   shotNumber: number;
   carry: number; // meanCarry in yards
-  carryNote: string | null; // e.g. "clears bunker +20y"
+  carryNote: string | null; // e.g. "+20y past bunker"
+  tip: string; // caddy tip, e.g. "Right of the bunker, works left to center"
 }
 
 export interface OptimizedStrategy extends ApproachStrategy {
@@ -283,6 +284,94 @@ function computeCarryNote(
   }
 
   return bestNote;
+}
+
+/** Classify a bearing difference as left/right (negative = left, positive = right). */
+function normalizeAngle(a: number): number {
+  let d = a % 360;
+  if (d > 180) d -= 360;
+  if (d < -180) d += 360;
+  return d;
+}
+
+/** Generate a caddy-style tip describing where to aim relative to nearby hazards
+ *  and how the ball will move given the player's lateral bias. */
+function generateCaddyTip(
+  from: { lat: number; lng: number },
+  aimPos: { lat: number; lng: number },
+  target: { lat: number; lng: number },
+  club: ClubDistribution,
+  hazards: HazardFeature[],
+  isApproach: boolean,
+): string {
+  const shotBearing = bearingBetween(from, target);
+
+  // How much is the aim shifted from the target line?
+  const aimShiftAngle = normalizeAngle(bearingBetween(from, aimPos) - shotBearing);
+  const aimSide: 'left' | 'right' | null =
+    aimShiftAngle < -1 ? 'left' : aimShiftAngle > 1 ? 'right' : null;
+
+  // Ball movement description
+  const ballDir = club.meanOffline > 1 ? 'right' : club.meanOffline < -1 ? 'left' : null;
+  const ballWorks = ballDir ? `works ${ballDir}` : null;
+
+  // Find hazards near the landing area (within 50y of target)
+  const nearHaz: { label: string; side: 'left' | 'right' }[] = [];
+  for (const h of hazards) {
+    if (h.polygon.length < MIN_HAZARD_POINTS) continue;
+    const c = polygonCentroid(h.polygon);
+    if (haversineYards(target, c) > 50) continue;
+
+    const relAngle = normalizeAngle(bearingBetween(from, c) - shotBearing);
+    nearHaz.push({
+      label: HAZARD_SHORT[h.type] ?? h.type,
+      side: relAngle >= 0 ? 'right' : 'left',
+    });
+  }
+
+  // Dedupe by type+side
+  const seen = new Set<string>();
+  const hazards2 = nearHaz.filter((h) => {
+    const key = `${h.label}-${h.side}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const dest = isApproach ? 'the pin' : 'the fairway';
+
+  // Approach shot to pin
+  if (isApproach) {
+    if (!aimSide) return 'Straight at the pin';
+    const avoiding = hazards2.find((h) => h.side !== aimSide);
+    if (avoiding) {
+      return `Aim ${aimSide} of the ${avoiding.label}${ballWorks ? `, ${ballWorks} to the pin` : ''}`;
+    }
+    return ballWorks ? `Start ${aimSide}, ${ballWorks} toward the pin` : 'Aim at the pin';
+  }
+
+  // Tee or layup shot
+  if (!aimSide && !ballWorks) return 'Down the center';
+
+  if (hazards2.length > 0 && aimSide) {
+    // Hazard on the same side as aim — we're starting at it, ball works away
+    const sameHaz = hazards2.find((h) => h.side === aimSide);
+    // Hazard on opposite side — we're aiming away from it
+    const oppHaz = hazards2.find((h) => h.side !== aimSide);
+
+    if (sameHaz && ballWorks) {
+      return `Start at the ${sameHaz.side} ${sameHaz.label}, ${ballWorks} to ${dest}`;
+    }
+    if (oppHaz) {
+      return `Aim ${aimSide} of the ${oppHaz.label}${ballWorks ? `, ${ballWorks} to ${dest}` : ''}`;
+    }
+  }
+
+  if (aimSide && ballWorks) {
+    return `Start ${aimSide} side, ${ballWorks} to center`;
+  }
+
+  return 'Down the center';
 }
 
 /** Project expected landing position including lateral bias */
@@ -600,12 +689,15 @@ export function simulateHoleGPS(
   for (let i = 0; i < plan.shots.length; i++) {
     const s = plan.shots[i];
     const bearing = bearingBetween(aimFrom, s.aimPoint);
+    const compensatedPos = compensateForBias(s.aimPoint, bearing, s.clubDist);
+    const isApproach = i === plan.shots.length - 1; // last shot targets the pin
     aimPoints.push({
-      position: compensateForBias(s.aimPoint, bearing, s.clubDist),
+      position: compensatedPos,
       clubName: s.clubDist.clubName,
       shotNumber: i + 1,
       carry: Math.round(s.clubDist.meanCarry),
       carryNote: computeCarryNote(aimFrom, s.clubDist.meanCarry, bearing, hole.hazards),
+      tip: generateCaddyTip(aimFrom, compensatedPos, s.aimPoint, s.clubDist, hole.hazards, isApproach),
     });
     aimFrom = s.aimPoint; // next shot fires from expected landing ≈ target
   }

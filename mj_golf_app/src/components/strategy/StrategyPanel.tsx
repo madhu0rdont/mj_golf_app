@@ -121,6 +121,16 @@ export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount, is
                 {s.tip && (
                   <p className="text-xs text-text-muted mt-0.5">{s.tip}</p>
                 )}
+                {opt && isSelected && opt.aimPoints.length > 0 && (
+                  <div className="mt-1 flex flex-col gap-0.5">
+                    {opt.aimPoints.map((ap) => (
+                      <p key={ap.shotNumber} className="text-[10px] text-text-muted">
+                        <span className="font-semibold text-text-medium">{ap.shotNumber}.</span>{' '}
+                        {ap.tip}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex-shrink-0 flex items-center mt-0.5">
