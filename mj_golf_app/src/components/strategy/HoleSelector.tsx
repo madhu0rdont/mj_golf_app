@@ -4,9 +4,10 @@ interface HoleSelectorProps {
   totalHoles: number;
   current: number;
   onChange: (n: number) => void;
+  keyHoles?: Set<number>;
 }
 
-export function HoleSelector({ totalHoles, current, onChange }: HoleSelectorProps) {
+export function HoleSelector({ totalHoles, current, onChange, keyHoles }: HoleSelectorProps) {
   const prev = current === 1 ? totalHoles : current - 1;
   const next = current === totalHoles ? 1 : current + 1;
 
@@ -25,13 +26,19 @@ export function HoleSelector({ totalHoles, current, onChange }: HoleSelectorProp
           <button
             key={n}
             onClick={() => onChange(n)}
-            className={`rounded-md py-1 text-xs font-medium transition-colors ${
+            className={`relative rounded-md py-1 text-xs font-medium transition-colors ${
               n === current
                 ? 'bg-primary text-white'
                 : 'bg-surface text-text-medium hover:bg-border'
             }`}
           >
             {n}
+            {keyHoles?.has(n) && (
+              <span
+                className="absolute bottom-0.5 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full"
+                style={{ backgroundColor: n === current ? 'white' : '#D4A843' }}
+              />
+            )}
           </button>
         ))}
       </div>

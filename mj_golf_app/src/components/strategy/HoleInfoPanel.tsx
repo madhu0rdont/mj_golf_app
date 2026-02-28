@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Flag } from 'lucide-react';
 import type { CourseHole, HazardFeature } from '../../models/course';
 import { haversineYards, bearingBetween } from '../../utils/geo';
 
@@ -6,6 +7,7 @@ interface HoleInfoPanelProps {
   hole: CourseHole;
   teeBox: string;
   allHoles: CourseHole[];
+  isKeyHole?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -304,7 +306,7 @@ function capitalize(s: string): string {
 // Component
 // ---------------------------------------------------------------------------
 
-export function HoleInfoPanel({ hole, teeBox, allHoles }: HoleInfoPanelProps) {
+export function HoleInfoPanel({ hole, teeBox, allHoles, isKeyHole }: HoleInfoPanelProps) {
   const yardage = hole.yardages[teeBox] ?? Object.values(hole.yardages)[0] ?? 0;
   const playsLike = hole.playsLikeYards?.[teeBox] ?? null;
   const elevDeltaFeet = Math.round((hole.pin.elevation - hole.tee.elevation) * 3.281);
@@ -334,6 +336,15 @@ export function HoleInfoPanel({ hole, teeBox, allHoles }: HoleInfoPanelProps) {
           {elevDeltaFeet !== 0 && (
             <span className={`text-xs font-medium ${isUphill ? 'text-coral' : 'text-primary'}`}>
               {isUphill ? '+' : ''}{elevDeltaFeet}ft {isUphill ? '↑' : '↓'}
+            </span>
+          )}
+          {isKeyHole && (
+            <span
+              className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+              style={{ backgroundColor: 'rgba(212, 168, 67, 0.15)', color: '#D4A843' }}
+            >
+              <Flag size={9} fill="#D4A843" />
+              KEY
             </span>
           )}
         </div>

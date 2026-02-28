@@ -1,18 +1,16 @@
-import { useEffect } from 'react';
-import { FileDown, Copy, Play } from 'lucide-react';
+import { FileDown, Copy, Play, Flag } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { useGamePlan } from '../../hooks/useGamePlan';
 import { exportGamePlanPDF } from '../../services/game-plan-pdf';
 import type { GamePlan, HolePlan } from '../../services/game-plan';
-import type { ScoreDistribution, StrategyMode } from '../../services/strategy-optimizer';
+import type { ScoreDistribution } from '../../services/strategy-optimizer';
 import type { ClubDistribution } from '../../services/monte-carlo';
-import type { CourseWithHoles } from '../../models/course';
 
 interface GamePlanViewProps {
-  course: CourseWithHoles;
-  teeBox: string;
+  gamePlan: GamePlan | null;
+  progress: { current: number; total: number } | null;
+  isGenerating: boolean;
+  onGenerate: () => void;
   distributions: ClubDistribution[];
-  mode: StrategyMode;
 }
 
 const BORDER_COLORS = {
@@ -68,7 +66,7 @@ function SatelliteThumbnail({ lat, lng, zoom }: { lat: number; lng: number; zoom
   );
 }
 
-function HoleCard({ hole }: { hole: HolePlan }) {
+function HoleCard({ hole, isKeyHole }: { hole: HolePlan; isKeyHole?: boolean }) {
   const midLat = (hole.strategy.aimPoints[0]?.position.lat ?? 0);
   const midLng = (hole.strategy.aimPoints[0]?.position.lng ?? 0);
 
@@ -90,6 +88,15 @@ function HoleCard({ hole }: { hole: HolePlan }) {
             >
               {hole.holeNumber}
             </span>
+            {isKeyHole && (
+              <span
+                className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+                style={{ backgroundColor: 'rgba(212, 168, 67, 0.15)', color: '#D4A843' }}
+              >
+                <Flag size={9} fill="#D4A843" />
+                KEY
+              </span>
+            )}
             <span className="text-xs text-text-muted">
               Par {hole.par} · {hole.yardage}y
               {hole.playsLikeYardage && hole.playsLikeYardage !== hole.yardage && (
@@ -141,28 +148,14 @@ function copySummary(plan: GamePlan) {
   navigator.clipboard.writeText(lines.join('\n'));
 }
 
-export function GamePlanView({ course, teeBox, distributions, mode }: GamePlanViewProps) {
-  const { gamePlan, progress, isGenerating, generate } = useGamePlan(
-    course,
-    teeBox,
-    distributions,
-    mode,
-  );
-
-  // Auto-regenerate when mode changes if a plan already exists
-  useEffect(() => {
-    if (gamePlan && gamePlan.mode !== mode) {
-      generate();
-    }
-  }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
-
+export function GamePlanView({ gamePlan, progress, isGenerating, onGenerate, distributions }: GamePlanViewProps) {
   if (!gamePlan && !isGenerating) {
     return (
       <div className="flex flex-col items-center gap-4 py-12">
         <p className="text-sm text-text-muted text-center">
-          Generate a plan for all {course.holes.length} holes
+          Generate a plan for all 18 holes
         </p>
-        <Button onClick={generate} disabled={distributions.length === 0}>
+        <Button onClick={onGenerate} disabled={distributions.length === 0}>
           <Play size={16} />
           Generate Game Plan
         </Button>
@@ -220,7 +213,10 @@ export function GamePlanView({ course, teeBox, distributions, mode }: GamePlanVi
             <div className="flex items-center gap-3 text-xs text-text-muted">
               <span>{gamePlan.totalPlaysLike}y plays-like</span>
               {gamePlan.keyHoles.length > 0 && (
-                <span>Key: #{gamePlan.keyHoles.join(', #')}</span>
+                <span>
+                  <span className="font-medium text-text-dark">Key Holes:</span>{' '}
+                  #{gamePlan.keyHoles.join(', #')}
+                </span>
               )}
             </div>
             <ScoreBreakdownPills dist={gamePlan.breakdown} />
@@ -229,7 +225,7 @@ export function GamePlanView({ course, teeBox, distributions, mode }: GamePlanVi
           {/* Per-hole cards */}
           <div className="flex flex-col gap-2">
             {gamePlan.holes.map((hole) => (
-              <HoleCard key={hole.holeNumber} hole={hole} />
+              <HoleCard key={hole.holeNumber} hole={hole} isKeyHole={gamePlan.keyHoles.includes(hole.holeNumber)} />
             ))}
           </div>
 
@@ -256,7 +252,7 @@ export function GamePlanView({ course, teeBox, distributions, mode }: GamePlanVi
           </div>
 
           {/* Regenerate */}
-          <Button variant="ghost" size="sm" onClick={generate} className="w-full">
+          <Button variant="ghost" size="sm" onClick={onGenerate} className="w-full">
             <Play size={14} />
             Regenerate
           </Button>

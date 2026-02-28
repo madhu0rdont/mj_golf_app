@@ -11,6 +11,7 @@ import { GamePlanView } from '../components/strategy/GamePlanView';
 import { useCourses, useCourse } from '../hooks/useCourses';
 import { useHoleStrategy } from '../hooks/useHoleStrategy';
 import { useYardageBookShots } from '../hooks/useYardageBook';
+import { useGamePlan } from '../hooks/useGamePlan';
 import { buildDistributions } from '../services/monte-carlo';
 import type { StrategyMode } from '../services/strategy-optimizer';
 
@@ -65,6 +66,26 @@ export function StrategyPlannerPage() {
     if (!shotGroups) return [];
     return buildDistributions(shotGroups);
   }, [shotGroups]);
+
+  // Game plan (lifted so both views can access keyHoles)
+  const { gamePlan, progress, isGenerating, generate } = useGamePlan(
+    course,
+    teeBox,
+    distributions,
+    strategyMode,
+  );
+
+  // Auto-regenerate when mode changes if a plan already exists
+  useEffect(() => {
+    if (gamePlan && gamePlan.mode !== strategyMode) {
+      generate();
+    }
+  }, [strategyMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const keyHoleSet = useMemo(
+    () => new Set(gamePlan?.keyHoles ?? []),
+    [gamePlan?.keyHoles],
+  );
 
   // Reset strategy selection when hole, tee, or mode changes
   useEffect(() => {
@@ -190,6 +211,7 @@ export function StrategyPlannerPage() {
               totalHoles={totalHoles}
               current={holeNumber}
               onChange={setHoleNumber}
+              keyHoles={keyHoleSet}
             />
 
             {/* Map */}
@@ -199,7 +221,7 @@ export function StrategyPlannerPage() {
               </div>
             ) : hole ? (
               <>
-                <HoleInfoPanel hole={hole} teeBox={teeBox} allHoles={course!.holes} />
+                <HoleInfoPanel hole={hole} teeBox={teeBox} allHoles={course!.holes} isKeyHole={keyHoleSet.has(holeNumber)} />
 
                 {/* Sim toggle + Scoring/Safe */}
                 <div className="flex items-center gap-2">
@@ -257,10 +279,11 @@ export function StrategyPlannerPage() {
           /* Game Plan view */
           course ? (
             <GamePlanView
-              course={course}
-              teeBox={teeBox}
+              gamePlan={gamePlan}
+              progress={progress}
+              isGenerating={isGenerating}
+              onGenerate={generate}
               distributions={distributions}
-              mode={strategyMode}
             />
           ) : (
             <div className="flex items-center justify-center h-[55vh] rounded-2xl border border-border bg-surface">
