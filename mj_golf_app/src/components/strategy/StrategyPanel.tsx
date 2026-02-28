@@ -7,6 +7,7 @@ interface StrategyPanelProps {
   selectedIdx: number;
   onSelect: (idx: number) => void;
   shotCount: number;
+  par: number;
   isLoading?: boolean;
 }
 
@@ -52,7 +53,7 @@ function BlowupBadge({ risk }: { risk: number }) {
   );
 }
 
-export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount, isLoading }: StrategyPanelProps) {
+export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount, par, isLoading }: StrategyPanelProps) {
   if (isLoading || (strategies.length === 0 && shotCount > 0)) {
     return (
       <div className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-2">
@@ -133,10 +134,20 @@ export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount, is
                 )}
               </div>
 
-              <div className="flex-shrink-0 flex items-center mt-0.5">
+              <div className="flex-shrink-0 flex items-center gap-1.5 mt-0.5">
                 <span className="text-sm font-semibold text-primary">
                   {s.expectedStrokes.toFixed(1)} xS
                 </span>
+                {(() => {
+                  const delta = s.expectedStrokes - par;
+                  const sign = delta >= 0 ? '+' : '';
+                  const color = delta <= 0 ? 'text-green-600' : delta <= 0.5 ? 'text-text-muted' : 'text-coral';
+                  return (
+                    <span className={`text-xs font-medium ${color}`}>
+                      {sign}{delta.toFixed(1)}
+                    </span>
+                  );
+                })()}
                 {opt && <BlowupBadge risk={opt.blowupRisk} />}
               </div>
             </div>
