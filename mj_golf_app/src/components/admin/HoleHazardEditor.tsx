@@ -102,6 +102,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
         disableDefaultUI: true,
         zoomControl: true,
         gestureHandling: 'greedy',
+        heading: hole.heading,
       });
 
       mapInstanceRef.current = map;
