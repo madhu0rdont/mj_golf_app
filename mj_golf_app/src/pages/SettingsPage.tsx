@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Link } from 'react-router';
-import { Download, Upload, Trash2, LogOut, Settings } from 'lucide-react';
+import { Download, Upload, Trash2, LogOut, Settings, Loader2 } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
@@ -14,6 +14,7 @@ export function SettingsPage() {
   const { logout } = useAuth();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [importStatus, setImportStatus] = useState('');
+  const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = async () => {
@@ -25,12 +26,15 @@ export function SettingsPage() {
   };
 
   const handleImport = async (file: File) => {
+    setImporting(true);
+    setImportStatus('');
     try {
       const result = await importAllData(file);
       setImportStatus(`Imported ${result.clubs} clubs, ${result.sessions} sessions, ${result.shots} shots`);
       window.location.reload();
     } catch (err) {
       setImportStatus('Import failed: ' + (err instanceof Error ? err.message : 'Invalid file'));
+      setImporting(false);
     }
   };
 
@@ -91,8 +95,10 @@ export function SettingsPage() {
               variant="secondary"
               onClick={() => fileInputRef.current?.click()}
               className="w-full justify-start"
+              disabled={importing}
             >
-              <Upload size={16} /> Import Data from Backup
+              {importing ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+              {importing ? 'Importing...' : 'Import Data from Backup'}
             </Button>
             <input
               ref={fileInputRef}
@@ -102,7 +108,7 @@ export function SettingsPage() {
               className="hidden"
             />
             {importStatus && (
-              <p className="text-xs text-primary">{importStatus}</p>
+              <p className={`text-xs ${importStatus.startsWith('Import failed') ? 'text-coral' : 'text-primary'}`}>{importStatus}</p>
             )}
           </div>
         </section>
