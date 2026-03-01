@@ -152,6 +152,10 @@ Deployed on **Railway** with auto-provisioned PostgreSQL:
 
 The Express server serves both the REST API and the built SPA from the `dist/` folder.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the full release history.
+
 ## Documentation
 
 See the [Wiki](https://github.com/madhu0rdont/mj_golf_app/wiki) for detailed documentation on architecture, data models, the yardage book engine, physics imputation math, interleaved practice scoring, and more.
