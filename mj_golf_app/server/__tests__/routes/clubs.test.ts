@@ -1,6 +1,23 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import request from 'supertest';
 import { createTestApp, mockQuery, mockClient, mockDbModule, resetMocks } from '../helpers/setup.js';
+
+// vi.hoisted runs before vi.mock hoisting, so the variable is available
+const mockMarkPlansStale = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+
+// Mock plan-regenerator so markPlansStale's debounced regen doesn't fire
+vi.mock('../../services/plan-regenerator.js', () => ({
+  regenerateStalePlans: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Mock game-plans route to spy on markPlansStale
+vi.mock('../../routes/game-plans.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../routes/game-plans.js')>();
+  return {
+    ...actual,
+    markPlansStale: mockMarkPlansStale,
+  };
+});
 
 // Mock the db module before importing the router
 mockDbModule();
@@ -13,6 +30,12 @@ const app = createTestApp(clubsRouter);
 describe('clubs routes', () => {
   beforeEach(() => {
     resetMocks();
+    mockMarkPlansStale.mockReset().mockResolvedValue(undefined);
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   // ── GET / ──────────────────────────────────────────────────────────
@@ -76,13 +99,22 @@ describe('clubs routes', () => {
       expect(res.body.createdAt).toBeDefined();
     });
 
+    it('marks plans stale after creating club', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ max_order: 0 }] });
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      await request(app)
+        .post('/')
+        .send({ name: 'New Club', category: 'iron' });
+
+      expect(mockMarkPlansStale).toHaveBeenCalledWith('Club bag changed');
+    });
+
     it('with missing name returns 400', async () => {
-      // The hardened route should validate required fields
       const res = await request(app)
         .post('/')
         .send({ category: 'iron' });
 
-      // Expect 400 from hardened validation (may fail if not yet hardened)
       expect(res.status).toBe(400);
       expect(res.body.error).toBeDefined();
     });
@@ -104,6 +136,19 @@ describe('clubs routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.name).toBe('Updated Club');
+    });
+
+    it('marks plans stale after updating club', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'abc', name: 'Updated', sort_order: 0 }],
+      });
+
+      await request(app)
+        .put('/abc')
+        .send({ name: 'Updated' });
+
+      expect(mockMarkPlansStale).toHaveBeenCalledWith('Club settings changed');
     });
   });
 
@@ -150,6 +195,12 @@ describe('clubs routes', () => {
         ['abc']
       );
       expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
+    });
+
+    it('marks plans stale after deleting club', async () => {
+      await request(app).delete('/abc');
+
+      expect(mockMarkPlansStale).toHaveBeenCalledWith('Club removed');
     });
   });
 

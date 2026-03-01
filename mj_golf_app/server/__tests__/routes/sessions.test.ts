@@ -12,6 +12,14 @@ vi.mock('../../services/shot-classifier.js', () => ({
   ),
 }));
 
+// Mock game-plans module to spy on markPlansStale
+const { mockMarkPlansStale } = vi.hoisted(() => ({
+  mockMarkPlansStale: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('../../routes/game-plans.js', () => ({
+  markPlansStale: mockMarkPlansStale,
+}));
+
 // Import AFTER mocking
 import sessionsRouter from '../../routes/sessions.js';
 
@@ -20,6 +28,7 @@ const app = createTestApp(sessionsRouter);
 describe('sessions routes', () => {
   beforeEach(() => {
     resetMocks();
+    mockMarkPlansStale.mockReset().mockResolvedValue(undefined);
   });
 
   // ── GET / ──────────────────────────────────────────────────────────
@@ -100,6 +109,9 @@ describe('sessions routes', () => {
       expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
       expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
       expect(mockClient.release).toHaveBeenCalled();
+
+      // Verify game plan cache invalidation
+      expect(mockMarkPlansStale).toHaveBeenCalledWith('New practice data recorded');
     });
 
     it('rejects invalid session type with 400', async () => {
@@ -143,6 +155,9 @@ describe('sessions routes', () => {
         'DELETE FROM sessions WHERE id = $1',
         ['s1']
       );
+
+      // Verify game plan cache invalidation
+      expect(mockMarkPlansStale).toHaveBeenCalledWith('Practice data deleted');
     });
   });
 

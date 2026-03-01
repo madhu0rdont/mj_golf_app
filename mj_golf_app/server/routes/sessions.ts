@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { query, toCamel, withTransaction } from '../db.js';
 import { pickColumns, buildInsert, SESSION_COLUMNS, SHOT_COLUMNS } from '../utils/db-columns.js';
 import { classifyAllShots } from '../services/shot-classifier.js';
+import { markPlansStale } from './game-plans.js';
 
 const router = Router();
 
@@ -136,6 +137,7 @@ router.post('/', async (req, res) => {
       }
     });
 
+    await markPlansStale('New practice data recorded');
     res.status(201).json(session);
   } catch (err) {
     console.error('Failed to create session:', err);
@@ -205,6 +207,7 @@ router.get('/:id/shots', async (req, res) => {
 router.delete('/:id', async (_req, res) => {
   try {
     await query('DELETE FROM sessions WHERE id = $1', [_req.params.id]);
+    await markPlansStale('Practice data deleted');
     res.json({ ok: true });
   } catch (err) {
     console.error('Failed to delete session:', err);

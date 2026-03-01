@@ -11,7 +11,7 @@ import { GamePlanView } from '../components/strategy/GamePlanView';
 import { useCourses, useCourse } from '../hooks/useCourses';
 import { useHoleStrategy } from '../hooks/useHoleStrategy';
 import { useYardageBookShots } from '../hooks/useYardageBook';
-import { useGamePlan } from '../hooks/useGamePlan';
+import { useGamePlanCache } from '../hooks/useGamePlanCache';
 import { buildDistributions } from '../services/monte-carlo';
 import type { Course } from '../models/course';
 import type { StrategyMode } from '../services/strategy-optimizer';
@@ -104,22 +104,15 @@ export function StrategyPlannerPage() {
   }, [shotGroups]);
 
   // Game plan (lifted so both views can access keyHoles)
-  const { gamePlan, progress, isGenerating, generate } = useGamePlan(
+  const { gamePlan, isStale, staleReason, isFetching, isGenerating, progress, generate, cacheAge } = useGamePlanCache(
     course,
     teeBox,
     distributions,
     strategyMode,
   );
 
-  // Auto-regenerate when mode changes if a plan already exists
-  useEffect(() => {
-    if (gamePlan && gamePlan.mode !== strategyMode) {
-      generate();
-    }
-  }, [strategyMode]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const keyHoleSet = useMemo(
-    () => new Set(gamePlan?.keyHoles ?? []),
+    () => new Set<number>(gamePlan?.keyHoles ?? []),
     [gamePlan?.keyHoles],
   );
 
@@ -335,6 +328,10 @@ export function StrategyPlannerPage() {
               isGenerating={isGenerating}
               onGenerate={generate}
               distributions={distributions}
+              isStale={isStale}
+              staleReason={staleReason}
+              isFetching={isFetching}
+              cacheAge={cacheAge}
             />
           ) : (
             <div className="flex items-center justify-center h-[55vh] rounded-2xl border border-border bg-surface">

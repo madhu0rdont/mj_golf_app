@@ -1,6 +1,23 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import request from 'supertest';
 import { createTestApp, mockQuery, mockPool, mockClient, mockDbModule, mockWithTransaction, resetMocks } from '../helpers/setup.js';
+
+// vi.hoisted runs before vi.mock hoisting, so the variable is available
+const mockMarkPlansStale = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+
+// Mock plan-regenerator so markPlansStale's debounced regen doesn't fire
+vi.mock('../../services/plan-regenerator.js', () => ({
+  regenerateStalePlans: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Mock game-plans route to spy on markPlansStale
+vi.mock('../../routes/game-plans.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../routes/game-plans.js')>();
+  return {
+    ...actual,
+    markPlansStale: mockMarkPlansStale,
+  };
+});
 
 // Mock the db module before importing the router
 mockDbModule();
@@ -38,6 +55,12 @@ const app = createTestApp(backupRouter);
 describe('backup routes', () => {
   beforeEach(() => {
     resetMocks();
+    mockMarkPlansStale.mockReset().mockResolvedValue(undefined);
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   // ── GET /export ────────────────────────────────────────────────────
@@ -81,6 +104,18 @@ describe('backup routes', () => {
       expect(res.body.clubs).toBe(1);
       expect(res.body.sessions).toBe(1);
       expect(res.body.shots).toBe(1);
+    });
+
+    it('marks plans stale after import', async () => {
+      const body = {
+        clubs: [{ id: 'c1', name: 'Driver', sortOrder: 0 }],
+        sessions: [],
+        shots: [],
+      };
+
+      await request(app).post('/import').send(body);
+
+      expect(mockMarkPlansStale).toHaveBeenCalledWith('Data imported from backup');
     });
 
     it('with non-array clubs returns 400', async () => {

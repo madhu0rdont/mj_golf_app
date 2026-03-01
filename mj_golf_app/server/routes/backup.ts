@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, toCamel, withTransaction } from '../db.js';
 import { CLUB_COLUMNS, SESSION_COLUMNS, SHOT_COLUMNS, pickColumns, buildInsert } from '../utils/db-columns.js';
+import { markPlansStale } from './game-plans.js';
 
 const router = Router();
 
@@ -68,6 +69,10 @@ router.post('/import', async (req, res) => {
     });
 
     console.log(`Imported ${clubs.length} clubs, ${(sessions || []).length} sessions, ${(shots || []).length} shots`);
+
+    // Fire-and-forget: mark game plans stale after data import
+    markPlansStale('Data imported from backup').catch(() => {});
+
     res.json({
       clubs: clubs.length,
       sessions: (sessions || []).length,

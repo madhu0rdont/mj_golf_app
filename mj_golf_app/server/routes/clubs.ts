@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, toCamel, withTransaction } from '../db.js';
 import { pickColumns, buildInsert, CLUB_COLUMNS } from '../utils/db-columns.js';
+import { markPlansStale } from './game-plans.js';
 
 const router = Router();
 
@@ -46,6 +47,9 @@ router.post('/', async (req, res) => {
     await query(q.text, q.values);
 
     res.status(201).json(toCamel(filtered));
+
+    // Fire-and-forget: mark game plans stale
+    markPlansStale('Club bag changed').catch(() => {});
   } catch (err) {
     console.error('Failed to create club:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -99,6 +103,9 @@ router.put('/:id', async (req, res) => {
 
     const { rows } = await query('SELECT * FROM clubs WHERE id = $1', [req.params.id]);
     res.json(toCamel(rows[0]));
+
+    // Fire-and-forget: mark game plans stale
+    markPlansStale('Club settings changed').catch(() => {});
   } catch (err) {
     console.error('Failed to update club:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -115,6 +122,9 @@ router.delete('/:id', async (req, res) => {
     });
 
     res.json({ ok: true });
+
+    // Fire-and-forget: mark game plans stale
+    markPlansStale('Club removed').catch(() => {});
   } catch (err) {
     console.error('Failed to delete club:', err);
     res.status(500).json({ error: 'Internal server error' });

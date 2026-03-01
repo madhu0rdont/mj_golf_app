@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { query, pool, toCamel, toSnake } from '../db.js';
+import { markPlansStale } from './game-plans.js';
 import { parseKml, type ParsedHole } from '../services/kml-parser.js';
 import { fetchElevations } from '../services/elevation.js';
 import {
@@ -386,6 +387,10 @@ Trace polygons tightly around each feature's actual boundary. Individual bunkers
   }
 
   // 6. Validate and convert pixel polygons to GPS coordinates
+  // Look up global hazard penalties from DB
+  const { rows: penaltyRows } = await query('SELECT type, penalty FROM hazard_penalties');
+  const penaltyMap = new Map<string, number>(penaltyRows.map((r: { type: string; penalty: number }) => [r.type, r.penalty]));
+
   const GREENSIDE_THRESHOLD_YARDS = 40; // bunkers within 40y of pin are greenside
   const allHazards = (claudeResponse.hazards ?? [])
     .filter((h) => Array.isArray(h.polygon) && h.polygon.length >= 3)
@@ -397,7 +402,7 @@ Trace polygons tightly around each feature's actual boundary. Individual bunkers
 
       // Auto-classify bunkers as fairway or greenside based on distance to pin
       let resolvedType = h.type;
-      let penalty = ({ water: 1, ob: 1, bunker: 0.4, trees: 0.5, rough: 0.2 } as Record<string, number>)[h.type] ?? 0;
+      let penalty = penaltyMap.get(h.type) ?? 0;
       if (h.type === 'bunker' && polygon.length >= 3) {
         const centroid = {
           lat: polygon.reduce((s, p) => s + p.lat, 0) / polygon.length,
@@ -406,10 +411,10 @@ Trace polygons tightly around each feature's actual boundary. Individual bunkers
         const distToPin = haversineYards(centroid, { lat: hole.pin.lat, lng: hole.pin.lng });
         if (distToPin <= GREENSIDE_THRESHOLD_YARDS) {
           resolvedType = 'greenside_bunker';
-          penalty = 0.5;
+          penalty = penaltyMap.get('greenside_bunker') ?? 0.5;
         } else {
           resolvedType = 'fairway_bunker';
-          penalty = 0.3;
+          penalty = penaltyMap.get('fairway_bunker') ?? 0.3;
         }
       }
 
@@ -610,6 +615,7 @@ router.post('/courses/:id/refresh-elevation', async (req, res) => {
     });
   }
 
+  await markPlansStale('Elevation data refreshed', courseId);
   res.json({ holes: comparison });
 });
 
@@ -689,10 +695,83 @@ router.post('/courses/:id/scorecard', async (req, res) => {
       'SELECT * FROM course_holes WHERE course_id = $1 ORDER BY hole_number',
       [courseId],
     );
+    await markPlansStale('Scorecard updated', courseId);
     res.json({ holes: rows.map(toCamel) });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Scorecard update failed:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/admin/hazard-penalties — return global hazard penalties
+router.get('/hazard-penalties', async (_req, res) => {
+  const { rows } = await query('SELECT type, penalty FROM hazard_penalties ORDER BY type');
+  res.json(rows);
+});
+
+// PUT /api/admin/hazard-penalties — update global hazard penalties
+router.put('/hazard-penalties', async (req, res) => {
+  const { penalties } = req.body as { penalties: { type: string; penalty: number }[] };
+  if (!Array.isArray(penalties) || penalties.length === 0) {
+    return res.status(400).json({ error: 'penalties array is required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const now = Date.now();
+
+    // 1. Upsert each penalty
+    for (const { type, penalty } of penalties) {
+      await client.query(
+        `INSERT INTO hazard_penalties (type, penalty, updated_at) VALUES ($1, $2, $3)
+         ON CONFLICT (type) DO UPDATE SET penalty = $2, updated_at = $3`,
+        [type, penalty, now],
+      );
+    }
+
+    // 2. Build penalty map for bulk-updating course hazards
+    const penaltyMap = new Map(penalties.map((p) => [p.type, p.penalty]));
+
+    // 3. Update all course_holes hazard objects with new penalty values
+    const { rows: holeRows } = await client.query('SELECT id, hazards FROM course_holes WHERE hazards IS NOT NULL');
+    for (const row of holeRows) {
+      const hazards = row.hazards as { type: string; penalty: number }[];
+      if (!Array.isArray(hazards) || hazards.length === 0) continue;
+
+      let changed = false;
+      const updated = hazards.map((h) => {
+        const newPenalty = penaltyMap.get(h.type);
+        if (newPenalty !== undefined && newPenalty !== h.penalty) {
+          changed = true;
+          return { ...h, penalty: newPenalty };
+        }
+        return h;
+      });
+
+      if (changed) {
+        await client.query('UPDATE course_holes SET hazards = $1 WHERE id = $2', [
+          JSON.stringify(updated),
+          row.id,
+        ]);
+      }
+    }
+
+    await client.query('COMMIT');
+
+    // 4. Mark all game plans stale
+    await markPlansStale('Hazard penalties updated');
+
+    // 5. Return updated penalties
+    const { rows: result } = await query('SELECT type, penalty FROM hazard_penalties ORDER BY type');
+    res.json(result);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Hazard penalty update failed:', err);
     const message = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: message });
   } finally {
@@ -735,6 +814,7 @@ router.patch('/:id/holes/:number', async (req, res) => {
     'SELECT * FROM course_holes WHERE course_id = $1 AND hole_number = $2',
     [req.params.id, parseInt(req.params.number)],
   );
+  await markPlansStale('Hole data edited', req.params.id);
   res.json(toCamel(rows[0]));
 });
 

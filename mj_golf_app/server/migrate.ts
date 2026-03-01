@@ -146,6 +146,41 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_course_holes_course ON course_holes(course_id)
   `);
 
+  // Game plan cache
+  await query(`
+    CREATE TABLE IF NOT EXISTS game_plan_cache (
+      id           TEXT PRIMARY KEY,
+      course_id    TEXT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+      tee_box      TEXT NOT NULL,
+      mode         TEXT NOT NULL,
+      plan         JSONB NOT NULL,
+      stale        BOOLEAN NOT NULL DEFAULT FALSE,
+      stale_reason TEXT,
+      created_at   BIGINT NOT NULL,
+      updated_at   BIGINT NOT NULL,
+      UNIQUE(course_id, tee_box, mode)
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_game_plan_cache_course ON game_plan_cache(course_id)`);
+
+  // Game plan history (for charting projected scoring improvement over time)
+  await query(`
+    CREATE TABLE IF NOT EXISTS game_plan_history (
+      id              TEXT PRIMARY KEY,
+      course_id       TEXT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+      tee_box         TEXT NOT NULL,
+      mode            TEXT NOT NULL,
+      total_expected  REAL NOT NULL,
+      plan            JSONB NOT NULL,
+      trigger_reason  TEXT,
+      created_at      BIGINT NOT NULL
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_gph_course_time
+      ON game_plan_history(course_id, tee_box, mode, created_at)
+  `);
+
   // Green polygon for course holes
   await query(`ALTER TABLE course_holes ADD COLUMN IF NOT EXISTS green JSONB DEFAULT '[]'`);
 
@@ -155,6 +190,33 @@ export async function migrate() {
   // Indexes for filtered /api/shots queries
   await query(`CREATE INDEX IF NOT EXISTS idx_shots_club_id ON shots (club_id)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_sessions_source ON sessions (source)`);
+
+  // Global hazard penalties
+  await query(`
+    CREATE TABLE IF NOT EXISTS hazard_penalties (
+      type       TEXT PRIMARY KEY,
+      penalty    REAL NOT NULL,
+      updated_at BIGINT NOT NULL
+    )
+  `);
+
+  // Seed default hazard penalties
+  const now = Date.now();
+  const defaults = [
+    ['fairway_bunker', 0.3],
+    ['greenside_bunker', 0.5],
+    ['bunker', 0.4],
+    ['water', 1.0],
+    ['ob', 1.0],
+    ['trees', 0.5],
+    ['rough', 0.2],
+  ] as const;
+  for (const [type, penalty] of defaults) {
+    await query(
+      `INSERT INTO hazard_penalties (type, penalty, updated_at) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+      [type, penalty, now],
+    );
+  }
 
   console.log('Database migration complete');
 }
