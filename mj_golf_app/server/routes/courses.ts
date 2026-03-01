@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { query, toCamel } from '../db.js';
+import { logger } from '../logger.js';
 
 const router = Router();
 
@@ -9,7 +10,7 @@ router.get('/', async (_req, res) => {
     const { rows } = await query('SELECT * FROM courses ORDER BY name');
     res.json(rows.map(toCamel));
   } catch (err) {
-    console.error('Failed to list courses:', err);
+    logger.error('Failed to list courses', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -35,7 +36,7 @@ router.get('/:id', async (req, res) => {
       holes: holeRows.map(toCamel),
     });
   } catch (err) {
-    console.error('Failed to get course:', err);
+    logger.error('Failed to get course', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -57,7 +58,7 @@ router.get('/:id/holes/:number', async (req, res) => {
     }
     res.json(toCamel(rows[0]));
   } catch (err) {
-    console.error('Failed to get hole:', err);
+    logger.error('Failed to get hole', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });

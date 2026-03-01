@@ -6,6 +6,7 @@ import { dirname, join } from 'path';
 import { migrate } from './migrate.js';
 import { seed } from './seed.js';
 import { pool } from './db.js';
+import { logger } from './logger.js';
 import { requireAuth } from './middleware/auth.js';
 import { csrfCheck } from './middleware/csrf.js';
 import authRouter from './routes/auth.js';
@@ -48,7 +49,7 @@ app.get('/ready', async (_req, res) => {
 // Session secret — require in production, allow dev fallback
 const sessionSecret = process.env.SESSION_SECRET;
 if (isProd && !sessionSecret) {
-  console.error('FATAL: SESSION_SECRET must be set in production');
+  logger.error('FATAL: SESSION_SECRET must be set in production');
   process.exit(1);
 }
 
@@ -104,11 +105,11 @@ async function start() {
   await migrate();
   await seed();
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server listening on port ${PORT}`);
+    logger.info(`Server listening on port ${PORT}`);
   });
 }
 
 start().catch((err) => {
-  console.error('Failed to start server:', err);
+  logger.error('Failed to start server', { error: String(err) });
   process.exit(1);
 });

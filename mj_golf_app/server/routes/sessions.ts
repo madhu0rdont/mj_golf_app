@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { query, toCamel, withTransaction } from '../db.js';
+import { logger } from '../logger.js';
 import { pickColumns, buildInsert, SESSION_COLUMNS, SHOT_COLUMNS } from '../utils/db-columns.js';
 import { classifyAllShots } from '../services/shot-classifier.js';
 import { markPlansStale } from './game-plans.js';
@@ -46,7 +47,7 @@ router.get('/', async (req, res) => {
     const { rows } = await query(sql, params);
     res.json(rows.map(toCamel));
   } catch (err) {
-    console.error('Failed to list sessions:', err);
+    logger.error('Failed to list sessions', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -58,7 +59,7 @@ router.get('/:id', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Session not found' });
     res.json(toCamel(rows[0]));
   } catch (err) {
-    console.error('Failed to get session:', err);
+    logger.error('Failed to get session', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -147,7 +148,7 @@ router.post('/', async (req, res) => {
     await markPlansStale('New practice data recorded');
     res.status(201).json(session);
   } catch (err) {
-    console.error('Failed to create session:', err);
+    logger.error('Failed to create session', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -191,7 +192,7 @@ router.put('/:id', async (req, res) => {
     const { rows } = await query('SELECT * FROM sessions WHERE id = $1', [req.params.id]);
     res.json(toCamel(rows[0]));
   } catch (err) {
-    console.error('Failed to update session:', err);
+    logger.error('Failed to update session', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -205,7 +206,7 @@ router.get('/:id/shots', async (req, res) => {
     );
     res.json(rows.map(toCamel));
   } catch (err) {
-    console.error('Failed to get session shots:', err);
+    logger.error('Failed to get session shots', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -217,7 +218,7 @@ router.delete('/:id', async (_req, res) => {
     await markPlansStale('Practice data deleted');
     res.json({ ok: true });
   } catch (err) {
-    console.error('Failed to delete session:', err);
+    logger.error('Failed to delete session', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });

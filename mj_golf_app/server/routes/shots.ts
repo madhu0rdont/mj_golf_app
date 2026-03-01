@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { query, toCamel } from '../db.js';
+import { logger } from '../logger.js';
 
 const router = Router();
 
@@ -33,7 +34,7 @@ router.get('/', async (req, res) => {
     );
     res.json(rows.map(toCamel));
   } catch (err) {
-    console.error('GET /api/shots error:', err);
+    logger.error('GET /api/shots failed', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });

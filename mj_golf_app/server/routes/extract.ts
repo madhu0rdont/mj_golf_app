@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
+import { logger } from '../logger.js';
 
 const router = Router();
 
@@ -90,7 +91,7 @@ router.post('/', extractLimiter, async (req, res) => {
     const data = await response.json();
     res.json(data);
   } catch (err) {
-    console.error('Failed to extract shot data:', err);
+    logger.error('Failed to extract shot data', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });

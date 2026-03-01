@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { query, toCamel } from '../db.js';
+import { logger } from '../logger.js';
 import { regenerateStalePlans } from '../services/plan-regenerator.js';
 
 const router = Router();
@@ -34,7 +35,7 @@ export async function markPlansStale(reason: string, courseId?: string) {
   if (regenTimer) clearTimeout(regenTimer);
   regenTimer = setTimeout(() => {
     regenTimer = null;
-    regenerateStalePlans().catch((err) => console.error('[plan-regen]', err));
+    regenerateStalePlans().catch((err) => logger.error('Plan regeneration failed', { error: String(err) }));
   }, DEBOUNCE_MS);
 }
 
@@ -56,7 +57,7 @@ router.get('/history/:courseId/:teeBox/:mode', async (req, res) => {
     );
     res.json(rows.map(toCamel));
   } catch (err) {
-    console.error('Failed to fetch game plan history:', err);
+    logger.error('Failed to fetch game plan history', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -74,7 +75,7 @@ router.get('/history/:courseId/:teeBox/:mode/:id', async (req, res) => {
     }
     res.json(toCamel(rows[0]));
   } catch (err) {
-    console.error('Failed to fetch game plan history entry:', err);
+    logger.error('Failed to fetch game plan history entry', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -96,7 +97,7 @@ router.get('/:courseId/:teeBox/:mode', async (req, res) => {
     }
     res.json(toCamel(rows[0]));
   } catch (err) {
-    console.error('Failed to fetch game plan cache:', err);
+    logger.error('Failed to fetch game plan cache', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -120,7 +121,7 @@ router.put('/:courseId/:teeBox/:mode', async (req, res) => {
     );
     res.json({ ok: true, updatedAt: now });
   } catch (err) {
-    console.error('Failed to upsert game plan cache:', err);
+    logger.error('Failed to upsert game plan cache', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -131,7 +132,7 @@ router.delete('/:courseId', async (req, res) => {
     await query(`DELETE FROM game_plan_cache WHERE course_id = $1`, [req.params.courseId]);
     res.json({ ok: true });
   } catch (err) {
-    console.error('Failed to delete game plan cache:', err);
+    logger.error('Failed to delete game plan cache', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });

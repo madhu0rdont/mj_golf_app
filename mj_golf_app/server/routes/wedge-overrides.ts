@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { query, toCamel } from '../db.js';
+import { logger } from '../logger.js';
 
 const router = Router();
 
@@ -9,7 +10,7 @@ router.get('/', async (_req, res) => {
     const { rows } = await query('SELECT * FROM wedge_overrides');
     res.json(rows.map(toCamel));
   } catch (err) {
-    console.error('Failed to list wedge overrides:', err);
+    logger.error('Failed to list wedge overrides', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -38,7 +39,7 @@ router.put('/', async (req, res) => {
     );
     res.json({ ok: true });
   } catch (err) {
-    console.error('Failed to upsert wedge override:', err);
+    logger.error('Failed to upsert wedge override', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -52,7 +53,7 @@ router.delete('/:clubId/:position', async (req, res) => {
     );
     res.json({ ok: true });
   } catch (err) {
-    console.error('Failed to delete wedge override:', err);
+    logger.error('Failed to delete wedge override', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });

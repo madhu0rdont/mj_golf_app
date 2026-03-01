@@ -1,4 +1,5 @@
 import { query } from './db.js';
+import { logger } from './logger.js';
 
 export async function migrate() {
   await query(`
@@ -191,6 +192,15 @@ export async function migrate() {
   await query(`CREATE INDEX IF NOT EXISTS idx_shots_club_id ON shots (club_id)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_sessions_source ON sessions (source)`);
 
+  // Club bag ordering
+  await query(`CREATE INDEX IF NOT EXISTS idx_clubs_sort_order ON clubs (sort_order)`);
+
+  // Game plan cache: composite lookup
+  await query(`CREATE INDEX IF NOT EXISTS idx_game_plan_cache_lookup ON game_plan_cache (course_id, tee_box, mode)`);
+
+  // Game plan cache: stale plan queries during regeneration (partial index)
+  await query(`CREATE INDEX IF NOT EXISTS idx_game_plan_cache_stale ON game_plan_cache (stale) WHERE stale = TRUE`);
+
   // Global hazard penalties
   await query(`
     CREATE TABLE IF NOT EXISTS hazard_penalties (
@@ -218,5 +228,5 @@ export async function migrate() {
     );
   }
 
-  console.log('Database migration complete');
+  logger.info('Database migration complete');
 }

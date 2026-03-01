@@ -62,6 +62,18 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          recharts: ['recharts'],
+          maps: ['@googlemaps/js-api-loader'],
+          math: ['katex', 'react-katex'],
+          pdf: ['jspdf'],
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': 'http://localhost:3001',

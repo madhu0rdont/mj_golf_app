@@ -1,15 +1,19 @@
 import { query, toCamel } from '../db.js';
+import { logger } from '../logger.js';
 import { computeClubShotGroups } from './club-shot-groups.js';
 import { buildDistributions } from './monte-carlo.js';
 import { generateGamePlan } from './game-plan.js';
 import type { Club, Shot, CourseWithHoles, CourseHole } from '../models/types.js';
 import type { StrategyMode } from './strategy-optimizer.js';
 
-let isRegenerating = false;
+// PostgreSQL advisory lock ID for plan regeneration
+const REGEN_LOCK_ID = 1337;
 
 export async function regenerateStalePlans() {
-  if (isRegenerating) return;
-  isRegenerating = true;
+  // Acquire advisory lock (non-blocking). Returns false if another instance holds it.
+  const { rows: lockRows } = await query('SELECT pg_try_advisory_lock($1) AS acquired', [REGEN_LOCK_ID]);
+  if (!lockRows[0].acquired) return;
+
   const startTime = Date.now();
 
   try {
@@ -19,7 +23,7 @@ export async function regenerateStalePlans() {
     );
     if (stalePlans.length === 0) return;
 
-    console.log(`[plan-regen] Regenerating ${stalePlans.length} stale plan(s)...`);
+    logger.info(`Regenerating ${stalePlans.length} stale plan(s)`, { component: 'plan-regen' });
 
     // 2. Fetch clubs + shots once (shared across all plans)
     const { rows: clubRows } = await query('SELECT * FROM clubs ORDER BY sort_order');
@@ -33,7 +37,7 @@ export async function regenerateStalePlans() {
     const distributions = buildDistributions(groups);
 
     if (distributions.length === 0) {
-      console.log('[plan-regen] No distributions available, skipping regeneration');
+      logger.info('No distributions available, skipping regeneration', { component: 'plan-regen' });
       return;
     }
 
@@ -81,17 +85,17 @@ export async function regenerateStalePlans() {
           [historyId, courseId, teeBox, mode, plan.totalExpected, JSON.stringify(plan), staleReason, now],
         );
 
-        console.log(`[plan-regen] ${course.name} (${teeBox}/${mode}): ${plan.totalExpected.toFixed(1)} xS`);
+        logger.info(`${course.name} (${teeBox}/${mode}): ${plan.totalExpected.toFixed(1)} xS`, { component: 'plan-regen' });
       } catch (err) {
-        console.error(`[plan-regen] Failed for ${courseId}/${teeBox}/${mode}:`, err);
+        logger.error(`Failed for ${courseId}/${teeBox}/${mode}`, { component: 'plan-regen', error: String(err) });
       }
     }
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`[plan-regen] Done in ${elapsed}s`);
+    logger.info(`Done in ${elapsed}s`, { component: 'plan-regen' });
   } catch (err) {
-    console.error('[plan-regen] Fatal error:', err);
+    logger.error('Fatal error', { component: 'plan-regen', error: String(err) });
   } finally {
-    isRegenerating = false;
+    await query('SELECT pg_advisory_unlock($1)', [REGEN_LOCK_ID]).catch(() => {});
   }
 }

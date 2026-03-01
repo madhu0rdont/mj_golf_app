@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { query, toCamel, withTransaction } from '../db.js';
+import { logger } from '../logger.js';
 import { CLUB_COLUMNS, SESSION_COLUMNS, SHOT_COLUMNS, pickColumns, buildInsert } from '../utils/db-columns.js';
 import { markPlansStale } from './game-plans.js';
 
@@ -28,7 +29,7 @@ router.get('/export', async (_req, res) => {
       shots: shots.rows.map(toCamel),
     });
   } catch (err) {
-    console.error('Failed to export backup:', err);
+    logger.error('Failed to export backup', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -71,10 +72,10 @@ router.post('/import', async (req, res) => {
       }
     });
 
-    console.log(`Imported ${clubs.length} clubs, ${(sessions || []).length} sessions, ${(shots || []).length} shots`);
+    logger.info(`Imported ${clubs.length} clubs, ${(sessions || []).length} sessions, ${(shots || []).length} shots`);
 
     // Fire-and-forget: mark game plans stale after data import
-    markPlansStale('Data imported from backup').catch(() => {});
+    markPlansStale('Data imported from backup').catch(err => logger.error('markPlansStale failed', { error: String(err) }));
 
     res.json({
       clubs: clubs.length,
@@ -82,7 +83,7 @@ router.post('/import', async (req, res) => {
       shots: (shots || []).length,
     });
   } catch (err) {
-    console.error('Import failed:', err);
+    logger.error('Import failed', { error: String(err) });
     const message = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: `Import failed: ${message}` });
   }

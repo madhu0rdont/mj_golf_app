@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { query, toCamel, withTransaction } from '../db.js';
+import { logger } from '../logger.js';
 import { pickColumns, buildInsert, CLUB_COLUMNS } from '../utils/db-columns.js';
 import { markPlansStale } from './game-plans.js';
 
@@ -25,7 +26,7 @@ router.get('/', async (_req, res) => {
     const { rows } = await query('SELECT * FROM clubs ORDER BY sort_order');
     res.json(rows.map(toCamel));
   } catch (err) {
-    console.error('Failed to list clubs:', err);
+    logger.error('Failed to list clubs', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -37,7 +38,7 @@ router.get('/:id', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Club not found' });
     res.json(toCamel(rows[0]));
   } catch (err) {
-    console.error('Failed to get club:', err);
+    logger.error('Failed to get club', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -64,9 +65,9 @@ router.post('/', async (req, res) => {
     res.status(201).json(toCamel(filtered));
 
     // Fire-and-forget: mark game plans stale
-    markPlansStale('Club bag changed').catch(() => {});
+    markPlansStale('Club bag changed').catch(err => logger.error('markPlansStale failed', { error: String(err) }));
   } catch (err) {
-    console.error('Failed to create club:', err);
+    logger.error('Failed to create club', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -92,7 +93,7 @@ router.put('/reorder', async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('Failed to reorder clubs:', err);
+    logger.error('Failed to reorder clubs', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -125,9 +126,9 @@ router.put('/:id', async (req, res) => {
     res.json(toCamel(rows[0]));
 
     // Fire-and-forget: mark game plans stale
-    markPlansStale('Club settings changed').catch(() => {});
+    markPlansStale('Club settings changed').catch(err => logger.error('markPlansStale failed', { error: String(err) }));
   } catch (err) {
-    console.error('Failed to update club:', err);
+    logger.error('Failed to update club', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -144,9 +145,9 @@ router.delete('/:id', async (req, res) => {
     res.json({ ok: true });
 
     // Fire-and-forget: mark game plans stale
-    markPlansStale('Club removed').catch(() => {});
+    markPlansStale('Club removed').catch(err => logger.error('markPlansStale failed', { error: String(err) }));
   } catch (err) {
-    console.error('Failed to delete club:', err);
+    logger.error('Failed to delete club', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });

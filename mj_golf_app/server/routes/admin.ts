@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import rateLimit from 'express-rate-limit';
 import { query, pool, toCamel, toSnake } from '../db.js';
+import { logger } from '../logger.js';
 import { markPlansStale } from './game-plans.js';
 import { parseKml, type ParsedHole } from '../services/kml-parser.js';
 import { fetchElevations } from '../services/elevation.js';
@@ -222,7 +223,7 @@ router.post('/import-kml/confirm', async (req, res) => {
     });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Import confirm failed:', err);
+    logger.error('Import confirm failed', { error: String(err) });
     const message = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: `Import failed: ${message}` });
   } finally {
@@ -708,7 +709,7 @@ router.post('/courses/:id/scorecard', async (req, res) => {
     res.json({ holes: rows.map(toCamel) });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Scorecard update failed:', err);
+    logger.error('Scorecard update failed', { error: String(err) });
     const message = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: message });
   } finally {
@@ -780,7 +781,7 @@ router.put('/hazard-penalties', async (req, res) => {
     res.json(result);
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Hazard penalty update failed:', err);
+    logger.error('Hazard penalty update failed', { error: String(err) });
     const message = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: message });
   } finally {
