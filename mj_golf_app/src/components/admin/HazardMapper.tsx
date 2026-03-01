@@ -40,7 +40,7 @@ export function HazardMapper({ courseId }: HazardMapperProps) {
       try {
         const res = await fetch('/api/admin/hazard-detect', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
           credentials: 'include',
           body: JSON.stringify({
             courseId,
@@ -52,7 +52,7 @@ export function HazardMapper({ courseId }: HazardMapperProps) {
           // Save detected hazards + fairway to the hole
           await fetch(`/api/admin/${courseId}/holes/${hole.holeNumber}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
             credentials: 'include',
             body: JSON.stringify({
               hazards: data.hazards,

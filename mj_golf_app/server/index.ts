@@ -7,6 +7,7 @@ import { migrate } from './migrate.js';
 import { seed } from './seed.js';
 import { pool } from './db.js';
 import { requireAuth } from './middleware/auth.js';
+import { csrfCheck } from './middleware/csrf.js';
 import authRouter from './routes/auth.js';
 import clubsRouter from './routes/clubs.js';
 import sessionsRouter from './routes/sessions.js';
@@ -30,6 +31,16 @@ if (isProd) app.set('trust proxy', 1);
 
 app.use(express.json({ limit: '50mb' }));
 
+// CSRF protection — require custom header on mutating requests
+app.use(csrfCheck);
+
+// Session secret — require in production, allow dev fallback
+const sessionSecret = process.env.SESSION_SECRET;
+if (isProd && !sessionSecret) {
+  console.error('FATAL: SESSION_SECRET must be set in production');
+  process.exit(1);
+}
+
 // Session middleware
 const PgStore = connectPgSimple(session);
 app.use(
@@ -38,7 +49,7 @@ app.use(
       pool,
       tableName: 'user_sessions',
     }),
-    secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
+    secret: sessionSecret || 'dev-secret-change-me',
     resave: false,
     saveUninitialized: false,
     cookie: {

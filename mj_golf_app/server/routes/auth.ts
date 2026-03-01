@@ -1,17 +1,31 @@
 import { Router } from 'express';
+import bcrypt from 'bcrypt';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
 
-// POST /api/auth/login
-router.post('/login', (req, res) => {
-  const { password } = req.body;
-  const appPassword = process.env.APP_PASSWORD;
+// Hash the app password at startup (lives in memory only)
+const appPassword = process.env.APP_PASSWORD;
+const passwordHash = appPassword ? bcrypt.hashSync(appPassword, 10) : null;
 
-  if (!appPassword) {
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Try again in 15 minutes.' },
+});
+
+// POST /api/auth/login
+router.post('/login', loginLimiter, async (req, res) => {
+  const { password } = req.body;
+
+  if (!passwordHash) {
     return res.status(500).json({ error: 'APP_PASSWORD not configured' });
   }
 
-  if (password === appPassword) {
+  const match = await bcrypt.compare(password || '', passwordHash);
+  if (match) {
     req.session.authenticated = true;
     req.session.save((err) => {
       if (err) {

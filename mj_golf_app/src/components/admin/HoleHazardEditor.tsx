@@ -398,7 +398,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
     try {
       const res = await fetch('/api/admin/hazard-detect', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
         credentials: 'include',
         body: JSON.stringify({ courseId, holeNumber }),
       });
@@ -454,7 +454,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
     try {
       const res = await fetch(`/api/admin/${courseId}/holes/${holeNumber}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
         credentials: 'include',
         body: JSON.stringify({ hazards, fairway, green, notes: notes || null, yardages }),
       });

@@ -46,6 +46,7 @@ export function KmlImporter({ onComplete }: KmlImporterProps) {
       formData.append('file', file);
       const res = await fetch('/api/admin/import-kml', {
         method: 'POST',
+        headers: { 'X-Requested-With': 'fetch' },
         body: formData,
       });
       if (!res.ok) {
@@ -105,7 +106,7 @@ export function KmlImporter({ onComplete }: KmlImporterProps) {
     try {
       const res = await fetch('/api/admin/import-kml/confirm', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
         body: JSON.stringify({
           course: {
             name: courseMeta.name,

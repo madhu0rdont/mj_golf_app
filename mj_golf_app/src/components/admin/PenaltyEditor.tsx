@@ -80,7 +80,7 @@ export function PenaltyEditor() {
     try {
       const res = await fetch(PENALTIES_KEY, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
         credentials: 'include',
         body: JSON.stringify({ penalties }),
       });
