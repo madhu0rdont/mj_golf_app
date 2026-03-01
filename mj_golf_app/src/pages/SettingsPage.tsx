@@ -128,9 +128,7 @@ export function SettingsPage() {
 
         {/* About & Admin */}
         <section className="flex items-center justify-center gap-3">
-          <Link to="/about" className="text-xs text-text-muted hover:text-primary transition">
-            MJ Golf v1.0.0 &middot; About
-          </Link>
+          <span className="text-xs text-text-muted">MJ Golf v{__APP_VERSION__}</span>
           <Link
             to="/admin"
             className="flex items-center justify-center h-7 w-7 rounded-full bg-surface hover:bg-border transition"

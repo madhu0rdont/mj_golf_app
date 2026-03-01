@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router';
-import { ArrowLeft, Settings, Menu, X, Home, Briefcase, BookOpen, MapPin, HelpCircle, Info, Plus } from 'lucide-react';
+import { ArrowLeft, Settings, Menu, X, Home, Briefcase, MapPin, HelpCircle, Plus } from 'lucide-react';
 
-const NAV_LINKS = [
+const PRIMARY_LINKS = [
   { to: '/', icon: Home, label: 'Home' },
-  { to: '/play', icon: MapPin, label: 'Play' },
   { to: '/practice', icon: Plus, label: 'Practice' },
+  { to: '/play', icon: MapPin, label: 'Play' },
   { to: '/bag', icon: Briefcase, label: 'Bag' },
-  { to: '/yardage', icon: BookOpen, label: 'Yardage' },
-  { to: '/strategy', icon: MapPin, label: 'Course Management' },
+];
+
+const UTILITY_LINKS = [
   { to: '/faq', icon: HelpCircle, label: 'How It Works' },
   { to: '/settings', icon: Settings, label: 'Settings' },
-  { to: '/about', icon: Info, label: 'About' },
 ];
 
 interface TopBarProps {
@@ -71,8 +71,27 @@ export function TopBar({ title, showBack, rightAction }: TopBarProps) {
               </button>
             </div>
             <div className="flex flex-col py-2">
-              {NAV_LINKS.map(({ to, icon: Icon, label }) => {
+              {PRIMARY_LINKS.map(({ to, icon: Icon, label }) => {
                 const isActive = to === '/' ? pathname === '/' : pathname.startsWith(to);
+                return (
+                  <Link
+                    key={to}
+                    to={to}
+                    onClick={() => setMenuOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                      isActive
+                        ? 'bg-primary-pale text-primary font-semibold'
+                        : 'text-text-medium hover:bg-surface'
+                    }`}
+                  >
+                    <Icon size={18} />
+                    {label}
+                  </Link>
+                );
+              })}
+              <div className="h-px bg-border mx-4 my-1" />
+              {UTILITY_LINKS.map(({ to, icon: Icon, label }) => {
+                const isActive = pathname.startsWith(to);
                 return (
                   <Link
                     key={to}

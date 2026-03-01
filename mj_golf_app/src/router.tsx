@@ -14,7 +14,6 @@ import { SessionsListPage } from './pages/SessionsListPage';
 import { YardageBookPage } from './pages/YardageBookPage';
 import { ClubDetailPage } from './pages/ClubDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { AboutPage } from './pages/AboutPage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
 import { AdminPage } from './pages/AdminPage';
 import { PlayPage } from './pages/PlayPage';
@@ -45,7 +44,6 @@ export const router = createBrowserRouter([
       { path: 'yardage/gapping', element: <YardageBookPage /> },
       { path: 'yardage/:clubId', element: <ClubDetailPage /> },
       { path: 'settings', element: <SettingsPage /> },
-      { path: 'about', element: <AboutPage /> },
       { path: 'faq', element: <HowItWorksPage /> },
       { path: 'strategy', element: <StrategyPlannerPage /> },
       { path: 'strategy/:courseId/:holeNumber', element: <StrategyPlannerPage /> },
