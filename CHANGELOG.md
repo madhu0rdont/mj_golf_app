@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.3.0 — Logging, Performance & Code Splitting
+- Structured logger (`server/logger.ts`) — JSON in production, human-readable in dev; replaces all `console.log`/`console.error` across 15 server files
+- PostgreSQL advisory lock for plan regeneration (multi-instance safe, replaces in-memory boolean flag)
+- Fire-and-forget errors now logged instead of silently swallowed (4 `.catch(() => {})` sites fixed)
+- Database indexes: `clubs(sort_order)`, `game_plan_cache(course_id, tee_box, mode)`, partial index on `game_plan_cache(stale)`
+- Code splitting: 5 heavy pages lazy-loaded via `React.lazy()` + `Suspense` (recharts, katex, google maps, jsPDF)
+- Vite `manualChunks` splits vendor libs into separate chunks (~1.3MB deferred from initial load)
+
 ## v1.2.0 — Security Hardening & Robustness
 - Bcrypt password hashing with timing-safe comparison
 - CSRF protection via custom header check on all mutating requests
