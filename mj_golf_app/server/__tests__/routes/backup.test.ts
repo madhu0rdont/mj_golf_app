@@ -94,6 +94,7 @@ describe('backup routes', () => {
   describe('POST /import', () => {
     it('with valid data succeeds', async () => {
       const body = {
+        version: 1,
         clubs: [{ id: 'c1', name: 'Driver', sortOrder: 0 }],
         sessions: [{ id: 's1', clubId: 'c1', date: '2025-01-01' }],
         shots: [{ id: 'sh1', sessionId: 's1', carryYards: 250 }],
@@ -108,6 +109,7 @@ describe('backup routes', () => {
 
     it('marks plans stale after import', async () => {
       const body = {
+        version: 1,
         clubs: [{ id: 'c1', name: 'Driver', sortOrder: 0 }],
         sessions: [],
         shots: [],
@@ -120,6 +122,7 @@ describe('backup routes', () => {
 
     it('with non-array clubs returns 400', async () => {
       const body = {
+        version: 1,
         clubs: 'not-an-array',
         sessions: [],
         shots: [],
@@ -127,11 +130,13 @@ describe('backup routes', () => {
 
       const res = await request(app).post('/import').send(body);
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('clubs must be an array');
+      expect(res.body.error).toBe('Invalid input');
+      expect(res.body.details.clubs).toBeDefined();
     });
 
     it('uses transaction (BEGIN/COMMIT called)', async () => {
       const body = {
+        version: 1,
         clubs: [{ id: 'c1', name: 'Driver' }],
         sessions: [],
         shots: [],
@@ -158,6 +163,7 @@ describe('backup routes', () => {
       });
 
       const body = {
+        version: 1,
         clubs: [{ id: 'c1', name: 'Driver' }],
         sessions: [],
         shots: [],

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
+import rateLimit from 'express-rate-limit';
 import { query, pool, toCamel, toSnake } from '../db.js';
 import { markPlansStale } from './game-plans.js';
 import { parseKml, type ParsedHole } from '../services/kml-parser.js';
@@ -19,6 +20,14 @@ const router = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+const visionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  limit: 50,                 // 50 detections per hour
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many detection requests. Try again later.' },
 });
 
 // --- Types ---
@@ -222,7 +231,7 @@ router.post('/import-kml/confirm', async (req, res) => {
 });
 
 // POST /api/admin/hazard-detect — detect hazards via satellite imagery + Claude Vision
-router.post('/hazard-detect', async (req, res) => {
+router.post('/hazard-detect', visionLimiter, async (req, res) => {
   const { courseId, holeNumber } = req.body;
   if (!courseId || holeNumber == null) {
     return res.status(400).json({ error: 'courseId and holeNumber are required' });

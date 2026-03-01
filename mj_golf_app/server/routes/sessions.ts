@@ -1,8 +1,18 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { query, toCamel, withTransaction } from '../db.js';
 import { pickColumns, buildInsert, SESSION_COLUMNS, SHOT_COLUMNS } from '../utils/db-columns.js';
 import { classifyAllShots } from '../services/shot-classifier.js';
 import { markPlansStale } from './game-plans.js';
+
+const shotSchema = z.object({
+  carryYards: z.number(),
+}).passthrough();
+
+const createSessionSchema = z.object({
+  type: z.enum(['block', 'wedge-distance', 'interleaved']),
+  shots: z.array(shotSchema).min(1, 'Sessions must include at least one shot'),
+}).passthrough();
 
 const router = Router();
 
@@ -57,15 +67,12 @@ router.get('/:id', async (req, res) => {
 // Body: { clubId?, type?, date, location?, notes?, source, shots: [...] }
 router.post('/', async (req, res) => {
   try {
-    const { clubId, type = 'block', date, location, notes, source, metadata, shots: rawShots } = req.body;
+    const parsed = createSessionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors });
+    }
 
-    const VALID_TYPES = ['block', 'wedge-distance', 'interleaved'];
-    if (!VALID_TYPES.includes(type)) {
-      return res.status(400).json({ error: `Invalid session type: ${type}` });
-    }
-    if (!Array.isArray(rawShots) || rawShots.length === 0) {
-      return res.status(400).json({ error: 'Sessions must include at least one shot' });
-    }
+    const { clubId, type, date, location, notes, source, metadata, shots: rawShots } = req.body;
 
     const sessionId = crypto.randomUUID();
     const now = Date.now();

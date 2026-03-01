@@ -1,6 +1,21 @@
 import { Router } from 'express';
+import { z } from 'zod';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
+
+const extractSchema = z.object({
+  imageBase64: z.string().min(1),
+  mediaType: z.enum(['image/jpeg', 'image/png', 'image/gif', 'image/webp']),
+});
+
+const extractLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many extraction requests. Try again later.' },
+});
 
 const SYSTEM_PROMPT = `You are a data extraction assistant for golf launch monitor data.
 Extract shot data from Foresight GC4/GCQuad session screenshots.
@@ -20,21 +35,19 @@ const USER_PROMPT = 'Extract all shot data from this Foresight GC4 session summa
 const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 // POST /api/extract — proxy image to Anthropic Claude Vision API
-router.post('/', async (req, res) => {
+router.post('/', extractLimiter, async (req, res) => {
   try {
     const apiKey = process.env.CLAUDE_API_KEY;
     if (!apiKey) {
       return res.status(500).json({ error: 'CLAUDE_API_KEY not configured on server' });
     }
 
-    const { imageBase64, mediaType } = req.body;
+    const parsed = extractSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors });
+    }
 
-    if (!imageBase64 || typeof imageBase64 !== 'string') {
-      return res.status(400).json({ error: 'imageBase64 must be a non-empty string' });
-    }
-    if (!mediaType || !ALLOWED_MEDIA_TYPES.includes(mediaType)) {
-      return res.status(400).json({ error: `mediaType must be one of: ${ALLOWED_MEDIA_TYPES.join(', ')}` });
-    }
+    const { imageBase64, mediaType } = parsed.data;
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

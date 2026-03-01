@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router';
 import { AppShell } from './components/layout/AppShell';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { HomePage } from './pages/HomePage';
 import { ClubBagPage } from './pages/ClubBagPage';
 import { ClubEditPage } from './pages/ClubEditPage';
@@ -22,7 +23,7 @@ import { StrategyPlannerPage } from './pages/StrategyPlannerPage';
 
 export const router = createBrowserRouter([
   {
-    element: <AppShell />,
+    element: <ErrorBoundary><AppShell /></ErrorBoundary>,
     children: [
       { index: true, element: <HomePage /> },
       { path: 'play', element: <PlayPage /> },

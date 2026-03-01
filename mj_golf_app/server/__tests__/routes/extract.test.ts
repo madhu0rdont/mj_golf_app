@@ -74,7 +74,8 @@ describe('extract routes', () => {
         .send({ mediaType: 'image/png' });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain('imageBase64');
+      expect(res.body.error).toBe('Invalid input');
+      expect(res.body.details.imageBase64).toBeDefined();
     });
 
     it('with missing mediaType returns 400', async () => {
@@ -83,7 +84,8 @@ describe('extract routes', () => {
         .send({ imageBase64: 'base64data' });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain('mediaType');
+      expect(res.body.error).toBe('Invalid input');
+      expect(res.body.details.mediaType).toBeDefined();
     });
 
     it('returns 500 when CLAUDE_API_KEY is not configured', async () => {

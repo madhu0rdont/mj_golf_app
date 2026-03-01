@@ -125,7 +125,8 @@ describe('sessions routes', () => {
 
       const res = await request(app).post('/').send(body);
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain('Invalid session type');
+      expect(res.body.error).toBe('Invalid input');
+      expect(res.body.details.type).toBeDefined();
     });
 
     it('rejects empty shots array with 400', async () => {
@@ -139,7 +140,8 @@ describe('sessions routes', () => {
 
       const res = await request(app).post('/').send(body);
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain('at least one shot');
+      expect(res.body.error).toBe('Invalid input');
+      expect(res.body.details.shots).toBeDefined();
     });
   });
 

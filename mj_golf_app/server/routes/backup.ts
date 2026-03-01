@@ -1,7 +1,15 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { query, toCamel, withTransaction } from '../db.js';
 import { CLUB_COLUMNS, SESSION_COLUMNS, SHOT_COLUMNS, pickColumns, buildInsert } from '../utils/db-columns.js';
 import { markPlansStale } from './game-plans.js';
+
+const importBackupSchema = z.object({
+  version: z.number(),
+  clubs: z.array(z.record(z.string(), z.unknown())),
+  sessions: z.array(z.record(z.string(), z.unknown())),
+  shots: z.array(z.record(z.string(), z.unknown())),
+});
 
 const router = Router();
 
@@ -28,17 +36,12 @@ router.get('/export', async (_req, res) => {
 // POST /api/backup/import — import backup (clear + replace)
 router.post('/import', async (req, res) => {
   try {
-    const { clubs, sessions, shots } = req.body;
+    const parsed = importBackupSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors });
+    }
 
-    if (!Array.isArray(clubs)) {
-      return res.status(400).json({ error: 'clubs must be an array' });
-    }
-    if (sessions !== undefined && !Array.isArray(sessions)) {
-      return res.status(400).json({ error: 'sessions must be an array' });
-    }
-    if (shots !== undefined && !Array.isArray(shots)) {
-      return res.status(400).json({ error: 'shots must be an array' });
-    }
+    const { clubs, sessions, shots } = parsed.data;
 
     await withTransaction(async (client) => {
       // Clear all data

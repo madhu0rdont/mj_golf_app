@@ -1,7 +1,21 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { query, toCamel, withTransaction } from '../db.js';
 import { pickColumns, buildInsert, CLUB_COLUMNS } from '../utils/db-columns.js';
 import { markPlansStale } from './game-plans.js';
+
+const createClubSchema = z.object({
+  name: z.string().min(1),
+  category: z.string().optional(),
+  brand: z.string().optional(),
+  model: z.string().optional(),
+  loft: z.number().optional(),
+  carryYards: z.number().optional(),
+  totalYards: z.number().optional(),
+  shaftFlex: z.string().optional(),
+});
+
+const updateClubSchema = createClubSchema.partial();
 
 const router = Router();
 
@@ -31,8 +45,9 @@ router.get('/:id', async (req, res) => {
 // POST /api/clubs — create club
 router.post('/', async (req, res) => {
   try {
-    if (!req.body.name) {
-      return res.status(400).json({ error: 'name is required' });
+    const parsed = createClubSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors });
     }
 
     const now = Date.now();
@@ -85,6 +100,11 @@ router.put('/reorder', async (req, res) => {
 // PUT /api/clubs/:id — update club
 router.put('/:id', async (req, res) => {
   try {
+    const parsed = updateClubSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors });
+    }
+
     const filtered = pickColumns({ ...req.body, updatedAt: Date.now() }, CLUB_COLUMNS);
     const keys = Object.keys(filtered);
     const values = Object.values(filtered);

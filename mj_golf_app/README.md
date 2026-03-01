@@ -154,6 +154,15 @@ The Express server serves both the REST API and the built SPA from the `dist/` f
 
 ## Changelog
 
+### v1.2.0 — Security Hardening & Robustness
+- Bcrypt password hashing with timing-safe comparison
+- CSRF protection via custom header check on all mutating requests
+- Rate limiting: login (5/15min), photo extraction (30/hr), hazard detection (50/hr)
+- Session secret required in production (fatal exit if missing)
+- Zod input validation on all critical API routes (clubs, sessions, backup, extract)
+- React Error Boundary for graceful crash recovery
+- Health check endpoints (`/health`, `/ready`) for Railway monitoring
+
 ### v1.1.0 — Navigation & Home Redesign
 - Redesigned home page with dedicated Play and Practice sections
 - New `/play` and `/practice` pages with tool links

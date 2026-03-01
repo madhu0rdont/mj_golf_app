@@ -34,6 +34,17 @@ app.use(express.json({ limit: '50mb' }));
 // CSRF protection — require custom header on mutating requests
 app.use(csrfCheck);
 
+// Health checks (unauthenticated)
+app.get('/health', (_req, res) => res.json({ ok: true }));
+app.get('/ready', async (_req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ ready: true });
+  } catch {
+    res.status(503).json({ ready: false });
+  }
+});
+
 // Session secret — require in production, allow dev fallback
 const sessionSecret = process.env.SESSION_SECRET;
 if (isProd && !sessionSecret) {
