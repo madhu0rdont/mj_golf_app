@@ -120,7 +120,7 @@ export function AdminPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { courses, isLoading } = useCourses();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
   const courseId = params.courseId ?? '';
   const view = deriveView(location.pathname, courseId);

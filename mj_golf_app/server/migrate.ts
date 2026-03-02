@@ -346,5 +346,26 @@ export async function migrate() {
     END $$
   `);
 
+  // ---- One-time migration flags for post-deploy operations ----
+  await query(`CREATE TABLE IF NOT EXISTS _migration_flags (
+    flag TEXT PRIMARY KEY,
+    applied_at BIGINT NOT NULL
+  )`);
+
+  // Force regeneration of all cached game plans after strategy-optimizer sync
+  const { rows: syncFlag } = await query(
+    "SELECT 1 FROM _migration_flags WHERE flag = 'strategy_sync_v1'",
+  );
+  if (syncFlag.length === 0) {
+    await query(
+      "UPDATE game_plan_cache SET stale = TRUE, stale_reason = 'Strategy optimizer sync' WHERE stale = FALSE",
+    );
+    await query(
+      "INSERT INTO _migration_flags (flag, applied_at) VALUES ('strategy_sync_v1', $1)",
+      [Date.now()],
+    );
+    logger.info('Marked all cached plans stale for strategy optimizer sync');
+  }
+
   logger.info('Database migration complete');
 }
