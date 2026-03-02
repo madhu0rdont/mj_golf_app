@@ -1,7 +1,23 @@
 import { query } from './db.js';
 import { logger } from './logger.js';
+import bcrypt from 'bcrypt';
+import crypto from 'node:crypto';
 
 export async function migrate() {
+  // ── Users table ──
+  await query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id           TEXT PRIMARY KEY,
+      username     TEXT NOT NULL UNIQUE,
+      password     TEXT NOT NULL,
+      display_name TEXT,
+      role         TEXT NOT NULL DEFAULT 'player',
+      handedness   TEXT NOT NULL DEFAULT 'right',
+      created_at   BIGINT NOT NULL,
+      updated_at   BIGINT NOT NULL
+    )
+  `);
+
   await query(`
     CREATE TABLE IF NOT EXISTS clubs (
       id             TEXT PRIMARY KEY,
@@ -235,6 +251,99 @@ export async function migrate() {
     WHERE jsonb_typeof(fairway) = 'array'
       AND jsonb_array_length(fairway) > 0
       AND jsonb_typeof(fairway->0) = 'object'
+  `);
+
+  // ── Multi-user: bootstrap accounts ──
+  const bootstrapNow = Date.now();
+
+  // Bootstrap admin account from env vars (service account — admin page only)
+  const adminUser = process.env.ADMIN_USERNAME;
+  const adminPass = process.env.ADMIN_PASSWORD;
+  if (adminUser && adminPass) {
+    const { rows: existingAdmin } = await query(
+      `SELECT id FROM users WHERE lower(username) = lower($1)`,
+      [adminUser],
+    );
+    if (existingAdmin.length === 0) {
+      const adminId = crypto.randomUUID();
+      const hash = await bcrypt.hash(adminPass, 12);
+      await query(
+        `INSERT INTO users (id, username, password, display_name, role, handedness, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, 'admin', 'right', $5, $5)`,
+        [adminId, adminUser.toLowerCase(), hash, 'Admin', bootstrapNow],
+      );
+      logger.info(`Bootstrap admin user '${adminUser}' created`);
+    }
+  }
+
+  // Bootstrap MJ player account from env vars
+  const mjUser = process.env.MJ_USERNAME;
+  const mjPass = process.env.MJ_PASSWORD;
+  if (mjUser && mjPass) {
+    const { rows: existingMj } = await query(
+      `SELECT id FROM users WHERE lower(username) = lower($1)`,
+      [mjUser],
+    );
+    if (existingMj.length === 0) {
+      const mjId = crypto.randomUUID();
+      const hash = await bcrypt.hash(mjPass, 12);
+      await query(
+        `INSERT INTO users (id, username, password, display_name, role, handedness, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, 'player', 'left', $5, $5)`,
+        [mjId, mjUser.toLowerCase(), hash, 'MJ', bootstrapNow],
+      );
+      logger.info(`Bootstrap player user '${mjUser}' created`);
+    }
+  }
+
+  // ── Multi-user: add user_id columns ──
+  await query(`ALTER TABLE clubs ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id)`);
+  await query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id)`);
+  await query(`ALTER TABLE shots ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id)`);
+  await query(`ALTER TABLE wedge_overrides ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id)`);
+  await query(`ALTER TABLE game_plan_cache ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id)`);
+  await query(`ALTER TABLE game_plan_history ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id)`);
+
+  // Assign existing data to the first player account (MJ)
+  const { rows: firstPlayer } = await query(
+    `SELECT id FROM users WHERE role = 'player' ORDER BY created_at LIMIT 1`,
+  );
+  if (firstPlayer.length > 0) {
+    const playerId = firstPlayer[0].id;
+    await query('UPDATE clubs SET user_id = $1 WHERE user_id IS NULL', [playerId]);
+    await query('UPDATE sessions SET user_id = $1 WHERE user_id IS NULL', [playerId]);
+    await query('UPDATE shots SET user_id = $1 WHERE user_id IS NULL', [playerId]);
+    await query('UPDATE wedge_overrides SET user_id = $1 WHERE user_id IS NULL', [playerId]);
+    await query('UPDATE game_plan_cache SET user_id = $1 WHERE user_id IS NULL', [playerId]);
+    await query('UPDATE game_plan_history SET user_id = $1 WHERE user_id IS NULL', [playerId]);
+  }
+
+  // Set NOT NULL on user_id columns (only if no NULLs remain)
+  for (const table of ['clubs', 'sessions', 'shots', 'wedge_overrides', 'game_plan_cache', 'game_plan_history']) {
+    const { rows: nullRows } = await query(`SELECT count(*) FROM ${table} WHERE user_id IS NULL`);
+    if (parseInt(nullRows[0].count) === 0) {
+      await query(`ALTER TABLE ${table} ALTER COLUMN user_id SET NOT NULL`).catch(() => {});
+    }
+  }
+
+  // Indexes for user-scoped queries
+  await query(`CREATE INDEX IF NOT EXISTS idx_clubs_user ON clubs(user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_shots_user ON shots(user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_game_plan_cache_user ON game_plan_cache(user_id, course_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_game_plan_history_user ON game_plan_history(user_id, course_id)`);
+
+  // Update game_plan_cache unique constraint to include user_id
+  await query(`ALTER TABLE game_plan_cache DROP CONSTRAINT IF EXISTS game_plan_cache_course_id_tee_box_mode_key`);
+  await query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'game_plan_cache_user_course_tee_mode_key'
+      ) THEN
+        ALTER TABLE game_plan_cache ADD CONSTRAINT game_plan_cache_user_course_tee_mode_key
+          UNIQUE(user_id, course_id, tee_box, mode);
+      END IF;
+    END $$
   `);
 
   logger.info('Database migration complete');

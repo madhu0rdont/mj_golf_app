@@ -1,12 +1,40 @@
 import express from 'express';
 import { vi } from 'vitest';
 
+/** Default test session data — player user */
+export const TEST_USER_ID = 'test-user-id';
+export const TEST_SESSION_DATA = {
+  authenticated: true,
+  userId: TEST_USER_ID,
+  username: 'testuser',
+  role: 'player' as const,
+};
+
 /**
- * Create a minimal Express app with JSON body parsing and the given router mounted.
+ * Create a minimal Express app with JSON body parsing, mock session, and the given router mounted.
+ * The mock session injects `authenticated`, `userId`, `username`, and `role` into req.session.
  */
-export function createTestApp(router: express.Router, path = '/') {
+export function createTestApp(router: express.Router, path = '/', sessionOverrides?: Partial<typeof TEST_SESSION_DATA>) {
   const app = express();
   app.use(express.json({ limit: '50mb' }));
+
+  // Inject mock session
+  app.use((req, _res, next) => {
+    const sessionData = { ...TEST_SESSION_DATA, ...sessionOverrides };
+    (req as express.Request).session = {
+      ...sessionData,
+      id: 'test-session-id',
+      cookie: {} as express.Request['session']['cookie'],
+      regenerate: vi.fn() as unknown as express.Request['session']['regenerate'],
+      destroy: vi.fn() as unknown as express.Request['session']['destroy'],
+      reload: vi.fn() as unknown as express.Request['session']['reload'],
+      resetMaxAge: vi.fn() as unknown as express.Request['session']['resetMaxAge'],
+      save: vi.fn((cb?: (err?: unknown) => void) => { cb?.(); }) as unknown as express.Request['session']['save'],
+      touch: vi.fn() as unknown as express.Request['session']['touch'],
+    } as unknown as express.Request['session'];
+    next();
+  });
+
   app.use(path, router);
   return app;
 }

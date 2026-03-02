@@ -4,10 +4,11 @@ import { logger } from '../logger.js';
 
 const router = Router();
 
-// GET /api/wedge-overrides — all overrides
-router.get('/', async (_req, res) => {
+// GET /api/wedge-overrides — user's overrides
+router.get('/', async (req, res) => {
   try {
-    const { rows } = await query('SELECT * FROM wedge_overrides');
+    const userId = req.session.userId!;
+    const { rows } = await query('SELECT * FROM wedge_overrides WHERE user_id = $1', [userId]);
     res.json(rows.map(toCamel));
   } catch (err) {
     logger.error('Failed to list wedge overrides', { error: String(err) });
@@ -18,6 +19,7 @@ router.get('/', async (_req, res) => {
 // PUT /api/wedge-overrides — upsert one override
 router.put('/', async (req, res) => {
   try {
+    const userId = req.session.userId!;
     const { clubId, position, carry } = req.body;
 
     if (!clubId) {
@@ -31,11 +33,11 @@ router.put('/', async (req, res) => {
     }
 
     await query(
-      `INSERT INTO wedge_overrides (club_id, position, carry)
-       VALUES ($1, $2, $3)
+      `INSERT INTO wedge_overrides (club_id, position, carry, user_id)
+       VALUES ($1, $2, $3, $4)
        ON CONFLICT (club_id, position)
        DO UPDATE SET carry = $3`,
-      [clubId, position, carry]
+      [clubId, position, carry, userId]
     );
     res.json({ ok: true });
   } catch (err) {
@@ -47,9 +49,10 @@ router.put('/', async (req, res) => {
 // DELETE /api/wedge-overrides/:clubId/:position — remove override
 router.delete('/:clubId/:position', async (req, res) => {
   try {
+    const userId = req.session.userId!;
     await query(
-      'DELETE FROM wedge_overrides WHERE club_id = $1 AND position = $2',
-      [req.params.clubId, req.params.position]
+      'DELETE FROM wedge_overrides WHERE club_id = $1 AND position = $2 AND user_id = $3',
+      [req.params.clubId, req.params.position, userId]
     );
     res.json({ ok: true });
   } catch (err) {

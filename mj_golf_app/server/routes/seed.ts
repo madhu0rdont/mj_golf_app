@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { seed } from '../seed.js';
 import { logger } from '../logger.js';
+import { requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
+router.use(requireAdmin);
 
 // POST /api/seed — re-seed database if empty
 router.post('/', async (_req, res) => {

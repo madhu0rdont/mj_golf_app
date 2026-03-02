@@ -9,13 +9,14 @@ import { migrate } from './migrate.js';
 import { seed } from './seed.js';
 import { pool } from './db.js';
 import { logger } from './logger.js';
-import { requireAuth } from './middleware/auth.js';
+import { requireAuth, requirePlayer } from './middleware/auth.js';
 import { csrfCheck } from './middleware/csrf.js';
 import authRouter from './routes/auth.js';
 import clubsRouter from './routes/clubs.js';
 import sessionsRouter from './routes/sessions.js';
 import shotsRouter from './routes/shots.js';
 import backupRouter from './routes/backup.js';
+import usersRouter from './routes/users.js';
 
 import seedRouter from './routes/seed.js';
 import extractRouter from './routes/extract.js';
@@ -89,18 +90,24 @@ app.use('/api/auth', authRouter);
 // Auth middleware — protects all subsequent /api/* routes
 app.use('/api', requireAuth);
 
-// Protected API routes
-app.use('/api/clubs', clubsRouter);
-app.use('/api/sessions', sessionsRouter);
-app.use('/api/shots', shotsRouter);
-app.use('/api/backup', backupRouter);
+// User management (admin-only endpoints handled inside router)
+app.use('/api/users', usersRouter);
 
-app.use('/api/seed', seedRouter);
-app.use('/api/extract', extractRouter);
-app.use('/api/wedge-overrides', wedgeOverridesRouter);
+// Player-only API routes (requirePlayer blocks admin account)
+app.use('/api/clubs', requirePlayer, clubsRouter);
+app.use('/api/sessions', requirePlayer, sessionsRouter);
+app.use('/api/shots', requirePlayer, shotsRouter);
+app.use('/api/backup', requirePlayer, backupRouter);
+app.use('/api/wedge-overrides', requirePlayer, wedgeOverridesRouter);
+app.use('/api/game-plans', requirePlayer, gamePlansRouter);
+
+// Shared routes (any authenticated user)
 app.use('/api/courses', coursesRouter);
+app.use('/api/extract', extractRouter);
+
+// Admin-only routes (requireAdmin handled inside routers)
+app.use('/api/seed', seedRouter);
 app.use('/api/admin', adminRouter);
-app.use('/api/game-plans', gamePlansRouter);
 
 // Serve static SPA files
 const distPath = join(__dirname, '..', 'dist');

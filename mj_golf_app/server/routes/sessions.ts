@@ -17,20 +17,21 @@ const createSessionSchema = z.object({
 
 const router = Router();
 
-// GET /api/sessions — list sessions with optional filters
+// GET /api/sessions — list user's sessions with optional filters
 // ?clubId=xxx — sessions for a specific club
 // ?limit=10 — recent sessions (default: no limit)
 // ?all=true — all sessions sorted by date desc
 router.get('/', async (req, res) => {
   try {
+    const userId = req.session.userId!;
     const { clubId, limit, all } = req.query;
 
-    let sql = 'SELECT * FROM sessions';
-    const params: unknown[] = [];
+    let sql = 'SELECT * FROM sessions WHERE user_id = $1';
+    const params: unknown[] = [userId];
 
     if (clubId) {
       params.push(clubId);
-      sql += ` WHERE club_id = $${params.length}`;
+      sql += ` AND club_id = $${params.length}`;
     }
 
     sql += ' ORDER BY date DESC';
@@ -52,10 +53,11 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/sessions/:id — single session
+// GET /api/sessions/:id — single session (owned by user)
 router.get('/:id', async (req, res) => {
   try {
-    const { rows } = await query('SELECT * FROM sessions WHERE id = $1', [req.params.id]);
+    const userId = req.session.userId!;
+    const { rows } = await query('SELECT * FROM sessions WHERE id = $1 AND user_id = $2', [req.params.id, userId]);
     if (rows.length === 0) return res.status(404).json({ error: 'Session not found' });
     res.json(toCamel(rows[0]));
   } catch (err) {
@@ -73,6 +75,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors });
     }
 
+    const userId = req.session.userId!;
     const { clubId, type, date, location, notes, source, metadata, shots: rawShots } = req.body;
 
     const sessionId = crypto.randomUUID();
@@ -96,6 +99,7 @@ router.post('/', async (req, res) => {
       position: s.position || null,
       holeNumber: s.holeNumber ?? null,
       shotNumber: s.shotNumber ?? i + 1,
+      userId,
       timestamp: now,
     }));
 
@@ -127,6 +131,7 @@ router.post('/', async (req, res) => {
       source,
       shotCount: classifiedShots.length,
       metadata: metadata ? JSON.stringify(metadata) : null,
+      userId,
       createdAt: now,
       updatedAt: now,
     };
@@ -145,7 +150,7 @@ router.post('/', async (req, res) => {
       }
     });
 
-    await markPlansStale('New practice data recorded');
+    await markPlansStale('New practice data recorded', undefined, userId);
     res.status(201).json(session);
   } catch (err) {
     logger.error('Failed to create session', { error: String(err) });
@@ -156,6 +161,7 @@ router.post('/', async (req, res) => {
 // PUT /api/sessions/:id — update session
 router.put('/:id', async (req, res) => {
   try {
+    const userId = req.session.userId!;
     const { clubId, date } = req.body;
     const now = Date.now();
 
@@ -174,22 +180,24 @@ router.put('/:id', async (req, res) => {
       values.push(now);
       updates.push(`updated_at = $${values.length}`);
       values.push(req.params.id);
+      values.push(userId);
 
       await client.query(
-        `UPDATE sessions SET ${updates.join(', ')} WHERE id = $${values.length}`,
+        `UPDATE sessions SET ${updates.join(', ')} WHERE id = $${values.length - 1} AND user_id = $${values.length}`,
         values
       );
 
       // If clubId changed, update shots too
       if (clubId !== undefined) {
         await client.query(
-          'UPDATE shots SET club_id = $1 WHERE session_id = $2',
-          [clubId, req.params.id]
+          'UPDATE shots SET club_id = $1 WHERE session_id = $2 AND user_id = $3',
+          [clubId, req.params.id, userId]
         );
       }
     });
 
-    const { rows } = await query('SELECT * FROM sessions WHERE id = $1', [req.params.id]);
+    const { rows } = await query('SELECT * FROM sessions WHERE id = $1 AND user_id = $2', [req.params.id, userId]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Session not found' });
     res.json(toCamel(rows[0]));
   } catch (err) {
     logger.error('Failed to update session', { error: String(err) });
@@ -197,9 +205,17 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// GET /api/sessions/:id/shots — shots for a session
+// GET /api/sessions/:id/shots — shots for a session (verify ownership)
 router.get('/:id/shots', async (req, res) => {
   try {
+    const userId = req.session.userId!;
+    // Verify session ownership
+    const { rows: sessionRows } = await query(
+      'SELECT id FROM sessions WHERE id = $1 AND user_id = $2',
+      [req.params.id, userId],
+    );
+    if (sessionRows.length === 0) return res.status(404).json({ error: 'Session not found' });
+
     const { rows } = await query(
       'SELECT * FROM shots WHERE session_id = $1 ORDER BY shot_number',
       [req.params.id]
@@ -212,10 +228,11 @@ router.get('/:id/shots', async (req, res) => {
 });
 
 // DELETE /api/sessions/:id — delete session (shots cascade)
-router.delete('/:id', async (_req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    await query('DELETE FROM sessions WHERE id = $1', [_req.params.id]);
-    await markPlansStale('Practice data deleted');
+    const userId = req.session.userId!;
+    await query('DELETE FROM sessions WHERE id = $1 AND user_id = $2', [req.params.id, userId]);
+    await markPlansStale('Practice data deleted', undefined, userId);
     res.status(204).end();
   } catch (err) {
     logger.error('Failed to delete session', { error: String(err) });

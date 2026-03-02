@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { useAuth } from './AuthContext';
 
 export type Handedness = 'left' | 'right';
 
@@ -9,17 +10,36 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
 
-const HANDEDNESS_STORAGE_KEY = 'mj-golf-handedness';
-
 export function SettingsProvider({ children }: { children: ReactNode }) {
+  const { user, updateUser } = useAuth();
+
   const [handedness, setHandednessState] = useState<Handedness>(
-    () => (localStorage.getItem(HANDEDNESS_STORAGE_KEY) as Handedness) || 'left'
+    () => user?.handedness || 'left'
   );
 
-  const setHandedness = useCallback((h: Handedness) => {
-    localStorage.setItem(HANDEDNESS_STORAGE_KEY, h);
+  // Sync if user changes (e.g. on login)
+  useEffect(() => {
+    if (user?.handedness) {
+      setHandednessState(user.handedness);
+    }
+  }, [user?.handedness]);
+
+  const setHandedness = useCallback(async (h: Handedness) => {
     setHandednessState(h);
-  }, []);
+    updateUser({ handedness: h });
+
+    // Persist to server
+    try {
+      await fetch('/api/users/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
+        body: JSON.stringify({ handedness: h }),
+      });
+    } catch {
+      // Revert on failure
+      setHandednessState(user?.handedness || 'left');
+    }
+  }, [updateUser, user?.handedness]);
 
   return (
     <SettingsContext.Provider value={{ handedness, setHandedness }}>

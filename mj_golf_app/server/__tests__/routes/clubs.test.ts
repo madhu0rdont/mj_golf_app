@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import request from 'supertest';
-import { createTestApp, mockQuery, mockClient, mockDbModule, resetMocks } from '../helpers/setup.js';
+import { createTestApp, mockQuery, mockClient, mockDbModule, resetMocks, TEST_USER_ID } from '../helpers/setup.js';
 
 // vi.hoisted runs before vi.mock hoisting, so the variable is available
 const mockMarkPlansStale = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
@@ -54,7 +54,7 @@ describe('clubs routes', () => {
         { id: '1', name: 'Driver', sortOrder: 0, createdAt: 1000 },
         { id: '2', name: '7 Iron', sortOrder: 1, createdAt: 2000 },
       ]);
-      expect(mockQuery).toHaveBeenCalledWith('SELECT * FROM clubs ORDER BY sort_order');
+      expect(mockQuery).toHaveBeenCalledWith('SELECT * FROM clubs WHERE user_id = $1 ORDER BY sort_order', [TEST_USER_ID]);
     });
   });
 
@@ -107,7 +107,7 @@ describe('clubs routes', () => {
         .post('/')
         .send({ name: 'New Club', category: 'iron' });
 
-      expect(mockMarkPlansStale).toHaveBeenCalledWith('Club bag changed');
+      expect(mockMarkPlansStale).toHaveBeenCalledWith('Club bag changed', undefined, TEST_USER_ID);
     });
 
     it('with missing name returns 400', async () => {
@@ -148,7 +148,7 @@ describe('clubs routes', () => {
         .put('/abc')
         .send({ name: 'Updated' });
 
-      expect(mockMarkPlansStale).toHaveBeenCalledWith('Club settings changed');
+      expect(mockMarkPlansStale).toHaveBeenCalledWith('Club settings changed', undefined, TEST_USER_ID);
     });
   });
 
@@ -184,15 +184,15 @@ describe('clubs routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
 
-      // Uses withTransaction — deletes sessions then club
+      // Uses withTransaction — deletes sessions then club (user-scoped)
       expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
       expect(mockClient.query).toHaveBeenCalledWith(
-        'DELETE FROM sessions WHERE club_id = $1',
-        ['abc']
+        'DELETE FROM sessions WHERE club_id = $1 AND user_id = $2',
+        ['abc', TEST_USER_ID]
       );
       expect(mockClient.query).toHaveBeenCalledWith(
-        'DELETE FROM clubs WHERE id = $1',
-        ['abc']
+        'DELETE FROM clubs WHERE id = $1 AND user_id = $2',
+        ['abc', TEST_USER_ID]
       );
       expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
     });
@@ -200,7 +200,7 @@ describe('clubs routes', () => {
     it('marks plans stale after deleting club', async () => {
       await request(app).delete('/abc');
 
-      expect(mockMarkPlansStale).toHaveBeenCalledWith('Club removed');
+      expect(mockMarkPlansStale).toHaveBeenCalledWith('Club removed', undefined, TEST_USER_ID);
     });
   });
 

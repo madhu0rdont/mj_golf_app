@@ -1,13 +1,15 @@
 import { useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router';
-import { Map, Shield, Upload, ChevronLeft, MapPin } from 'lucide-react';
+import { Map, Shield, Upload, ChevronLeft, MapPin, Users, LogOut } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { LoadingPage } from '../components/ui/LoadingPage';
 import { KmlImporter } from '../components/admin/KmlImporter';
 import { HazardMapper } from '../components/admin/HazardMapper';
 import { ElevationRefresh } from '../components/admin/ElevationRefresh';
 import { PenaltyEditor } from '../components/admin/PenaltyEditor';
+import { UserManager } from '../components/admin/UserManager';
 import { useCourses, useCourse, mutateCourses } from '../hooks/useCourses';
+import { useAuth } from '../context/AuthContext';
 import type { Course, CourseHole, HazardFeature } from '../models/course';
 
 const COURSE_LOGOS: Record<string, string> = {
@@ -20,12 +22,13 @@ function getCourseLogoKey(name: string): string | undefined {
   return Object.keys(COURSE_LOGOS).find((key) => lower.includes(key));
 }
 
-type View = 'dashboard' | 'course-grid' | 'course-edit' | 'penalties' | 'import';
+type View = 'dashboard' | 'course-grid' | 'course-edit' | 'penalties' | 'import' | 'users';
 
 function deriveView(pathname: string, courseId: string): View {
   if (pathname === '/admin/penalties') return 'penalties';
   if (pathname === '/admin/import') return 'import';
   if (pathname === '/admin/courses') return 'course-grid';
+  if (pathname === '/admin/users') return 'users';
   if (courseId) return 'course-edit';
   return 'dashboard';
 }
@@ -117,6 +120,7 @@ export function AdminPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { courses, isLoading } = useCourses();
+  const { logout } = useAuth();
 
   const courseId = params.courseId ?? '';
   const view = deriveView(location.pathname, courseId);
@@ -177,7 +181,26 @@ export function AdminPage() {
                 <p className="text-sm font-semibold text-text-dark">Import Course</p>
                 <p className="text-xs text-text-muted">Import a new course from KML</p>
               </button>
+
+              <button
+                onClick={() => navigate('/admin/users')}
+                className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-5 text-center hover:border-primary hover:shadow-sm transition-all"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                  <Users size={20} className="text-primary" />
+                </div>
+                <p className="text-sm font-semibold text-text-dark">Users</p>
+                <p className="text-xs text-text-muted">Manage user accounts & roles</p>
+              </button>
             </div>
+
+            <button
+              onClick={logout}
+              className="mt-4 flex items-center gap-2 self-start text-sm text-text-muted hover:text-text-dark transition-colors"
+            >
+              <LogOut size={16} />
+              <span>Log Out</span>
+            </button>
           </div>
         )}
 
@@ -250,6 +273,20 @@ export function AdminPage() {
                 navigate('/admin/courses');
               }}
             />
+          </div>
+        )}
+
+        {/* Users */}
+        {view === 'users' && (
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => navigate('/admin')}
+              className="flex items-center gap-1 text-sm text-text-muted hover:text-text-dark transition-colors self-start -ml-1"
+            >
+              <ChevronLeft size={16} />
+              <span className="text-xs font-medium">Admin</span>
+            </button>
+            <UserManager />
           </div>
         )}
       </div>

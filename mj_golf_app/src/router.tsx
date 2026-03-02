@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, Navigate } from 'react-router';
 import { AppShell } from './components/layout/AppShell';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { LoadingPage } from './components/ui/LoadingPage';
@@ -26,6 +26,7 @@ const HowItWorksPage = lazy(() => import('./pages/HowItWorksPage').then(m => ({ 
 const StrategyPlannerPage = lazy(() => import('./pages/StrategyPlannerPage').then(m => ({ default: m.StrategyPlannerPage })));
 const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
 
+// Player router — all app features, no admin page
 export const router = createBrowserRouter([
   {
     element: <ErrorBoundary><AppShell /></ErrorBoundary>,
@@ -54,13 +55,28 @@ export const router = createBrowserRouter([
       { path: 'strategy', element: <Suspense fallback={<LoadingPage />}><StrategyPlannerPage /></Suspense> },
       { path: 'strategy/:courseId', element: <Suspense fallback={<LoadingPage />}><StrategyPlannerPage /></Suspense> },
       { path: 'strategy/:courseId/:holeNumber', element: <Suspense fallback={<LoadingPage />}><StrategyPlannerPage /></Suspense> },
+      // Redirect admin paths to home for players
+      { path: 'admin', element: <Navigate to="/" replace /> },
+      { path: 'admin/*', element: <Navigate to="/" replace /> },
+      { path: '*', element: <NotFoundPage /> },
+    ],
+  },
+]);
+
+// Admin router — only admin page, redirect everything else to /admin
+export const adminRouter = createBrowserRouter([
+  {
+    element: <ErrorBoundary><AppShell /></ErrorBoundary>,
+    children: [
+      { index: true, element: <Navigate to="/admin" replace /> },
       { path: 'admin', element: <Suspense fallback={<LoadingPage />}><AdminPage /></Suspense> },
       { path: 'admin/courses', element: <Suspense fallback={<LoadingPage />}><AdminPage /></Suspense> },
       { path: 'admin/penalties', element: <Suspense fallback={<LoadingPage />}><AdminPage /></Suspense> },
       { path: 'admin/import', element: <Suspense fallback={<LoadingPage />}><AdminPage /></Suspense> },
+      { path: 'admin/users', element: <Suspense fallback={<LoadingPage />}><AdminPage /></Suspense> },
       { path: 'admin/:courseId', element: <Suspense fallback={<LoadingPage />}><AdminPage /></Suspense> },
       { path: 'admin/:courseId/:holeNumber', element: <Suspense fallback={<LoadingPage />}><AdminPage /></Suspense> },
-      { path: '*', element: <NotFoundPage /> },
+      { path: '*', element: <Navigate to="/admin" replace /> },
     ],
   },
 ]);

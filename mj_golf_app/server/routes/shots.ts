@@ -4,13 +4,14 @@ import { logger } from '../logger.js';
 
 const router = Router();
 
-// GET /api/shots — all shots (for yardage book computation)
+// GET /api/shots — user's shots (for yardage book computation)
 // Optional filters: ?since=TIMESTAMP, ?clubId=UUID, ?limit=N
 router.get('/', async (req, res) => {
   try {
-    const conditions: string[] = [];
-    const values: unknown[] = [];
-    let paramIndex = 1;
+    const userId = req.session.userId!;
+    const conditions: string[] = ['shots.user_id = $1'];
+    const values: unknown[] = [userId];
+    let paramIndex = 2;
 
     if (req.query.since) {
       conditions.push(`s.date >= $${paramIndex++}`);
@@ -21,7 +22,7 @@ router.get('/', async (req, res) => {
       values.push(req.query.clubId);
     }
 
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const where = `WHERE ${conditions.join(' AND ')}`;
     const limit = Math.min(parseInt(req.query.limit as string) || 10000, 50000);
     values.push(limit);
 

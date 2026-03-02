@@ -14,12 +14,13 @@ const importBackupSchema = z.object({
 
 const router = Router();
 
-// GET /api/backup/export — export all data
-router.get('/export', async (_req, res) => {
+// GET /api/backup/export — export current user's data
+router.get('/export', async (req, res) => {
   try {
-    const clubs = await query('SELECT * FROM clubs ORDER BY sort_order');
-    const sessions = await query('SELECT * FROM sessions ORDER BY date');
-    const shots = await query('SELECT * FROM shots ORDER BY session_id, shot_number');
+    const userId = req.session.userId!;
+    const clubs = await query('SELECT * FROM clubs WHERE user_id = $1 ORDER BY sort_order', [userId]);
+    const sessions = await query('SELECT * FROM sessions WHERE user_id = $1 ORDER BY date', [userId]);
+    const shots = await query('SELECT * FROM shots WHERE user_id = $1 ORDER BY session_id, shot_number', [userId]);
 
     res.json({
       version: 1,
@@ -34,7 +35,7 @@ router.get('/export', async (_req, res) => {
   }
 });
 
-// POST /api/backup/import — import backup (clear + replace)
+// POST /api/backup/import — import backup (clear + replace current user's data)
 router.post('/import', async (req, res) => {
   try {
     const parsed = importBackupSchema.safeParse(req.body);
@@ -42,40 +43,42 @@ router.post('/import', async (req, res) => {
       return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors });
     }
 
+    const userId = req.session.userId!;
     const { clubs, sessions, shots } = parsed.data;
 
     await withTransaction(async (client) => {
-      // Clear all data
-      await client.query('DELETE FROM shots');
-      await client.query('DELETE FROM sessions');
-      await client.query('DELETE FROM clubs');
+      // Clear current user's data only
+      await client.query('DELETE FROM shots WHERE user_id = $1', [userId]);
+      await client.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
+      await client.query('DELETE FROM wedge_overrides WHERE user_id = $1', [userId]);
+      await client.query('DELETE FROM clubs WHERE user_id = $1', [userId]);
 
-      // Insert clubs
+      // Insert clubs with user_id
       for (const club of clubs) {
-        const row = pickColumns(club, CLUB_COLUMNS);
+        const row = pickColumns({ ...club, userId }, CLUB_COLUMNS);
         const q = buildInsert('clubs', row);
         await client.query(q.text, q.values);
       }
 
-      // Insert sessions
+      // Insert sessions with user_id
       for (const session of (sessions || [])) {
-        const row = pickColumns(session, SESSION_COLUMNS);
+        const row = pickColumns({ ...session, userId }, SESSION_COLUMNS);
         const q = buildInsert('sessions', row);
         await client.query(q.text, q.values);
       }
 
-      // Insert shots
+      // Insert shots with user_id
       for (const shot of (shots || [])) {
-        const row = pickColumns(shot, SHOT_COLUMNS);
+        const row = pickColumns({ ...shot, userId }, SHOT_COLUMNS);
         const q = buildInsert('shots', row);
         await client.query(q.text, q.values);
       }
     });
 
-    logger.info(`Imported ${clubs.length} clubs, ${(sessions || []).length} sessions, ${(shots || []).length} shots`);
+    logger.info(`Imported ${clubs.length} clubs, ${(sessions || []).length} sessions, ${(shots || []).length} shots for user ${userId}`);
 
     // Fire-and-forget: mark game plans stale after data import
-    markPlansStale('Data imported from backup').catch(err => logger.error('markPlansStale failed', { error: String(err) }));
+    markPlansStale('Data imported from backup', undefined, userId).catch(err => logger.error('markPlansStale failed', { error: String(err) }));
 
     res.json({
       clubs: clubs.length,

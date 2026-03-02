@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
-import { createTestApp, mockQuery, mockPool, mockClient, mockDbModule, mockWithTransaction, resetMocks } from '../helpers/setup.js';
+import { createTestApp, mockQuery, mockPool, mockClient, mockDbModule, resetMocks, TEST_USER_ID } from '../helpers/setup.js';
 
 // Mock the db module
 mockDbModule();
@@ -57,8 +57,8 @@ describe('sessions routes', () => {
 
       await request(app).get('/?clubId=c1');
       expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining('WHERE club_id = $1'),
-        expect.arrayContaining(['c1'])
+        expect.stringContaining('AND club_id = $2'),
+        expect.arrayContaining([TEST_USER_ID, 'c1'])
       );
     });
   });
@@ -110,8 +110,8 @@ describe('sessions routes', () => {
       expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
       expect(mockClient.release).toHaveBeenCalled();
 
-      // Verify game plan cache invalidation
-      expect(mockMarkPlansStale).toHaveBeenCalledWith('New practice data recorded');
+      // Verify game plan cache invalidation (now includes userId)
+      expect(mockMarkPlansStale).toHaveBeenCalledWith('New practice data recorded', undefined, TEST_USER_ID);
     });
 
     it('rejects invalid session type with 400', async () => {
@@ -153,12 +153,12 @@ describe('sessions routes', () => {
       const res = await request(app).delete('/s1');
       expect(res.status).toBe(204);
       expect(mockQuery).toHaveBeenCalledWith(
-        'DELETE FROM sessions WHERE id = $1',
-        ['s1']
+        'DELETE FROM sessions WHERE id = $1 AND user_id = $2',
+        ['s1', TEST_USER_ID]
       );
 
-      // Verify game plan cache invalidation
-      expect(mockMarkPlansStale).toHaveBeenCalledWith('Practice data deleted');
+      // Verify game plan cache invalidation (now includes userId)
+      expect(mockMarkPlansStale).toHaveBeenCalledWith('Practice data deleted', undefined, TEST_USER_ID);
     });
   });
 

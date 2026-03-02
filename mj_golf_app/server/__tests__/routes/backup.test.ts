@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import request from 'supertest';
-import { createTestApp, mockQuery, mockPool, mockClient, mockDbModule, mockWithTransaction, resetMocks } from '../helpers/setup.js';
+import { createTestApp, mockQuery, mockPool, mockClient, mockDbModule, mockWithTransaction, resetMocks, TEST_USER_ID } from '../helpers/setup.js';
 
 // vi.hoisted runs before vi.mock hoisting, so the variable is available
 const mockMarkPlansStale = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
@@ -117,7 +117,7 @@ describe('backup routes', () => {
 
       await request(app).post('/import').send(body);
 
-      expect(mockMarkPlansStale).toHaveBeenCalledWith('Data imported from backup');
+      expect(mockMarkPlansStale).toHaveBeenCalledWith('Data imported from backup', undefined, TEST_USER_ID);
     });
 
     it('with non-array clubs returns 400', async () => {

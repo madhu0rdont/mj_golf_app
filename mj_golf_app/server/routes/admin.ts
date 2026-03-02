@@ -10,7 +10,11 @@ import {
   computeTargetDistances,
 } from '../services/geo-utils.js';
 
+import { requireAdmin } from '../middleware/auth.js';
+
 const router = Router();
+router.use(requireAdmin);
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },

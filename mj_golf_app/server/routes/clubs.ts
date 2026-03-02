@@ -20,10 +20,11 @@ const updateClubSchema = createClubSchema.partial();
 
 const router = Router();
 
-// GET /api/clubs — list all clubs ordered by sort_order
-router.get('/', async (_req, res) => {
+// GET /api/clubs — list user's clubs ordered by sort_order
+router.get('/', async (req, res) => {
   try {
-    const { rows } = await query('SELECT * FROM clubs ORDER BY sort_order');
+    const userId = req.session.userId!;
+    const { rows } = await query('SELECT * FROM clubs WHERE user_id = $1 ORDER BY sort_order', [userId]);
     res.json(rows.map(toCamel));
   } catch (err) {
     logger.error('Failed to list clubs', { error: String(err) });
@@ -31,10 +32,11 @@ router.get('/', async (_req, res) => {
   }
 });
 
-// GET /api/clubs/:id — single club
+// GET /api/clubs/:id — single club (owned by user)
 router.get('/:id', async (req, res) => {
   try {
-    const { rows } = await query('SELECT * FROM clubs WHERE id = $1', [req.params.id]);
+    const userId = req.session.userId!;
+    const { rows } = await query('SELECT * FROM clubs WHERE id = $1 AND user_id = $2', [req.params.id, userId]);
     if (rows.length === 0) return res.status(404).json({ error: 'Club not found' });
     res.json(toCamel(rows[0]));
   } catch (err) {
@@ -51,21 +53,25 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors });
     }
 
+    const userId = req.session.userId!;
     const now = Date.now();
     const id = crypto.randomUUID();
 
-    // Get max sort_order
-    const { rows: maxRows } = await query('SELECT COALESCE(MAX(sort_order), -1) as max_order FROM clubs');
+    // Get max sort_order for this user
+    const { rows: maxRows } = await query(
+      'SELECT COALESCE(MAX(sort_order), -1) as max_order FROM clubs WHERE user_id = $1',
+      [userId],
+    );
     const sortOrder = maxRows[0].max_order + 1;
 
-    const filtered = pickColumns({ ...req.body, id, sortOrder, createdAt: now, updatedAt: now }, CLUB_COLUMNS);
+    const filtered = pickColumns({ ...req.body, id, userId, sortOrder, createdAt: now, updatedAt: now }, CLUB_COLUMNS);
     const q = buildInsert('clubs', filtered);
     await query(q.text, q.values);
 
     res.status(201).json(toCamel(filtered));
 
-    // Fire-and-forget: mark game plans stale
-    markPlansStale('Club bag changed').catch(err => logger.error('markPlansStale failed', { error: String(err) }));
+    // Fire-and-forget: mark game plans stale for this user
+    markPlansStale('Club bag changed', undefined, userId).catch(err => logger.error('markPlansStale failed', { error: String(err) }));
   } catch (err) {
     logger.error('Failed to create club', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
@@ -80,13 +86,14 @@ router.put('/reorder', async (req, res) => {
       return res.status(400).json({ error: 'orderedIds must be an array' });
     }
 
+    const userId = req.session.userId!;
     const now = Date.now();
 
     await withTransaction(async (client) => {
       for (let i = 0; i < orderedIds.length; i++) {
         await client.query(
-          'UPDATE clubs SET sort_order = $1, updated_at = $2 WHERE id = $3',
-          [i, now, orderedIds[i]]
+          'UPDATE clubs SET sort_order = $1, updated_at = $2 WHERE id = $3 AND user_id = $4',
+          [i, now, orderedIds[i], userId]
         );
       }
     });
@@ -106,7 +113,10 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors });
     }
 
+    const userId = req.session.userId!;
     const filtered = pickColumns({ ...req.body, updatedAt: Date.now() }, CLUB_COLUMNS);
+    // Remove user_id from update payload — shouldn't be changeable
+    delete filtered.user_id;
     const keys = Object.keys(filtered);
     const values = Object.values(filtered);
 
@@ -115,18 +125,19 @@ router.put('/:id', async (req, res) => {
     }
 
     const setClauses = keys.map((k, i) => `${k} = $${i + 1}`);
-    values.push(req.params.id);
+    values.push(req.params.id, userId);
 
     await query(
-      `UPDATE clubs SET ${setClauses.join(', ')} WHERE id = $${values.length}`,
+      `UPDATE clubs SET ${setClauses.join(', ')} WHERE id = $${values.length - 1} AND user_id = $${values.length}`,
       values
     );
 
-    const { rows } = await query('SELECT * FROM clubs WHERE id = $1', [req.params.id]);
+    const { rows } = await query('SELECT * FROM clubs WHERE id = $1 AND user_id = $2', [req.params.id, userId]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Club not found' });
     res.json(toCamel(rows[0]));
 
-    // Fire-and-forget: mark game plans stale
-    markPlansStale('Club settings changed').catch(err => logger.error('markPlansStale failed', { error: String(err) }));
+    // Fire-and-forget: mark game plans stale for this user
+    markPlansStale('Club settings changed', undefined, userId).catch(err => logger.error('markPlansStale failed', { error: String(err) }));
   } catch (err) {
     logger.error('Failed to update club', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
@@ -136,16 +147,17 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/clubs/:id — delete club (cascade sessions+shots)
 router.delete('/:id', async (req, res) => {
   try {
+    const userId = req.session.userId!;
     await withTransaction(async (client) => {
       // Delete sessions (shots cascade via ON DELETE CASCADE on shots.session_id)
-      await client.query('DELETE FROM sessions WHERE club_id = $1', [req.params.id]);
-      await client.query('DELETE FROM clubs WHERE id = $1', [req.params.id]);
+      await client.query('DELETE FROM sessions WHERE club_id = $1 AND user_id = $2', [req.params.id, userId]);
+      await client.query('DELETE FROM clubs WHERE id = $1 AND user_id = $2', [req.params.id, userId]);
     });
 
     res.json({ ok: true });
 
-    // Fire-and-forget: mark game plans stale
-    markPlansStale('Club removed').catch(err => logger.error('markPlansStale failed', { error: String(err) }));
+    // Fire-and-forget: mark game plans stale for this user
+    markPlansStale('Club removed', undefined, userId).catch(err => logger.error('markPlansStale failed', { error: String(err) }));
   } catch (err) {
     logger.error('Failed to delete club', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });

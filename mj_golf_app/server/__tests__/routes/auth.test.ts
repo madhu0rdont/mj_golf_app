@@ -2,17 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 
-// Must set env before module loads (hoisted runs first)
-vi.hoisted(() => {
-  process.env.APP_PASSWORD = 'test-password';
-});
-
-// Mock bcrypt before importing auth router
+// Mock bcrypt
 const mockCompare = vi.fn().mockResolvedValue(false);
+const mockHash = vi.fn().mockResolvedValue('$2b$12$hashedpassword');
 vi.mock('bcrypt', () => ({
   default: {
-    hashSync: () => '$2b$10$fakehash',
     compare: (...args: unknown[]) => mockCompare(...args),
+    hash: (...args: unknown[]) => mockHash(...args),
   },
 }));
 
@@ -21,15 +17,24 @@ vi.mock('express-rate-limit', () => ({
   default: () => (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 
+// Mock db query
+const mockQuery = vi.fn().mockResolvedValue({ rows: [] });
+vi.mock('../../db.js', () => ({
+  query: (...args: unknown[]) => mockQuery(...args),
+}));
+
 import authRouter from '../../routes/auth.js';
 
 function createAuthApp() {
   const app = express();
   app.use(express.json());
-  // Minimal session mock — must be set before routes run
+  // Minimal session mock
   app.use((req: any, _res: any, next: () => void) => {
     req.session = {
       authenticated: false,
+      userId: undefined,
+      username: undefined,
+      role: undefined,
       save(cb: (err?: Error) => void) { cb(); },
       destroy(cb: (err?: Error) => void) {
         req.session = null;
@@ -44,45 +49,73 @@ function createAuthApp() {
 
 const app = createAuthApp();
 
+const testUser = {
+  id: 'user-1',
+  username: 'mj',
+  password: '$2b$12$hashedpassword',
+  display_name: 'MJ',
+  role: 'player',
+  handedness: 'left',
+};
+
 describe('auth routes', () => {
   beforeEach(() => {
     mockCompare.mockReset().mockResolvedValue(false);
+    mockHash.mockReset().mockResolvedValue('$2b$12$hashedpassword');
+    mockQuery.mockReset().mockResolvedValue({ rows: [] });
   });
 
   // ── POST /login ──────────────────────────────────────────────────
   describe('POST /login', () => {
-    it('returns success on correct password', async () => {
+    it('returns success with user info on correct credentials', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [testUser] }); // user lookup
       mockCompare.mockResolvedValueOnce(true);
 
       const res = await request(app)
         .post('/login')
-        .send({ password: 'test-password' });
+        .send({ username: 'mj', password: 'correct' });
 
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ success: true });
-      expect(mockCompare).toHaveBeenCalledWith('test-password', '$2b$10$fakehash');
+      expect(res.body.success).toBe(true);
+      expect(res.body.user).toMatchObject({
+        id: 'user-1',
+        username: 'mj',
+        displayName: 'MJ',
+        role: 'player',
+        handedness: 'left',
+      });
     });
 
     it('returns 401 on wrong password', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [testUser] }); // user lookup
       mockCompare.mockResolvedValueOnce(false);
 
       const res = await request(app)
         .post('/login')
-        .send({ password: 'wrong' });
+        .send({ username: 'mj', password: 'wrong' });
 
       expect(res.status).toBe(401);
-      expect(res.body).toEqual({ error: 'Wrong password' });
+      expect(res.body.error).toBe('Invalid username or password');
     });
 
-    it('returns 401 when password is missing', async () => {
-      mockCompare.mockResolvedValueOnce(false);
+    it('returns 401 when user not found', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // no user
 
       const res = await request(app)
         .post('/login')
-        .send({});
+        .send({ username: 'nobody', password: 'test' });
 
       expect(res.status).toBe(401);
-      expect(res.body).toEqual({ error: 'Wrong password' });
+      expect(res.body.error).toBe('Invalid username or password');
+    });
+
+    it('returns 400 when username or password missing', async () => {
+      const res = await request(app)
+        .post('/login')
+        .send({ username: 'mj' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Username and password are required');
     });
   });
 
@@ -98,11 +131,68 @@ describe('auth routes', () => {
 
   // ── GET /check ───────────────────────────────────────────────────
   describe('GET /check', () => {
-    it('returns authenticated status', async () => {
+    it('returns needsSetup when no users exist', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ count: '0' }] }); // user count
+
       const res = await request(app).get('/check');
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('authenticated');
+      expect(res.body.authenticated).toBe(false);
+      expect(res.body.needsSetup).toBe(true);
+    });
+
+    it('returns not authenticated when session has no userId', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ count: '2' }] }); // users exist
+
+      const res = await request(app).get('/check');
+
+      expect(res.status).toBe(200);
+      expect(res.body.authenticated).toBe(false);
+    });
+  });
+
+  // ── POST /setup ──────────────────────────────────────────────────
+  describe('POST /setup', () => {
+    it('returns 403 when users already exist', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ count: '1' }] });
+
+      const res = await request(app)
+        .post('/setup')
+        .send({
+          adminUsername: 'admin',
+          adminPassword: 'pass',
+          playerUsername: 'mj',
+          playerPassword: 'pass',
+        });
+
+      expect(res.status).toBe(403);
+    });
+
+    it('creates admin and player accounts when no users exist', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ count: '0' }] }) // count check
+        .mockResolvedValueOnce({ rows: [] }) // admin insert
+        .mockResolvedValueOnce({ rows: [] }) // player insert
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // assign clubs
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // assign sessions
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // assign shots
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // assign wedge_overrides
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // assign game_plan_cache
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // assign game_plan_history
+
+      const res = await request(app)
+        .post('/setup')
+        .send({
+          adminUsername: 'admin',
+          adminPassword: 'adminpass',
+          playerUsername: 'mj',
+          playerPassword: 'mjpass',
+          playerDisplayName: 'MJ',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.user.role).toBe('player');
     });
   });
 });

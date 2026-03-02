@@ -28,7 +28,7 @@ mockDbModule();
 
 import adminRouter from '../../routes/admin.js';
 
-const app = createTestApp(adminRouter);
+const app = createTestApp(adminRouter, '/', { role: 'admin' });
 
 describe('admin routes', () => {
   beforeEach(() => {

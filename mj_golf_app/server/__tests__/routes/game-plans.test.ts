@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import request from 'supertest';
-import { createTestApp, mockQuery, mockDbModule, resetMocks } from '../helpers/setup.js';
+import { createTestApp, mockQuery, mockDbModule, resetMocks, TEST_USER_ID } from '../helpers/setup.js';
 
 // Mock the plan-regenerator module before importing the router
 vi.mock('../../services/plan-regenerator.js', () => ({
@@ -120,7 +120,7 @@ describe('game-plans routes', () => {
       // Verify the upsert query
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO game_plan_cache'),
-        expect.arrayContaining(['c1_blue_scoring', 'c1', 'blue', 'scoring']),
+        expect.arrayContaining([`${TEST_USER_ID}_c1_blue_scoring`, 'c1', 'blue', 'scoring', TEST_USER_ID]),
       );
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('ON CONFLICT'),
@@ -170,8 +170,8 @@ describe('game-plans routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
       expect(mockQuery).toHaveBeenCalledWith(
-        'DELETE FROM game_plan_cache WHERE course_id = $1',
-        ['c1'],
+        'DELETE FROM game_plan_cache WHERE course_id = $1 AND user_id = $2',
+        ['c1', TEST_USER_ID],
       );
     });
 
@@ -202,7 +202,7 @@ describe('game-plans routes', () => {
       await markPlansStale('Hole data edited', 'c1');
 
       expect(mockQuery).toHaveBeenCalledWith(
-        'UPDATE game_plan_cache SET stale = TRUE, stale_reason = $1 WHERE course_id = $2 AND stale = FALSE',
+        'UPDATE game_plan_cache SET stale = TRUE, stale_reason = $1 WHERE stale = FALSE AND course_id = $2',
         ['Hole data edited', 'c1'],
       );
     });
@@ -275,7 +275,7 @@ describe('game-plans routes', () => {
 
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('FROM game_plan_history'),
-        ['c1', 'blue', 'scoring'],
+        ['c1', 'blue', 'scoring', TEST_USER_ID],
       );
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('LIMIT 100'),
