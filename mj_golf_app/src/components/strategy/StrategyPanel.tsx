@@ -121,12 +121,14 @@ export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount, is
                 {s.tip && (
                   <p className="text-xs text-text-muted mt-0.5">{s.tip}</p>
                 )}
-                {opt && isSelected && opt.aimPoints.length > 0 && (
+                {opt && opt.aimPoints.length > 0 && (
                   <div className="mt-1 flex flex-col gap-0.5">
-                    {opt.aimPoints.map((ap) => (
+                    {opt.aimPoints
+                      .filter((_, j) => isSelected || j === 0)
+                      .map((ap) => (
                       <p key={ap.shotNumber} className="text-[10px] text-text-muted">
                         <span className="font-semibold text-text-medium">{ap.shotNumber}.</span>{' '}
-                        {ap.tip}
+                        {ap.tip}{ap.carryNote ? ` (${ap.carryNote})` : ''}
                       </p>
                     ))}
                   </div>

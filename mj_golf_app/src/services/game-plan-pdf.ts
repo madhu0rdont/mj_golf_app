@@ -65,9 +65,8 @@ function renderHeader(doc: jsPDF, plan: GamePlan): number {
 
   // Subtitle
   const teeLabel = plan.teeBox.charAt(0).toUpperCase() + plan.teeBox.slice(1);
-  const modeLabel = plan.mode === 'scoring' ? 'Scoring' : 'Safe';
   setFont(doc, 'normal', 9, [190, 190, 190] as RGB);
-  doc.text(`${teeLabel} Tees  |  ${modeLabel} Mode  |  ${plan.date}`, MARGIN, 48);
+  doc.text(`${teeLabel} Tees  |  ${plan.date}`, MARGIN, 48);
 
   y = 88;
 

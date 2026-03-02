@@ -1,5 +1,5 @@
 import { optimizeHole } from './strategy-optimizer';
-import type { OptimizedStrategy, ScoreDistribution, StrategyMode } from './strategy-optimizer';
+import type { OptimizedStrategy, ScoreDistribution } from './strategy-optimizer';
 import type { ClubDistribution } from './monte-carlo';
 import type { CourseWithHoles } from '../models/course';
 
@@ -19,7 +19,6 @@ export interface HolePlan {
 export interface GamePlan {
   courseName: string;
   teeBox: string;
-  mode: StrategyMode;
   date: string;
   totalExpected: number;
   breakdown: ScoreDistribution;
@@ -67,7 +66,6 @@ export async function generateGamePlan(
   course: CourseWithHoles,
   teeBox: string,
   distributions: ClubDistribution[],
-  mode: StrategyMode,
   onProgress?: (current: number, total: number) => void,
 ): Promise<GamePlan> {
   const holes: HolePlan[] = [];
@@ -80,7 +78,7 @@ export async function generateGamePlan(
     // Yield to UI
     await new Promise((r) => setTimeout(r, 0));
 
-    const strategies = optimizeHole(hole, teeBox, distributions, mode);
+    const strategies = optimizeHole(hole, teeBox, distributions);
     const topStrategy = strategies[0];
 
     if (!topStrategy) continue;
@@ -100,7 +98,7 @@ export async function generateGamePlan(
 
   // Compute key holes: biggest delta between first and last strategy xS
   const deltas = course.holes.map((hole) => {
-    const strats = optimizeHole(hole, teeBox, distributions, mode);
+    const strats = optimizeHole(hole, teeBox, distributions);
     if (strats.length < 2) return { holeNumber: hole.holeNumber, delta: 0 };
     return {
       holeNumber: hole.holeNumber,
@@ -116,7 +114,6 @@ export async function generateGamePlan(
   return {
     courseName: course.name,
     teeBox,
-    mode,
     date: new Date().toLocaleDateString(),
     totalExpected,
     breakdown: aggregateScoreDistribution(holes),

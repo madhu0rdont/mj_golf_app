@@ -14,7 +14,6 @@ import { useYardageBookShots } from '../hooks/useYardageBook';
 import { useGamePlanCache } from '../hooks/useGamePlanCache';
 import { buildDistributions } from '../services/monte-carlo';
 import type { Course } from '../models/course';
-import type { StrategyMode } from '../services/strategy-optimizer';
 
 const TEE_BOXES = [
   { key: 'blue', label: 'Blue', color: '#3B82F6' },
@@ -75,7 +74,6 @@ export function StrategyPlannerPage() {
   );
   const [teeBox, setTeeBox] = useState('blue');
   const [showSim, setShowSim] = useState(false);
-  const [strategyMode, setStrategyMode] = useState<StrategyMode>('scoring');
   const [selectedStrategyIdx, setSelectedStrategyIdx] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('hole');
 
@@ -94,7 +92,7 @@ export function StrategyPlannerPage() {
   const totalHoles = course?.holes.length ?? 18;
 
   const { strategies, landingZones, aimPoints, shotCount } =
-    useHoleStrategy(hole, teeBox, showSim, selectedStrategyIdx, strategyMode);
+    useHoleStrategy(hole, teeBox, showSim, selectedStrategyIdx);
 
   // Build distributions for GamePlanView (always, not gated by showSim)
   const shotGroups = useYardageBookShots();
@@ -108,7 +106,6 @@ export function StrategyPlannerPage() {
     course,
     teeBox,
     distributions,
-    strategyMode,
   );
 
   const keyHoleSet = useMemo(
@@ -116,10 +113,10 @@ export function StrategyPlannerPage() {
     [gamePlan?.keyHoles],
   );
 
-  // Reset strategy selection when hole, tee, or mode changes
+  // Reset strategy selection when hole or tee changes
   useEffect(() => {
     setSelectedStrategyIdx(0);
-  }, [holeNumber, teeBox, strategyMode]);
+  }, [holeNumber, teeBox]);
 
   // Keyboard nav (only in hole view)
   useEffect(() => {
@@ -209,25 +206,6 @@ export function StrategyPlannerPage() {
             </button>
           ))}
 
-          {/* Scoring / Safe toggle (game plan view) */}
-          {viewMode === 'gameplan' && (
-            <>
-              <div className="h-5 w-px bg-border mx-1" />
-              {(['scoring', 'safe'] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setStrategyMode(m)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                    strategyMode === m
-                      ? 'bg-primary text-white'
-                      : 'bg-surface text-text-medium hover:bg-border'
-                  }`}
-                >
-                  {m === 'scoring' ? 'Scoring' : 'Safe'}
-                </button>
-              ))}
-            </>
-          )}
         </div>
 
         {/* View mode segmented control */}
@@ -283,24 +261,6 @@ export function StrategyPlannerPage() {
                   >
                     {showSim ? 'Sim On' : 'Run Sim'}
                   </button>
-                  {showSim && (
-                    <>
-                      <div className="h-6 w-px bg-border" />
-                      {(['scoring', 'safe'] as const).map((m) => (
-                        <button
-                          key={m}
-                          onClick={() => setStrategyMode(m)}
-                          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                            strategyMode === m
-                              ? 'bg-primary text-white'
-                              : 'bg-surface text-text-medium hover:bg-border'
-                          }`}
-                        >
-                          {m === 'scoring' ? 'Scoring' : 'Safe'}
-                        </button>
-                      ))}
-                    </>
-                  )}
                 </div>
 
                 {showSim && (

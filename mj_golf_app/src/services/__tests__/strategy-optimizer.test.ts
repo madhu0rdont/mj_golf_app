@@ -222,15 +222,53 @@ describe('generateNamedStrategies', () => {
     expect(conservative.shots[0].aimPoint.lat).toBeCloseTo(hole.targets[0].coordinate.lat, 4);
   });
 
-  it('Aggressive shifts aim toward pin', () => {
+  it('Aggressive aims at longest carry along center line', () => {
     const hole = makeHole(4, 400);
     const plans = generateNamedStrategies(hole, 'blue', dists);
     const conservative = plans.find((p) => p.name === 'Conservative')!;
     const aggressive = plans.find((p) => p.name === 'Aggressive')!;
-    // Aggressive aim should be closer to pin than conservative
+    // Aggressive aim should be closer to pin than conservative (driver carry > target distance)
     const conservDist = Math.abs(conservative.shots[0].aimPoint.lat - hole.pin.lat);
     const aggDist = Math.abs(aggressive.shots[0].aimPoint.lat - hole.pin.lat);
     expect(aggDist).toBeLessThan(conservDist);
+  });
+
+  it('Aggressive is deduplicated when too similar to Conservative', () => {
+    const hole = makeHole(4, 400);
+    hole.targets = []; // force center-line fallback → both use longest carry
+    const plans = generateNamedStrategies(hole, 'blue', dists);
+    // Without targets, both aim at longest carry → Aggressive is dropped
+    const names = plans.map((p) => p.name);
+    expect(names).not.toContain('Aggressive');
+    expect(plans.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('Aggressive does not dodge hazards (no findSafeLanding)', () => {
+    const hole = makeHole(4, 400);
+    hole.targets = [];
+    // Place hazard at 275y (driver carry) — Conservative should dodge, Aggressive should not
+    // But with dedup, Aggressive may not exist. Use a hole where they differ.
+    // With targets at 240y: Conservative → 3 Wood at target, Aggressive → Driver at 275y
+    const hole2 = makeHole(4, 400);
+    const hazardLat = 33.0 + 275 / 121100;
+    hole2.hazards = [
+      makeHazard({
+        type: 'fairway_bunker',
+        penalty: 0.3,
+        polygon: [
+          { lat: hazardLat - 0.0003, lng: -117.00005 },
+          { lat: hazardLat - 0.0003, lng: -116.99995 },
+          { lat: hazardLat + 0.0003, lng: -116.99995 },
+          { lat: hazardLat + 0.0003, lng: -117.00005 },
+        ],
+      }),
+    ];
+    const plans = generateNamedStrategies(hole2, 'blue', dists);
+    const aggressive = plans.find((p) => p.name === 'Aggressive');
+    if (aggressive) {
+      // Aggressive aim should stay on center line (lng ≈ -117.0) despite the hazard
+      expect(aggressive.shots[0].aimPoint.lng).toBeCloseTo(-117.0, 4);
+    }
   });
 
   it('generates 3 strategies for par 5', () => {
@@ -505,30 +543,21 @@ describe('optimizeHole', () => {
 
   it('returns empty for empty distributions', () => {
     const hole = makeHole(4);
-    expect(optimizeHole(hole, 'blue', [], 'scoring')).toEqual([]);
+    expect(optimizeHole(hole, 'blue', [])).toEqual([]);
   });
 
-  it('returns strategies sorted by xS in scoring mode', () => {
+  it('returns strategies sorted by expected strokes', () => {
     const hole = makeHole(4, 400);
-    const results = optimizeHole(hole, 'blue', dists, 'scoring', 500);
+    const results = optimizeHole(hole, 'blue', dists, 500);
     expect(results.length).toBeGreaterThanOrEqual(2);
     for (let i = 1; i < results.length; i++) {
       expect(results[i].expectedStrokes).toBeGreaterThanOrEqual(results[i - 1].expectedStrokes);
     }
   });
 
-  it('returns strategies sorted by blowup risk in safe mode', () => {
-    const hole = makeHole(4, 400);
-    const results = optimizeHole(hole, 'blue', dists, 'safe', 500);
-    expect(results.length).toBeGreaterThanOrEqual(2);
-    for (let i = 1; i < results.length; i++) {
-      expect(results[i].blowupRisk).toBeGreaterThanOrEqual(results[i - 1].blowupRisk);
-    }
-  });
-
   it('all results have strategy names', () => {
     const hole = makeHole(4, 400);
-    const results = optimizeHole(hole, 'blue', dists, 'scoring', 500);
+    const results = optimizeHole(hole, 'blue', dists, 500);
     for (const r of results) {
       expect(r.strategyName).toBeTruthy();
     }
@@ -536,7 +565,7 @@ describe('optimizeHole', () => {
 
   it('par 3 results have single-shot aim points', () => {
     const hole = makeHole(3, 165);
-    const results = optimizeHole(hole, 'blue', dists, 'scoring', 500);
+    const results = optimizeHole(hole, 'blue', dists, 500);
     for (const r of results) {
       expect(r.aimPoints.length).toBe(1);
     }

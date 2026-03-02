@@ -1,5 +1,5 @@
 import { optimizeHole } from './strategy-optimizer.js';
-import type { OptimizedStrategy, ScoreDistribution, StrategyMode } from './strategy-optimizer.js';
+import type { OptimizedStrategy, ScoreDistribution } from './strategy-optimizer.js';
 import type { ClubDistribution } from './monte-carlo.js';
 import type { CourseWithHoles } from '../models/types.js';
 
@@ -19,7 +19,6 @@ export interface HolePlan {
 export interface GamePlan {
   courseName: string;
   teeBox: string;
-  mode: StrategyMode;
   date: string;
   totalExpected: number;
   breakdown: ScoreDistribution;
@@ -67,14 +66,13 @@ export function generateGamePlan(
   course: CourseWithHoles,
   teeBox: string,
   distributions: ClubDistribution[],
-  mode: StrategyMode,
 ): GamePlan {
   const holes: HolePlan[] = [];
 
   for (let i = 0; i < course.holes.length; i++) {
     const hole = course.holes[i];
 
-    const strategies = optimizeHole(hole, teeBox, distributions, mode);
+    const strategies = optimizeHole(hole, teeBox, distributions);
     const topStrategy = strategies[0];
 
     if (!topStrategy) continue;
@@ -94,7 +92,7 @@ export function generateGamePlan(
 
   // Compute key holes: biggest delta between first and last strategy xS
   const deltas = course.holes.map((hole) => {
-    const strats = optimizeHole(hole, teeBox, distributions, mode);
+    const strats = optimizeHole(hole, teeBox, distributions);
     if (strats.length < 2) return { holeNumber: hole.holeNumber, delta: 0 };
     return {
       holeNumber: hole.holeNumber,
@@ -110,7 +108,6 @@ export function generateGamePlan(
   return {
     courseName: course.name,
     teeBox,
-    mode,
     date: new Date().toLocaleDateString(),
     totalExpected,
     breakdown: aggregateScoreDistribution(holes),

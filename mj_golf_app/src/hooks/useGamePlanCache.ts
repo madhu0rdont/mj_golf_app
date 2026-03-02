@@ -6,7 +6,6 @@ import { generateGamePlan } from '../services/game-plan';
 import type { GamePlan } from '../services/game-plan';
 import type { ClubDistribution } from '../services/monte-carlo';
 import type { CourseWithHoles } from '../models/course';
-import type { StrategyMode } from '../services/strategy-optimizer';
 
 interface CachedPlanRow {
   id: string;
@@ -24,13 +23,12 @@ export function useGamePlanCache(
   course: CourseWithHoles | undefined,
   teeBox: string,
   distributions: ClubDistribution[],
-  mode: StrategyMode,
 ) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const staleRef = useRef(false);
 
-  const cacheKey = course ? `/api/game-plans/${course.id}/${teeBox}/${mode}` : null;
+  const cacheKey = course ? `/api/game-plans/${course.id}/${teeBox}/scoring` : null;
 
   const { data, isLoading: isFetching } = useSWR<CachedPlanRow | null>(
     cacheKey,
@@ -61,12 +59,12 @@ export function useGamePlanCache(
     setProgress({ current: 0, total: course.holes.length });
 
     try {
-      const plan = await generateGamePlan(course, teeBox, distributions, mode, (current, total) => {
+      const plan = await generateGamePlan(course, teeBox, distributions, (current, total) => {
         setProgress({ current, total });
       });
 
       // Save to server
-      await api.put(`/game-plans/${course.id}/${teeBox}/${mode}`, { plan });
+      await api.put(`/game-plans/${course.id}/${teeBox}/scoring`, { plan });
 
       // Revalidate SWR cache
       if (cacheKey) {
@@ -76,7 +74,7 @@ export function useGamePlanCache(
       setIsGenerating(false);
       setProgress(null);
     }
-  }, [course, teeBox, distributions, mode, cacheKey]);
+  }, [course, teeBox, distributions, cacheKey]);
 
   return {
     gamePlan,

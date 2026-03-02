@@ -4,7 +4,6 @@ import { computeClubShotGroups } from './club-shot-groups.js';
 import { buildDistributions } from './monte-carlo.js';
 import { generateGamePlan } from './game-plan.js';
 import type { Club, Shot, CourseWithHoles, CourseHole } from '../models/types.js';
-import type { StrategyMode } from './strategy-optimizer.js';
 
 // PostgreSQL advisory lock ID for plan regeneration
 const REGEN_LOCK_ID = 1337;
@@ -45,7 +44,7 @@ export async function regenerateStalePlans() {
     for (const row of stalePlans) {
       const courseId = row.course_id as string;
       const teeBox = row.tee_box as string;
-      const mode = row.mode as StrategyMode;
+      const mode = row.mode as string;
       const staleReason = row.stale_reason as string | null;
 
       try {
@@ -64,7 +63,7 @@ export async function regenerateStalePlans() {
         if (course.holes.length === 0) continue;
 
         // Generate plan
-        const plan = generateGamePlan(course, teeBox, distributions, mode);
+        const plan = generateGamePlan(course, teeBox, distributions);
 
         // Upsert game_plan_cache (stale = FALSE)
         const now = Date.now();

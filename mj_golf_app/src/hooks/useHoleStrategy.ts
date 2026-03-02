@@ -4,7 +4,7 @@ import { buildDistributions } from '../services/monte-carlo';
 import { optimizeHole } from '../services/strategy-optimizer';
 import { projectPoint, computeEllipsePoints, bearingBetween } from '../utils/geo';
 import type { ClubDistribution, ApproachStrategy } from '../services/monte-carlo';
-import type { OptimizedStrategy, StrategyMode, AimPoint } from '../services/strategy-optimizer';
+import type { OptimizedStrategy, AimPoint } from '../services/strategy-optimizer';
 import type { CourseHole } from '../models/course';
 
 export interface LandingZone {
@@ -101,7 +101,6 @@ export function useHoleStrategy(
   teeBox: string,
   enabled: boolean,
   selectedStrategyIdx: number,
-  mode: StrategyMode = 'scoring',
 ): {
   strategies: ApproachStrategy[];
   distributions: ClubDistribution[];
@@ -133,8 +132,8 @@ export function useHoleStrategy(
 
   const strategies = useMemo(() => {
     if (!enabled || distributions.length === 0 || distance === 0 || !hole) return [];
-    return optimizeHole(hole, teeBox, distributions, mode);
-  }, [enabled, distributions, distance, hole, teeBox, mode]);
+    return optimizeHole(hole, teeBox, distributions);
+  }, [enabled, distributions, distance, hole, teeBox]);
 
   const landingZones = useMemo(() => {
     if (!enabled || !hole || strategies.length === 0) return [];

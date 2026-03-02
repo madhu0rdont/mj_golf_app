@@ -37,7 +37,6 @@ export interface OptimizedStrategy extends ApproachStrategy {
   aimPoints: AimPoint[];
 }
 
-export type StrategyMode = 'scoring' | 'safe';
 
 export interface NamedStrategyPlan {
   name: string;
@@ -156,15 +155,6 @@ function longestClub(dists: ClubDistribution[]): ClubDistribution {
 
 function shortestClub(dists: ClubDistribution[]): ClubDistribution {
   return dists.reduce((a, b) => (b.meanCarry < a.meanCarry ? b : a), dists[0]);
-}
-
-function shiftToward(
-  from: { lat: number; lng: number },
-  toward: { lat: number; lng: number },
-  yards: number,
-): { lat: number; lng: number } {
-  const brng = bearingBetween(from, toward);
-  return projectPoint(from, brng, yards);
 }
 
 function compensateForBias(
@@ -460,20 +450,33 @@ export function generateNamedStrategies(
       ],
     });
 
-    const aggTarget = findSafeLanding(shiftToward(conservTarget, pin, 12), heading, hole.hazards);
-    const aggDist1 = haversineYards(tee, aggTarget);
-    const aggClub1 = closestClub(aggDist1, distributions)!;
-    const aggLanding = expectedLanding(tee, heading, aggClub1);
-    const aggRemaining = haversineYards(aggLanding, pin);
-    const aggClub2 = closestClub(aggRemaining, distributions)!;
-    plans.push({
-      name: 'Aggressive',
-      type: 'scoring',
-      shots: [
-        { clubDist: aggClub1, aimPoint: aggTarget },
-        { clubDist: aggClub2, aimPoint: pin },
-      ],
-    });
+    // Aggressive: longest carry along center line — accept hazard risk (no findSafeLanding)
+    let aggTarget = centerLinePoint(cl, tee, longest.meanCarry, heading);
+    let aggClub1 = closestClub(haversineYards(tee, aggTarget), distributions)!;
+
+    // Dedup: if same club and aim within 15y of conservative, try cutting toward pin
+    if (aggClub1.clubId === conservClub1.clubId && haversineYards(aggTarget, conservTarget) < 15) {
+      const cutTarget = projectPoint(tee, heading, longest.meanCarry);
+      if (haversineYards(cutTarget, conservTarget) >= 15) {
+        aggTarget = cutTarget;
+        aggClub1 = closestClub(haversineYards(tee, aggTarget), distributions)!;
+      }
+    }
+
+    // Only add if meaningfully different from conservative
+    if (aggClub1.clubId !== conservClub1.clubId || haversineYards(aggTarget, conservTarget) >= 15) {
+      const aggLanding = expectedLanding(tee, heading, aggClub1);
+      const aggRemaining = haversineYards(aggLanding, pin);
+      const aggClub2 = closestClub(aggRemaining, distributions)!;
+      plans.push({
+        name: 'Aggressive',
+        type: 'scoring',
+        shots: [
+          { clubDist: aggClub1, aimPoint: aggTarget },
+          { clubDist: aggClub2, aimPoint: pin },
+        ],
+      });
+    }
 
     const midClubs = distributions.filter((d) => d.meanCarry < longest.meanCarry - 20);
     const layupClub1 = midClubs.length > 0 ? longestClub(midClubs) : longest;
@@ -693,7 +696,6 @@ export function optimizeHole(
   hole: CourseHole,
   teeBox: string,
   distributions: ClubDistribution[],
-  mode: StrategyMode = 'scoring',
   trials: number = DEFAULT_TRIALS,
 ): OptimizedStrategy[] {
   if (distributions.length === 0) return [];
@@ -705,11 +707,7 @@ export function optimizeHole(
     simulateHoleGPS(plan, hole, distributions, trials),
   );
 
-  if (mode === 'safe') {
-    results.sort((a, b) => a.blowupRisk - b.blowupRisk);
-  } else {
-    results.sort((a, b) => a.expectedStrokes - b.expectedStrokes);
-  }
+  results.sort((a, b) => a.expectedStrokes - b.expectedStrokes);
 
   return results;
 }

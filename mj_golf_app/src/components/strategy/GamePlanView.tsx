@@ -162,7 +162,7 @@ function HoleCard({ hole, isKeyHole }: { hole: HolePlan; isKeyHole?: boolean }) 
 function copySummary(plan: GamePlan) {
   const lines = [
     `${plan.courseName} — ${plan.teeBox.charAt(0).toUpperCase() + plan.teeBox.slice(1)} Tees`,
-    `${plan.mode === 'scoring' ? 'Scoring' : 'Safe'} Mode — ${plan.date}`,
+    `${plan.date}`,
     `Expected Total: ${plan.totalExpected.toFixed(1)} (Plays-Like: ${plan.totalPlaysLike}y)`,
     '',
     ...plan.holes.flatMap((h) => [
@@ -253,9 +253,6 @@ export function GamePlanView({ gamePlan, progress, isGenerating, onGenerate, dis
                   )}
                 </p>
               </div>
-              <span className="rounded-full bg-primary-pale px-2 py-0.5 text-[10px] font-medium text-primary capitalize">
-                {gamePlan.mode}
-              </span>
             </div>
           </div>
 
