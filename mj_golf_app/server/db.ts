@@ -5,8 +5,15 @@ import { logger } from './logger.js';
 // Our BIGINT columns are epoch-ms timestamps, safely within Number.MAX_SAFE_INTEGER.
 pg.types.setTypeParser(20, (val: string) => parseInt(val, 10));
 
+const isProd = process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT;
+if (isProd && !process.env.DATABASE_URL) {
+  logger.error('FATAL: DATABASE_URL must be set in production');
+  process.exit(1);
+}
+
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
+  statement_timeout: 30_000, // 30s — kill runaway queries
 });
 
 // Log unexpected pool errors (e.g. idle client disconnect) instead of crashing
