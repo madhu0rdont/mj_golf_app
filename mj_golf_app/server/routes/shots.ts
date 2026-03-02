@@ -23,13 +23,14 @@ router.get('/', async (req, res) => {
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const limit = Math.min(parseInt(req.query.limit as string) || 10000, 50000);
+    values.push(limit);
 
     const { rows } = await query(
       `SELECT shots.* FROM shots
        JOIN sessions s ON s.id = shots.session_id
        ${where}
        ORDER BY shots.id
-       LIMIT ${limit}`,
+       LIMIT $${paramIndex}`,
       values
     );
     res.json(rows.map(toCamel));

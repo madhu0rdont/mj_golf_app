@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { logger } from './logger.js';
 
 // Parse BIGINT (OID 20) as JavaScript numbers instead of strings.
 // Our BIGINT columns are epoch-ms timestamps, safely within Number.MAX_SAFE_INTEGER.
@@ -6,6 +7,11 @@ pg.types.setTypeParser(20, (val: string) => parseInt(val, 10));
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
+});
+
+// Log unexpected pool errors (e.g. idle client disconnect) instead of crashing
+pool.on('error', (err) => {
+  logger.error('Unexpected database pool error', { error: String(err) });
 });
 
 export function query(text: string, params?: unknown[]) {
@@ -22,7 +28,11 @@ export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<
     await client.query('COMMIT');
     return result;
   } catch (e) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackErr) {
+      logger.error('Rollback failed', { error: String(rollbackErr) });
+    }
     throw e;
   } finally {
     client.release();

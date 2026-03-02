@@ -1,4 +1,6 @@
 import express from 'express';
+import helmet from 'helmet';
+import compression from 'compression';
 import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
 import { fileURLToPath } from 'url';
@@ -29,6 +31,14 @@ const isProd = process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_EN
 
 // Trust Railway's reverse proxy so secure cookies work behind TLS termination
 if (isProd) app.set('trust proxy', 1);
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: false, // SPA manages its own CSP via meta tags
+}));
+
+// Response compression
+app.use(compression());
 
 app.use(express.json({ limit: '50mb' }));
 
