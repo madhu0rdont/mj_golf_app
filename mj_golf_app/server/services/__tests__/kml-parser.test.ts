@@ -2,8 +2,9 @@
 import { describe, it, expect } from 'vitest';
 import { parseKml } from '../kml-parser';
 
-/** Build a minimal valid 18-hole KML string */
+/** Build a minimal valid KML string (defaults to 18 holes) */
 function buildKml(overrides?: {
+  holeCount?: number;
   skipHole?: number;
   skipTee?: number;
   skipPin?: number;
@@ -13,6 +14,7 @@ function buildKml(overrides?: {
   includeCenterLine?: boolean;
 }): string {
   const opts = {
+    holeCount: 18,
     targetCount: 0,
     includeCenterLine: false,
     ...overrides,
@@ -21,7 +23,7 @@ function buildKml(overrides?: {
   const placemarks: string[] = [];
   const tours: string[] = [];
 
-  for (let i = 1; i <= 18; i++) {
+  for (let i = 1; i <= opts.holeCount; i++) {
     if (i === opts.skipHole) continue;
 
     const lat = 33.0 + i * 0.001;
@@ -97,6 +99,22 @@ describe('parseKml', () => {
     const kml = buildKml();
     const result = parseKml(kml);
     expect(result.holes).toHaveLength(18);
+  });
+
+  it('parses a 9-hole KML', () => {
+    const kml = buildKml({ holeCount: 9 });
+    const result = parseKml(kml);
+    expect(result.holes).toHaveLength(9);
+    for (let i = 0; i < 9; i++) {
+      expect(result.holes[i].holeNumber).toBe(i + 1);
+    }
+    // Verify each hole has tee, pin, par, yardage
+    for (const hole of result.holes) {
+      expect(hole.tee.lat).toBeDefined();
+      expect(hole.pin.lat).toBeDefined();
+      expect(hole.par).toBeGreaterThan(0);
+      expect(hole.yardage).toBeGreaterThan(0);
+    }
   });
 
   it('extracts correct hole numbers in order', () => {

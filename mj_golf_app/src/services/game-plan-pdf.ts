@@ -228,10 +228,11 @@ export function exportGamePlanPDF(plan: GamePlan): void {
 
   let y = renderHeader(doc, plan);
 
-  for (let i = 0; i < plan.holes.length; i++) {
-    // Front/Back nine headers
-    if (i === 0) y = renderNineHeader(doc, 'FRONT NINE', y);
-    if (i === 9) y = renderNineHeader(doc, 'BACK NINE', y);
+  const totalHoles = plan.holes.length;
+  for (let i = 0; i < totalHoles; i++) {
+    // Front/Back nine headers (only for 18-hole courses)
+    if (totalHoles > 9 && i === 0) y = renderNineHeader(doc, 'FRONT NINE', y);
+    if (totalHoles > 9 && i === 9) y = renderNineHeader(doc, 'BACK NINE', y);
 
     y = renderHoleCard(doc, plan.holes[i], y);
   }

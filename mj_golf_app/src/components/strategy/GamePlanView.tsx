@@ -189,7 +189,7 @@ export function GamePlanView({ gamePlan, progress, isGenerating, onGenerate, dis
     return (
       <div className="flex flex-col items-center gap-4 py-12">
         <p className="text-sm text-text-muted text-center">
-          Generate a plan for all 18 holes
+          Generate a plan for all holes
         </p>
         <Button onClick={onGenerate} disabled={distributions.length === 0}>
           <Play size={16} />

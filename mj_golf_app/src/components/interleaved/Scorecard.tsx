@@ -79,7 +79,7 @@ export function Scorecard({ holes, scores }: ScorecardProps) {
         {renderHalf(front9, 0, 'Out')}
         {back9.length > 0 && renderHalf(back9, 9, 'In')}
       </table>
-      {/* Grand total for 18 holes */}
+      {/* Grand total for full round */}
       {back9.length > 0 && (
         <div className="mt-2 flex items-center justify-between px-2 py-2 rounded-lg bg-surface">
           <span className="text-xs font-medium text-text-muted uppercase">Total</span>

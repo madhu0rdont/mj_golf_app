@@ -152,12 +152,18 @@ export function parseKml(kmlContent: string): ParsedCourse {
     if (heading !== null) hole.heading = heading;
   }
 
-  // Validate and assemble
+  // Validate and assemble — discover hole count from parsed data
+  if (holeMap.size === 0) throw new Error('No holes found in KML');
+
+  const holeNumbers = Array.from(holeMap.keys()).sort((a, b) => a - b);
+  const maxHole = holeNumbers[holeNumbers.length - 1];
+
+  // Expect a contiguous sequence from 1..N
   const holes: ParsedHole[] = [];
 
-  for (let i = 1; i <= 18; i++) {
+  for (let i = 1; i <= maxHole; i++) {
     const h = holeMap.get(i);
-    if (!h) throw new Error(`Hole ${i}: not found in KML`);
+    if (!h) throw new Error(`Hole ${i}: not found in KML (expected contiguous 1-${maxHole})`);
     if (!h.tee) throw new Error(`Hole ${i}: missing tee placemark`);
     if (!h.pin) throw new Error(`Hole ${i}: missing pin placemark`);
     if (h.par === undefined) throw new Error(`Hole ${i}: missing tour data (par/yardage)`);

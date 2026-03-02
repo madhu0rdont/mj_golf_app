@@ -520,7 +520,7 @@ Once you're within wedge range, a simple greedy recommendation takes over — it
           <P>{`Each strategy includes per-shot caddy tips: which side to aim, which hazards to avoid, and carry distances with context ("250y, +14y past bunker"). The aim points are compensated for your lateral bias — if you consistently fade right with your driver, the aim point shifts left so the expected landing is on target.`}</P>
 
           <H4>Game Plan</H4>
-          <P>{`The game plan runs the optimizer across all 18 holes and produces a complete round strategy. For each hole, it picks the best strategy for the selected mode (Scoring or Safe) and displays the club sequence, expected strokes, caddy tips, and a score distribution bar.`}</P>
+          <P>{`The game plan runs the optimizer across all holes and produces a complete round strategy. For each hole, it picks the best strategy for the selected mode (Scoring or Safe) and displays the club sequence, expected strokes, caddy tips, and a score distribution bar.`}</P>
           <P>{String.raw`The summary shows your expected total score, plays-like yardage, and an aggregate score breakdown. It also identifies "key holes" — the 4 holes where strategy choice has the biggest impact on your score. These are computed by finding the holes with the largest gap between the best and worst strategy:
 
 $$\text{delta}_h = xS_\text{worst} - xS_\text{best}$$

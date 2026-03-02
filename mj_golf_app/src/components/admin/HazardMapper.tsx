@@ -198,7 +198,7 @@ export function HazardMapper({ courseId }: HazardMapperProps) {
           {/* Scorecard editor */}
           <ScorecardEditor courseId={courseId} holes={course.holes} />
 
-          {/* 18-hole status grid */}
+          {/* Hole status grid */}
           <div className="grid grid-cols-6 gap-1.5">
             {course.holes.map((hole) => {
               const status = getHoleStatus(hole);
