@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.4.0 — Admin Deep Links, 9-Hole Support & Hardening
+- Admin page state (tab, course, hole) persisted in URL — refresh-safe, deep-linkable, browser back/forward works
+- 9-hole course support: KML parser auto-detects hole count, PDF/game plan/UI all handle variable hole counts
+- Security headers via Helmet (HSTS, X-Content-Type-Options, X-Frame-Options)
+- Response compression via `compression` middleware
+- SQL injection fix: parameterized LIMIT clause in shots query
+- Database pool error handler + rollback safety in transactions
+- DATABASE_URL startup validation in production + 30s query timeout
+- Server types tightened: ShotShape/ShotQuality/SwingPosition enums, removed `any` types from GappingChart
+- DELETE sessions returns 204 No Content
+- Removed dead code: web-mercator module, unused units/setUnits from SettingsContext
+- New test suites: auth routes (5 tests), admin routes (8 tests)
+- Admin UX: inline scorecard editor, scorecard/notes above map, auto-detect buttons removed, hazard-detect endpoint removed (~300 lines)
+- Game plan PDF redesign: dark header bar, score distribution bar, color-coded hole cards
+- Center Green strategy fix: uses green polygon centroid instead of fairway
+- Backup import loading spinner + error color coding
+
 ## v1.3.0 — Logging, Performance & Code Splitting
 - Structured logger (`server/logger.ts`) — JSON in production, human-readable in dev; replaces all `console.log`/`console.error` across 15 server files
 - PostgreSQL advisory lock for plan regeneration (multi-instance safe, replaces in-memory boolean flag)
