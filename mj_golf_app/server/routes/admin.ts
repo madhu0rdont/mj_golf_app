@@ -828,4 +828,28 @@ router.patch('/:id/holes/:number', async (req, res) => {
   res.json(toCamel(rows[0]));
 });
 
+// DELETE /api/admin/:id/holes/geofence — batch-clear geofence data for a range of holes
+router.delete('/:id/holes/geofence', async (req, res) => {
+  try {
+    const from = parseInt(req.query.from as string);
+    const to = parseInt(req.query.to as string);
+    if (isNaN(from) || isNaN(to) || from < 1 || to < from) {
+      return res.status(400).json({ error: 'Provide valid ?from=N&to=M query params' });
+    }
+    const { rowCount } = await query(
+      `UPDATE course_holes
+       SET hazards = '[]'::jsonb, fairway = '[]'::jsonb, green = '[]'::jsonb,
+           targets = '[]'::jsonb, center_line = '[]'::jsonb
+       WHERE course_id = $1 AND hole_number >= $2 AND hole_number <= $3`,
+      [req.params.id, from, to],
+    );
+    await markPlansStale('Geofence data cleared', req.params.id);
+    logger.info('Cleared geofence data', { courseId: req.params.id, from, to, rowCount });
+    res.json({ cleared: rowCount });
+  } catch (err) {
+    logger.error('Failed to clear geofence data', { error: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

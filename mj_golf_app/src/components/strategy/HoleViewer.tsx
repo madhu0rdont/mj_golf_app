@@ -364,7 +364,8 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
 
     // 4. Tee marker (blue)
     const teeEl = document.createElement('div');
-    teeEl.style.cssText = 'width:14px;height:14px;border-radius:50%;background:#3B82F6;border:2px solid white;';
+    teeEl.style.cssText = 'width:24px;height:24px;border-radius:50%;background:#3B82F6;border:2px solid white;display:flex;align-items:center;justify-content:center;font:bold 11px sans-serif;color:white;box-shadow:0 2px 6px rgba(0,0,0,0.4);';
+    teeEl.textContent = 'T';
     const teeMarker = new google.maps.marker.AdvancedMarkerElement({
       map,
       position: { lat: hole.tee.lat, lng: hole.tee.lng },
@@ -375,7 +376,8 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
 
     // 6. Pin marker (red)
     const pinEl = document.createElement('div');
-    pinEl.style.cssText = 'width:14px;height:14px;border-radius:50%;background:#EF4444;border:2px solid white;';
+    pinEl.style.cssText = 'width:24px;height:24px;border-radius:50%;background:#EF4444;border:2px solid white;display:flex;align-items:center;justify-content:center;font:bold 11px sans-serif;color:white;box-shadow:0 2px 6px rgba(0,0,0,0.4);';
+    pinEl.textContent = 'P';
     const pinMarker = new google.maps.marker.AdvancedMarkerElement({
       map,
       position: { lat: hole.pin.lat, lng: hole.pin.lng },
