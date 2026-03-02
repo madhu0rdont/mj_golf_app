@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { Loader2 } from 'lucide-react';
-import { haversineYards, bearingBetween } from '../../utils/geo';
+import { haversineYards, bearingBetween, bezierPath } from '../../utils/geo';
 import type { CourseHole } from '../../models/course';
 import type { LandingZone } from '../../hooks/useHoleStrategy';
 
@@ -202,21 +202,46 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
       simOverlaysRef.current.push(circleMarker);
     }
 
-    // Shot sequence arrow polyline: tee → aim points → pin
-    const arrowPath: google.maps.LatLngLiteral[] = [
-      { lat: hole.tee.lat, lng: hole.tee.lng },
-      ...aimPositions,
-      { lat: hole.pin.lat, lng: hole.pin.lng },
-    ];
+    // Per-shot dual lines: aim line (dashed white) + ball flight (solid cyan, curved)
+    for (let i = 0; i < aimPositions.length; i++) {
+      const from = i === 0
+        ? { lat: hole.tee.lat, lng: hole.tee.lng }
+        : landingZones![i - 1]?.center ?? { lat: hole.tee.lat, lng: hole.tee.lng };
+      const aimTo = aimPositions[i];
+      const landTo = landingZones![i]?.center ?? aimTo;
 
-    const arrowLine = new google.maps.Polyline({
-      map,
-      path: arrowPath,
-      strokeColor: '#00E5FF',
-      strokeWeight: 2,
-      strokeOpacity: 0.8,
-      icons: [
-        {
+      // 1. Aim line (white dashed) — where to point the club
+      const aimLine = new google.maps.Polyline({
+        map,
+        path: [from, aimTo],
+        strokeOpacity: 0,
+        icons: [{
+          icon: {
+            path: 'M 0,-1 0,1',
+            strokeOpacity: 0.5,
+            strokeColor: '#FFFFFF',
+            strokeWeight: 1.5,
+            scale: 2,
+          },
+          repeat: '10px',
+        }],
+        clickable: false,
+      });
+      simOverlaysRef.current.push(aimLine);
+
+      // 2. Ball flight (cyan solid with arrows, curved if lateral bias exists)
+      const biasYards = haversineYards(aimTo, landTo);
+      const flightPath = biasYards > 2
+        ? bezierPath(from, aimTo, landTo, 20)
+        : [from, landTo];
+
+      const flightLine = new google.maps.Polyline({
+        map,
+        path: flightPath,
+        strokeColor: '#00E5FF',
+        strokeWeight: 2.5,
+        strokeOpacity: 0.9,
+        icons: [{
           icon: {
             path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
             scale: 3,
@@ -227,11 +252,11 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
           },
           repeat: '80px',
           offset: '50%',
-        },
-      ],
-      clickable: false,
-    });
-    simOverlaysRef.current.push(arrowLine);
+        }],
+        clickable: false,
+      });
+      simOverlaysRef.current.push(flightLine);
+    }
   }, [landingZones, aimPoints, clearSimOverlays, hole.tee.lat, hole.tee.lng, hole.pin.lat, hole.pin.lng]);
 
   // Render all overlays when hole changes

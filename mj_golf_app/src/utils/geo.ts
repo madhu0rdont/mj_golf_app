@@ -85,6 +85,26 @@ export function bearingBetween(
   return (brng + 360) % 360;
 }
 
+/** Generate points along a quadratic bezier curve for map rendering.
+ *  p0 = start, p1 = control point (e.g. aim direction), p2 = end (landing). */
+export function bezierPath(
+  p0: { lat: number; lng: number },
+  p1: { lat: number; lng: number },
+  p2: { lat: number; lng: number },
+  numPoints = 20,
+): { lat: number; lng: number }[] {
+  const pts: { lat: number; lng: number }[] = [];
+  for (let i = 0; i <= numPoints; i++) {
+    const t = i / numPoints;
+    const u = 1 - t;
+    pts.push({
+      lat: u * u * p0.lat + 2 * u * t * p1.lat + t * t * p2.lat,
+      lng: u * u * p0.lng + 2 * u * t * p1.lng + t * t * p2.lng,
+    });
+  }
+  return pts;
+}
+
 /** Generate polygon boundary for a rotated ellipse on the earth's surface.
  *  Semi-major axis aligned along bearingDeg (carry direction), semi-minor perpendicular. */
 export function computeEllipsePoints(
