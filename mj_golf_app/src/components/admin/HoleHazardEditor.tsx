@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
-import { Loader2, Radar, Pencil, Trash2, Check, Save } from 'lucide-react';
+import { Loader2, Pencil, Trash2, Check, Save } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useHole } from '../../hooks/useCourses';
 import { bearingBetween } from '../../utils/geo';
@@ -54,8 +54,9 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
   const [fairway, setFairway] = useState<{ lat: number; lng: number }[]>([]);
   const [green, setGreen] = useState<{ lat: number; lng: number }[]>([]);
   const [notes, setNotes] = useState('');
+  const [par, setPar] = useState(4);
+  const [handicap, setHandicap] = useState<number | null>(null);
   const [yardages, setYardages] = useState<Record<string, number>>({});
-  const [detecting, setDetecting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [drawingMode, setDrawingMode] = useState<DrawingMode>(null);
@@ -78,6 +79,8 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
       // Prefer top-level green, fall back to legacy hazard green
       setGreen(hole.green?.length ? hole.green : legacyGreen?.polygon ?? []);
       setNotes(hole.notes ?? '');
+      setPar(hole.par);
+      setHandicap(hole.handicap);
       setYardages({ ...hole.yardages });
     }
   }, [hole]);
@@ -393,36 +396,6 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
     if (mapReady) renderPolygons();
   }, [mapReady, renderPolygons]);
 
-  // Auto-detect hazards
-  async function handleDetect() {
-    setDetecting(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/admin/hazard-detect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
-        credentials: 'include',
-        body: JSON.stringify({ courseId, holeNumber }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({ error: 'Detection failed' }));
-        throw new Error(body.error || `Detection failed (${res.status})`);
-      }
-      const data = await res.json();
-      setHazards(data.hazards ?? []);
-      if (data.fairway?.length >= 3) {
-        setFairway(data.fairway);
-      }
-      if (data.green?.length >= 3) {
-        setGreen(data.green);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Detection failed');
-    } finally {
-      setDetecting(false);
-    }
-  }
-
   // Enter drawing mode
   function startDrawing(mode: 'hazard' | 'fairway' | 'green') {
     setDrawingMode(mode);
@@ -458,7 +431,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
         credentials: 'include',
-        body: JSON.stringify({ hazards, fairway, green, notes: notes || null, yardages }),
+        body: JSON.stringify({ hazards, fairway, green, notes: notes || null, par, handicap, yardages }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: 'Save failed' }));
@@ -525,25 +498,6 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
 
       {/* Action buttons */}
       <div className="flex flex-wrap gap-2">
-        <Button
-          onClick={handleDetect}
-          disabled={detecting}
-          size="sm"
-          variant="secondary"
-        >
-          {detecting ? (
-            <>
-              <Loader2 size={14} className="animate-spin" />
-              Detecting...
-            </>
-          ) : (
-            <>
-              <Radar size={14} />
-              Auto-detect
-            </>
-          )}
-        </Button>
-
         {drawingMode ? (
           <Button onClick={cancelDrawing} size="sm" variant="ghost">
             Cancel Drawing
@@ -672,7 +626,50 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
 
       {/* Hole Details */}
       <div className="flex flex-col gap-3 border-t border-border pt-3">
-        <h4 className="text-xs font-semibold text-text-medium">Hole Details</h4>
+        <h4 className="text-xs font-semibold text-text-medium">Scorecard</h4>
+        <div className="grid grid-cols-5 gap-2">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-medium text-text-muted">Par</span>
+            <select
+              value={par}
+              onChange={(e) => setPar(parseInt(e.target.value))}
+              className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value={3}>3</option>
+              <option value={4}>4</option>
+              <option value={5}>5</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-medium text-text-muted">HCP</span>
+            <input
+              type="number"
+              min={1}
+              max={18}
+              value={handicap ?? ''}
+              onChange={(e) => setHandicap(e.target.value ? parseInt(e.target.value) : null)}
+              className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder="#"
+            />
+          </div>
+          {['blue', 'white', 'red'].map((tee) => (
+            <div key={tee} className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-medium text-text-muted capitalize">{tee}</span>
+              <input
+                type="number"
+                value={yardages[tee] ?? ''}
+                onChange={(e) =>
+                  setYardages((prev) => ({
+                    ...prev,
+                    [tee]: e.target.value ? parseInt(e.target.value) : 0,
+                  }))
+                }
+                className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="yds"
+              />
+            </div>
+          ))}
+        </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-text-medium">Notes</label>
           <textarea
@@ -682,28 +679,6 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
             rows={2}
             className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-text-dark placeholder-text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none"
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-text-medium">Yardages</label>
-          <div className="grid grid-cols-3 gap-2">
-            {['blue', 'white', 'red'].map((tee) => (
-              <div key={tee} className="flex flex-col gap-0.5">
-                <span className="text-[10px] font-medium text-text-muted capitalize">{tee}</span>
-                <input
-                  type="number"
-                  value={yardages[tee] ?? ''}
-                  onChange={(e) =>
-                    setYardages((prev) => ({
-                      ...prev,
-                      [tee]: e.target.value ? parseInt(e.target.value) : 0,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="yds"
-                />
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
