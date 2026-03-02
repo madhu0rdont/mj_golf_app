@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router';
 import { TopBar } from '../components/layout/TopBar';
 import { LoadingPage } from '../components/ui/LoadingPage';
 import { Select } from '../components/ui/Select';
@@ -16,16 +17,48 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'import', label: 'Import Course' },
 ];
 
+function deriveTab(pathname: string): Tab {
+  if (pathname === '/admin/penalties') return 'penalties';
+  if (pathname === '/admin/import') return 'import';
+  return 'courses';
+}
+
 export function AdminPage() {
+  const params = useParams<{ courseId?: string; holeNumber?: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { courses, isLoading } = useCourses();
-  const [activeTab, setActiveTab] = useState<Tab>('courses');
-  const [courseId, setCourseId] = useState('');
+
+  const activeTab = deriveTab(location.pathname);
+  const courseId = params.courseId ?? '';
+  const selectedHole = params.holeNumber ? parseInt(params.holeNumber, 10) : null;
+
+  // Auto-redirect to first course when on bare /admin
+  useEffect(() => {
+    if (activeTab === 'courses' && !courseId && courses?.length) {
+      navigate(`/admin/${courses[0].id}`, { replace: true });
+    }
+  }, [activeTab, courseId, courses, navigate]);
 
   if (isLoading) return <LoadingPage title="Admin" showBack />;
 
-  // Auto-select first course if none selected
-  if (!courseId && courses?.length) {
-    setCourseId(courses[0].id);
+  function handleTabClick(tab: Tab) {
+    if (tab === 'penalties') navigate('/admin/penalties');
+    else if (tab === 'import') navigate('/admin/import');
+    else if (courseId) navigate(`/admin/${courseId}`);
+    else navigate('/admin');
+  }
+
+  function handleCourseChange(newCourseId: string) {
+    navigate(`/admin/${newCourseId}`);
+  }
+
+  function handleSelectHole(hole: number | null) {
+    if (hole != null) {
+      navigate(`/admin/${courseId}/${hole}`);
+    } else {
+      navigate(`/admin/${courseId}`);
+    }
   }
 
   return (
@@ -37,7 +70,7 @@ export function AdminPage() {
           {TABS.map((tab) => (
             <button
               key={tab.value}
-              onClick={() => setActiveTab(tab.value)}
+              onClick={() => handleTabClick(tab.value)}
               className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
                 activeTab === tab.value
                   ? 'bg-card text-text-dark shadow-sm'
@@ -61,13 +94,19 @@ export function AdminPage() {
                 <Select
                   label="Course"
                   value={courseId}
-                  onChange={(e) => setCourseId(e.target.value)}
+                  onChange={(e) => handleCourseChange(e.target.value)}
                   options={courses.map((c) => ({ value: c.id, label: c.name }))}
                 />
 
-                <ElevationRefresh courseId={courseId} />
+                {courseId && <ElevationRefresh courseId={courseId} />}
 
-                <HazardMapper courseId={courseId} />
+                {courseId && (
+                  <HazardMapper
+                    courseId={courseId}
+                    selectedHole={selectedHole}
+                    onSelectHole={handleSelectHole}
+                  />
+                )}
               </>
             )}
           </div>
@@ -81,7 +120,7 @@ export function AdminPage() {
           <KmlImporter
             onComplete={() => {
               mutateCourses();
-              setActiveTab('courses');
+              navigate('/admin');
             }}
           />
         )}

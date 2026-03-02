@@ -23,6 +23,8 @@ const TEES = ['blue', 'white', 'red'] as const;
 
 interface HazardMapperProps {
   courseId: string;
+  selectedHole: number | null;
+  onSelectHole: (hole: number | null) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -186,9 +188,7 @@ function ScorecardEditor({ courseId, holes }: { courseId: string; holes: CourseH
 // ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
-export function HazardMapper({ courseId }: HazardMapperProps) {
-  const [selectedHole, setSelectedHole] = useState<number | null>(null);
-
+export function HazardMapper({ courseId, selectedHole, onSelectHole }: HazardMapperProps) {
   const { course } = useCourse(courseId || undefined);
 
   return (
@@ -207,9 +207,7 @@ export function HazardMapper({ courseId }: HazardMapperProps) {
                 <button
                   key={hole.holeNumber}
                   onClick={() =>
-                    setSelectedHole(
-                      isSelected ? null : hole.holeNumber,
-                    )
+                    onSelectHole(isSelected ? null : hole.holeNumber)
                   }
                   className={`flex flex-col items-center rounded-lg border p-1.5 text-xs transition-all ${
                     STATUS_COLORS[status]
