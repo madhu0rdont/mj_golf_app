@@ -490,6 +490,64 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
         </div>
       )}
 
+      {/* Scorecard */}
+      <div className="flex flex-col gap-3">
+        <h4 className="text-xs font-semibold text-text-medium">Scorecard</h4>
+        <div className="grid grid-cols-5 gap-2">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-medium text-text-muted">Par</span>
+            <select
+              value={par}
+              onChange={(e) => setPar(parseInt(e.target.value))}
+              className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value={3}>3</option>
+              <option value={4}>4</option>
+              <option value={5}>5</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-medium text-text-muted">HCP</span>
+            <input
+              type="number"
+              min={1}
+              max={18}
+              value={handicap ?? ''}
+              onChange={(e) => setHandicap(e.target.value ? parseInt(e.target.value) : null)}
+              className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder="#"
+            />
+          </div>
+          {['blue', 'white', 'red'].map((tee) => (
+            <div key={tee} className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-medium text-text-muted capitalize">{tee}</span>
+              <input
+                type="number"
+                value={yardages[tee] ?? ''}
+                onChange={(e) =>
+                  setYardages((prev) => ({
+                    ...prev,
+                    [tee]: e.target.value ? parseInt(e.target.value) : 0,
+                  }))
+                }
+                className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="yds"
+              />
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-text-medium">Notes</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Tips, e.g. 'favor left side'"
+            rows={2}
+            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-text-dark placeholder-text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+          />
+        </div>
+      </div>
+
       {/* Map */}
       <div
         ref={mapRef}
@@ -622,64 +680,6 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
         {green.length >= 3 && (
           <span>Green: {green.length} pts</span>
         )}
-      </div>
-
-      {/* Hole Details */}
-      <div className="flex flex-col gap-3 border-t border-border pt-3">
-        <h4 className="text-xs font-semibold text-text-medium">Scorecard</h4>
-        <div className="grid grid-cols-5 gap-2">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] font-medium text-text-muted">Par</span>
-            <select
-              value={par}
-              onChange={(e) => setPar(parseInt(e.target.value))}
-              className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value={3}>3</option>
-              <option value={4}>4</option>
-              <option value={5}>5</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] font-medium text-text-muted">HCP</span>
-            <input
-              type="number"
-              min={1}
-              max={18}
-              value={handicap ?? ''}
-              onChange={(e) => setHandicap(e.target.value ? parseInt(e.target.value) : null)}
-              className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="#"
-            />
-          </div>
-          {['blue', 'white', 'red'].map((tee) => (
-            <div key={tee} className="flex flex-col gap-0.5">
-              <span className="text-[10px] font-medium text-text-muted capitalize">{tee}</span>
-              <input
-                type="number"
-                value={yardages[tee] ?? ''}
-                onChange={(e) =>
-                  setYardages((prev) => ({
-                    ...prev,
-                    [tee]: e.target.value ? parseInt(e.target.value) : 0,
-                  }))
-                }
-                className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="yds"
-              />
-            </div>
-          ))}
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-text-medium">Notes</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Tips, e.g. 'favor left side'"
-            rows={2}
-            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-text-dark placeholder-text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-          />
-        </div>
       </div>
 
       {/* Save */}
