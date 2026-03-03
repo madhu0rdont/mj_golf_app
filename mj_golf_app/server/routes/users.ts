@@ -184,6 +184,101 @@ router.put('/me', async (req, res) => {
   }
 });
 
+// PUT /api/users/:id — edit any user (admin only)
+router.put('/:id', requireAdmin, async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const currentUserId = req.session.userId!;
+    const { displayName, email, role, handedness, password } = req.body;
+
+    // Verify user exists
+    const { rows: existing } = await query('SELECT id, role FROM users WHERE id = $1', [targetId]);
+    if (existing.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Prevent admin from changing their own role
+    if (targetId === currentUserId && role && role !== existing[0].role) {
+      return res.status(400).json({ error: 'Cannot change your own role' });
+    }
+
+    const sets: string[] = [];
+    const values: unknown[] = [];
+
+    if (displayName !== undefined) {
+      values.push(displayName);
+      sets.push(`display_name = $${values.length}`);
+    }
+    if (role !== undefined) {
+      if (!['admin', 'player'].includes(role)) {
+        return res.status(400).json({ error: 'Role must be admin or player' });
+      }
+      values.push(role);
+      sets.push(`role = $${values.length}`);
+    }
+    if (handedness !== undefined) {
+      if (!['left', 'right'].includes(handedness)) {
+        return res.status(400).json({ error: 'Handedness must be left or right' });
+      }
+      values.push(handedness);
+      sets.push(`handedness = $${values.length}`);
+    }
+    if (email !== undefined) {
+      if (email === null || email === '') {
+        values.push(null);
+        sets.push(`email = $${values.length}`);
+      } else {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          return res.status(400).json({ error: 'Invalid email format' });
+        }
+        const { rows: emailExisting } = await query(
+          'SELECT id FROM users WHERE lower(email) = lower($1) AND id != $2',
+          [email, targetId],
+        );
+        if (emailExisting.length > 0) {
+          return res.status(409).json({ error: 'Email already in use' });
+        }
+        values.push(email.toLowerCase());
+        sets.push(`email = $${values.length}`);
+      }
+    }
+    if (password !== undefined && password !== '') {
+      const hash = await bcrypt.hash(password, 12);
+      values.push(hash);
+      sets.push(`password = $${values.length}`);
+    }
+
+    if (sets.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    values.push(Date.now());
+    sets.push(`updated_at = $${values.length}`);
+    values.push(targetId);
+
+    await query(`UPDATE users SET ${sets.join(', ')} WHERE id = $${values.length}`, values);
+
+    const { rows } = await query(
+      'SELECT id, username, display_name, email, profile_picture, role, handedness, created_at, updated_at FROM users WHERE id = $1',
+      [targetId],
+    );
+    res.json({
+      id: rows[0].id,
+      username: rows[0].username,
+      displayName: rows[0].display_name,
+      email: rows[0].email || undefined,
+      profilePicture: rows[0].profile_picture || undefined,
+      role: rows[0].role,
+      handedness: rows[0].handedness,
+      createdAt: rows[0].created_at,
+      updatedAt: rows[0].updated_at,
+    });
+  } catch (err) {
+    logger.error('Failed to update user', { error: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // POST /api/users/:id/clear-data — clear a user's practice data but keep account (admin only)
 router.post('/:id/clear-data', requireAdmin, async (req, res) => {
   try {

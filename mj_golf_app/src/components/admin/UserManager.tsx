@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import useSWR from 'swr';
-import { Trash2, Eraser } from 'lucide-react';
+import { Trash2, Eraser, Pencil } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 
@@ -17,6 +17,8 @@ interface UserRecord {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
+const inputClass = 'w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-primary focus:ring-1 focus:ring-primary';
+
 export function UserManager() {
   const { data: users, mutate } = useSWR<UserRecord[]>('/api/users', fetcher);
   const [showForm, setShowForm] = useState(false);
@@ -30,6 +32,28 @@ export function UserManager() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [clearDataUser, setClearDataUser] = useState<UserRecord | null>(null);
   const [clearing, setClearing] = useState(false);
+  const [editUser, setEditUser] = useState<UserRecord | null>(null);
+
+  // Edit form state
+  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editRole, setEditRole] = useState<'admin' | 'player'>('player');
+  const [editHandedness, setEditHandedness] = useState<'left' | 'right'>('right');
+  const [editPassword, setEditPassword] = useState('');
+  const [editError, setEditError] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Populate edit form when user is selected
+  useEffect(() => {
+    if (editUser) {
+      setEditDisplayName(editUser.displayName || '');
+      setEditEmail(editUser.email || '');
+      setEditRole(editUser.role);
+      setEditHandedness(editUser.handedness);
+      setEditPassword('');
+      setEditError('');
+    }
+  }, [editUser]);
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
@@ -99,6 +123,44 @@ export function UserManager() {
     }
   };
 
+  const handleEdit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!editUser) return;
+    setEditError('');
+    setEditLoading(true);
+
+    try {
+      const body: Record<string, string | undefined> = {
+        displayName: editDisplayName,
+        email: editEmail || undefined,
+        role: editRole,
+        handedness: editHandedness,
+      };
+      if (editPassword) {
+        body.password = editPassword;
+      }
+
+      const res = await fetch(`/api/users/${editUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setEditError(data.error || 'Failed to update user');
+        return;
+      }
+
+      setEditUser(null);
+      mutate();
+    } catch {
+      setEditError('Failed to update user');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
@@ -114,51 +176,27 @@ export function UserManager() {
         <form onSubmit={handleCreate} className="rounded-xl border border-border bg-card p-4 space-y-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-text-medium">Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            />
+            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className={inputClass} />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-text-medium">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            />
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-text-medium">Display Name</label>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              placeholder="Optional"
-            />
+            <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={inputClass} placeholder="Optional" />
           </div>
           <div className="flex gap-4">
             <div className="flex-1">
               <label className="mb-1 block text-xs font-medium text-text-medium">Role</label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value as 'player' | 'admin')}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              >
+              <select value={role} onChange={(e) => setRole(e.target.value as 'player' | 'admin')} className={inputClass}>
                 <option value="player">Player</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
             <div className="flex-1">
               <label className="mb-1 block text-xs font-medium text-text-medium">Handedness</label>
-              <select
-                value={handedness}
-                onChange={(e) => setHandedness(e.target.value as 'left' | 'right')}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              >
+              <select value={handedness} onChange={(e) => setHandedness(e.target.value as 'left' | 'right')} className={inputClass}>
                 <option value="right">Right</option>
                 <option value="left">Left</option>
               </select>
@@ -211,6 +249,13 @@ export function UserManager() {
                 </div>
               ) : (
                 <>
+                  <button
+                    onClick={() => setEditUser(u)}
+                    className="p-1.5 text-text-muted hover:text-primary transition-colors"
+                    title="Edit user"
+                  >
+                    <Pencil size={16} />
+                  </button>
                   {u.role === 'player' && (
                     <button
                       onClick={() => setClearDataUser(u)}
@@ -234,6 +279,7 @@ export function UserManager() {
         ))}
       </div>
 
+      {/* Clear Data Modal */}
       <Modal
         open={!!clearDataUser}
         onClose={() => setClearDataUser(null)}
@@ -256,6 +302,53 @@ export function UserManager() {
             Cancel
           </Button>
         </div>
+      </Modal>
+
+      {/* Edit User Modal */}
+      <Modal
+        open={!!editUser}
+        onClose={() => setEditUser(null)}
+        title={`Edit ${editUser?.displayName || editUser?.username}`}
+      >
+        <form onSubmit={handleEdit} className="space-y-3">
+          {editError && <p className="text-sm text-coral">{editError}</p>}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-text-medium">Display Name</label>
+            <input type="text" value={editDisplayName} onChange={(e) => setEditDisplayName(e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-text-medium">Email</label>
+            <input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className={inputClass} placeholder="Optional" />
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="mb-1 block text-xs font-medium text-text-medium">Role</label>
+              <select value={editRole} onChange={(e) => setEditRole(e.target.value as 'admin' | 'player')} className={inputClass}>
+                <option value="player">Player</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="mb-1 block text-xs font-medium text-text-medium">Handedness</label>
+              <select value={editHandedness} onChange={(e) => setEditHandedness(e.target.value as 'left' | 'right')} className={inputClass}>
+                <option value="right">Right</option>
+                <option value="left">Left</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-text-medium">New Password</label>
+            <input type="password" value={editPassword} onChange={(e) => setEditPassword(e.target.value)} className={inputClass} placeholder="Leave blank to keep current" />
+          </div>
+          <div className="flex flex-col gap-2 pt-1">
+            <Button type="submit" disabled={editLoading} className="w-full">
+              {editLoading ? 'Saving...' : 'Save Changes'}
+            </Button>
+            <Button variant="ghost" type="button" onClick={() => setEditUser(null)} className="w-full">
+              Cancel
+            </Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );
