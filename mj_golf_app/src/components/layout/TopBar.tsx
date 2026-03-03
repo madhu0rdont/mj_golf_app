@@ -54,7 +54,7 @@ export function TopBar({ title, showBack, rightAction }: TopBarProps) {
             >
               <ArrowLeft size={20} />
             </button>
-          ) : (
+          ) : user?.role !== 'admin' ? (
             <button
               onClick={() => setMenuOpen(true)}
               className="rounded-lg p-1.5 text-text-muted hover:text-text-dark"
@@ -62,7 +62,7 @@ export function TopBar({ title, showBack, rightAction }: TopBarProps) {
             >
               <Menu size={20} />
             </button>
-          )}
+          ) : null}
         </div>
         <h1 className="flex-1 text-center text-lg font-semibold text-text-dark">{title}</h1>
         <div className="flex items-center gap-1 justify-end">
@@ -94,14 +94,16 @@ export function TopBar({ title, showBack, rightAction }: TopBarProps) {
                     <p className="text-xs text-text-muted">{user?.role}</p>
                   </div>
                 </div>
-                <Link
-                  to="/settings"
-                  onClick={() => setAvatarOpen(false)}
-                  className="flex w-full items-center gap-2 px-4 py-3 text-sm text-text-medium hover:bg-surface transition-colors"
-                >
-                  <Settings size={16} />
-                  Settings
-                </Link>
+                {user?.role !== 'admin' && (
+                  <Link
+                    to="/settings"
+                    onClick={() => setAvatarOpen(false)}
+                    className="flex w-full items-center gap-2 px-4 py-3 text-sm text-text-medium hover:bg-surface transition-colors"
+                  >
+                    <Settings size={16} />
+                    Settings
+                  </Link>
+                )}
                 <button
                   onClick={() => { setAvatarOpen(false); logout(); }}
                   className="flex w-full items-center gap-2 px-4 py-3 text-sm text-coral hover:bg-surface transition-colors"

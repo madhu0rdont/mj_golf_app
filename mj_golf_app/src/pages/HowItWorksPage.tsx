@@ -507,28 +507,166 @@ Once you're within wedge range, a simple greedy recommendation takes over — it
           <H3>Course Management</H3>
 
           <H4>Importing a course</H4>
-          <P>{`Courses are imported from KML files via the Admin page. The KML contains GPS coordinates for every tee, pin, target, and center line on each hole. Once imported, each hole gets computed yardages, elevation deltas, heading, and plays-like yardages based on the elevation difference between tee and green.`}</P>
+          <P>{`Courses are imported from KML files via the Admin page. The KML contains GPS coordinates for every tee, pin, target, and center line on each hole. Once imported, each hole gets computed yardages, elevation deltas, compass heading, and plays-like yardages based on elevation difference between tee and green.`}</P>
 
           <H4>Hazard mapping</H4>
-          <P>{`Each hole can have hazards drawn as polygons — fairway bunkers, greenside bunkers, water, out-of-bounds, and trees. Each hazard type carries a default stroke penalty used by the strategy optimizer. Hazards can be imported automatically from adjacent holes (shared OB lines, tree lines, water features) and fine-tuned per hole.`}</P>
+          <P>{`Each hole can have hazards drawn as GPS polygons on a satellite map — fairway bunkers, greenside bunkers, water, out-of-bounds, trees, and rough. Each hazard type has a default stroke penalty applied when a simulated shot lands inside the polygon:`}</P>
+          <P>{`  Water / OB — 1.0 stroke
+  Greenside bunker — 0.5 stroke
+  Trees — 0.5 stroke
+  Fairway bunker — 0.3 stroke
+  Rough — 0.2 stroke`}</P>
+          <P>{`Penalties are configurable from the Admin page. The green is also drawn as a polygon and used to compute the center-green aim point for par 3 strategies.`}</P>
 
-          <H4>Hole descriptions</H4>
-          <P>{`Every hole gets a generated prose description that weaves together multiple data points: difficulty from the handicap rating ("challenging", "demanding"), relative length within its par group ("the longest par 3 on the course"), dogleg detection from the center line, elevation impact on playing distance ("the green sits well below the tee, playing just 135 yards"), and a natural-language summary of hazard positions ("3 greenside bunkers surround the green, trees short left and long right").`}</P>
+          <H4>Strategy generation — 3 plans per hole</H4>
+          <P>{`For each hole, the optimizer generates 3 named strategies based on par. Each strategy defines a sequence of (club, aim point) pairs.`}</P>
+          <P>{`Par 3 strategies:
+  1. Pin Hunting — aim directly at the pin with the club closest to hole distance
+  2. Center Green — aim at the centroid of the green polygon (safer, broader target)
+  3. Bail Out — shift 15 yards perpendicular from the pin, away from the nearest hazard`}</P>
+          <P>{`Par 4 strategies:
+  1. Conservative — aim at the first target waypoint or a safe center-line distance, with 15y hazard buffer
+  2. Aggressive — longest carry along the center line with 8y hazard buffer; cuts toward the pin on doglegs
+  3. Layup — shorter club off the tee (longest carry minus 20y threshold), then mid-club approach`}</P>
+          <P>{`Par 5 strategies:
+  1. Conservative 3-Shot — three roughly equal segments using target waypoints
+  2. Go-For-It — longest carry + approach in 2 shots (eagle attempt)
+  3. Safe Layup — driver + mid-iron (55% of remaining) + wedge`}</P>
+          <P>{`The Aggressive par 4 strategy is only included if it differs meaningfully from Conservative — different club OR aim point shifted by 15+ yards. If it resolves to the same play, it tries cutting directly toward the pin instead (useful on doglegs). If still too similar, it's omitted entirely to avoid near-duplicate cards.`}</P>
 
-          <H4>Hole View</H4>
-          <P>{`The hole view shows an interactive satellite map of each hole with overlaid hazard polygons, landing zone ellipses, and aim point markers. When the simulation is enabled, it runs the Monte Carlo optimizer for the selected hole and tee box, showing up to 3 ranked strategies with expected strokes, standard deviation, score distributions, and blow-up risk.`}</P>
-          <P>{`Each strategy includes per-shot caddy tips: which side to aim, which hazards to avoid, and carry distances with context ("250y, +14y past bunker"). The aim points are compensated for your lateral bias — if you consistently fade right with your driver, the aim point shifts left so the expected landing is on target.`}</P>
+          <H4>Lateral bias compensation</H4>
+          <P>{String.raw`Most golfers have a consistent lateral miss pattern — a draw bias, a fade, or a push. The optimizer compensates for this by shifting aim points opposite to your measured mean offline.
+
+If your driver averages 8 yards right of target ($\mu_\text{offline} = 8$), the optimizer shifts your aim point 8 yards left so that the expected landing zone is centered on the target. The shift is applied perpendicular to the shot bearing:
+
+$$\text{aimPoint} = \text{project}(\text{target}, \text{bearing} + 90°, -\mu_\text{offline})$$
+
+On the map, you see two lines per shot: the white dashed aim line (where to point the club) and the cyan ball flight curve (expected ball path with draw/fade shape).`}</P>
+
+          <H4>Safe landing algorithm</H4>
+          <P>{String.raw`Conservative and Layup strategies run the aim point through a hazard avoidance algorithm. For each hazard polygon within 50 yards of the aim point, the algorithm checks whether the point is inside or within a buffer distance of the polygon edge.
+
+Buffer distances:
+  Conservative / Layup — 15 yards from polygon edge
+  Aggressive — 8 yards (accepts more risk)
+
+If the aim point is too close, the algorithm nudges it perpendicular to the shot heading in 10-yard increments ($\pm$10, 20, 30, 40, 50 yards) until it finds a safe position. It tests both left and right shifts at each increment, picking the first one that clears all hazards. If no shift works within 50 yards, it uses the original point.`}</P>
+
+          <H4>Monte Carlo simulation — 2,000 trials per strategy</H4>
+          <P>{String.raw`Each strategy is scored by running 2,000 independent trials through the full GPS course geometry. Here's what happens on each trial:`}</P>
+
+          <P>{String.raw`Step 1: Sample carry and offline. For each shot, draw random values from the club's Gaussian distribution using the Box-Muller transform:
+
+$$z = \sqrt{-2\ln(u_1)} \cdot \cos(2\pi u_2)$$
+$$\text{carry} = \mu_\text{carry} + \sigma_\text{carry} \cdot z_1$$
+$$\text{offline} = \mu_\text{offline} + \sigma_\text{offline} \cdot z_2$$
+
+where $u_1, u_2$ are uniform random numbers in $(0, 1)$.`}</P>
+
+          <P>{String.raw`Step 2: Project the landing position. The sampled carry is projected along the shot bearing from the current GPS position. The sampled offline shifts the landing perpendicular to the bearing:
+
+$$\text{landing} = \text{project}(\text{pos}, \text{bearing}, \text{carry})$$
+$$\text{landing} = \text{project}(\text{landing}, \text{bearing} + 90°, \text{offline})$$`}</P>
+
+          <P>{String.raw`Step 3: Check tree trajectory. The ball's flight arc is sampled at 10-yard intervals. At each point, the ball height is compared against the tree canopy height (15 yards). If the ball is below the canopy and inside a tree polygon, the ball drops at the collision point with a 0.5-stroke penalty.
+
+Ball height uses an asymmetric two-segment flight model:
+
+Ascent phase ($d < d_\text{apex}$):
+$$h(d) = \text{apex} \cdot t \cdot (2 - t), \quad t = \frac{d}{d_\text{apex}}$$
+
+Descent phase ($d \geq d_\text{apex}$):
+$$h(d) = \text{apex} \cdot \frac{\text{carry} - d}{\text{carry} - d_\text{apex}}$$
+
+where:
+$$d_\text{apex} = \max\!\left(0.3 \cdot \text{carry},\; \text{carry} - \frac{\text{apex}}{\tan(\theta_\text{descent})}\right)$$
+
+If the club has no measured apex or descent angle, it falls back to a symmetric parabola with a constant 28-yard (84 ft) apex:
+$$h(d) = 4 \cdot 28 \cdot \frac{d}{\text{carry}} \cdot \left(1 - \frac{d}{\text{carry}}\right)$$`}</P>
+
+          <P>{String.raw`Step 4: Check hazards at landing. A point-in-polygon test checks each hazard. If the ball lands inside a hazard, its stroke penalty is added and the ball is dropped 5 yards back toward the previous position.`}</P>
+
+          <P>{String.raw`Step 5: Continue to the green. If the ball is more than 10 yards from the pin after all planned shots, a greedy continuation algorithm fires additional shots — picking the club whose mean carry is closest to the remaining distance — until the ball reaches the green or the 8-shot safety cap is hit.`}</P>
+
+          <P>{String.raw`Step 6: Putting. Once on the green, the same log-curve putting model from the Club Selection section converts distance to expected putts:
+
+$$\text{putts}(d) = 1.0 + 0.42 \cdot \ln(d)$$
+
+If the ball is 10–40 yards out (chip zone), the trial adds 1 chip stroke plus expected putts from 3 yards (≈ 1.46 putts total).`}</P>
+
+          <P>{String.raw`Step 7: Score the trial. The total strokes for the trial is:
+
+$$\text{totalStrokes} = \text{shots} + \text{hazardPenalties} + \text{treePenalties} + \text{putts}$$
+
+After all 2,000 trials, the expected score is the mean, and the standard error is approximately:
+
+$$\text{SE} = \frac{\sigma}{\sqrt{2000}} \approx 0.02 \text{ strokes}$$
+
+This is accurate enough to reliably distinguish a 4.1 vs 4.3 stroke strategy.`}</P>
+
+          <H4>Score distribution</H4>
+          <P>{String.raw`Each trial's total strokes is rounded to an integer and categorized relative to par:
+
+$$\text{diff} = \text{round}(\text{totalStrokes}) - \text{par}$$
+
+  $\leq -2$ → Eagle
+  $-1$ → Birdie
+  $0$ → Par
+  $+1$ → Bogey
+  $+2$ → Double
+  $> +2$ → Worse
+
+These counts are converted to probabilities (e.g., 40% par, 30% bogey). The blow-up risk shown on each strategy card is $P(\text{double}) + P(\text{worse})$.`}</P>
+
+          <H4>Caddy tips</H4>
+          <P>{String.raw`Each shot gets a natural-language caddy tip describing where to aim and what to watch for. The tip has three components:`}</P>
+          <P>{String.raw`1. Aim direction — computed as the angular difference between the direct line to target and the bias-compensated aim line. If the shift is more than 1°, the tip says "Aim left" or "Aim right."
+
+2. Ball movement — describes your expected lateral bias. If $\mu_\text{offline} > 1$, the tip says "works right to the pin" (or "to the fairway" for tee shots).
+
+3. Hazard reference — the tip names the most relevant hazard near the shot path. Hazards are found by searching two zones:
+  a. Within 50 yards of the aim point (near the target)
+  b. Along the flight corridor — perpendicular distance $\leq$ 35 yards from the shot line, between 20% and 120% of the shot distance
+
+The perpendicular distance to the shot line uses:
+$$d_\perp = d_\text{origin} \cdot \sin(\Delta\theta)$$
+$$d_\parallel = d_\text{origin} \cdot \cos(\Delta\theta)$$
+
+where $d_\text{origin}$ is the haversine distance from the shot origin to the hazard centroid and $\Delta\theta$ is the bearing difference. Hazards are ranked by $\min(d_\text{aim}, d_\perp)$ — closest to either the aim point or the flight path wins.
+
+Example tip: "Aim left of the right bunker, works right to the pin"`}</P>
+
+          <H4>Carry notes</H4>
+          <P>{String.raw`Each shot also gets a carry distance note with context, like "+20y past bunker" or "~5y short of water." The algorithm finds hazards along the shot bearing (within 35°), computes the distance from the origin to the nearest polygon vertex (not centroid — more accurate for long/narrow hazards like tree lines), and reports the clearance:
+
+$$\text{clearance} = \text{carry} - d_\text{hazard}$$
+
+Positive clearance → "+Ny past [hazard]"
+Negative clearance → "~Ny short of [hazard]"`}</P>
 
           <H4>Game Plan</H4>
           <P>{`The game plan runs the optimizer across all holes and produces a complete round strategy. For each hole, it picks the best strategy for the selected mode (Scoring or Safe) and displays the club sequence, expected strokes, caddy tips, and a score distribution bar.`}</P>
-          <P>{String.raw`The summary shows your expected total score, plays-like yardage, and an aggregate score breakdown. It also identifies "key holes" — the 4 holes where strategy choice has the biggest impact on your score. These are computed by finding the holes with the largest gap between the best and worst strategy:
+          <P>{String.raw`The summary shows your expected total score, plays-like yardage, and an aggregate score breakdown. It also identifies "key holes" — the 4 holes where strategy choice has the biggest impact on your score:
 
 $$\text{delta}_h = xS_\text{worst} - xS_\text{best}$$
 
-The top 4 holes by delta are flagged with a gold KEY badge throughout the app so you know where to focus your game plan.`}</P>
+The top 4 holes by delta are flagged with a gold KEY badge so you know where to focus your game plan. Game plans are cached on the server and auto-regenerate when your practice data changes (new sessions, updated clubs) or when the optimizer code is updated.`}</P>
 
           <H4>Scoring vs Safe mode</H4>
-          <P>{`The optimizer generates strategies in two modes. Scoring mode picks the plan with the lowest expected strokes — it favors aggressive plays like going for par 5s in two. Safe mode penalizes blow-up risk, steering you away from water carries and tight layups. Both modes use the same Monte Carlo simulation; they differ only in how they rank the candidates.`}</P>
+          <P>{`Both modes use the same Monte Carlo simulation. Scoring mode ranks strategies by lowest expected strokes — it favors aggressive plays like going for par 5s in two. Safe mode penalizes blow-up risk, steering you away from water carries and tight layups.`}</P>
+
+          <H4>Constants reference</H4>
+          <P>{String.raw`  Green threshold — 10 yards (ball is "on the green")
+  Chip zone — 10–40 yards (1 chip + putts from 3y)
+  Max shots per hole — 8 (safety cap)
+  Trials per strategy — 2,000
+  Tree canopy height — 15 yards (45 ft)
+  Fallback ball apex — 28 yards (84 ft)
+  Safe landing buffer — 15y (conservative), 8y (aggressive)
+  Flight corridor width — 35 yards perpendicular
+  Caddy tip aim radius — 50 yards around aim point
+  Hazard minimum polygon — 3 vertices
+  Carry note bearing threshold — 35°`}</P>
         </Card>
       </div>
     </>
