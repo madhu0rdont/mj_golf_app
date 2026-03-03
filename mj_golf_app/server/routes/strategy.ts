@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { query, toCamel } from '../db.js';
 import { logger } from '../logger.js';
 import { dpOptimizeHole } from '../services/dp-optimizer.js';
+import { getRoughPenalty } from '../services/strategy-optimizer.js';
 import { computeClubShotGroups } from '../services/club-shot-groups.js';
 import { buildDistributions } from '../services/monte-carlo.js';
 import type { Club, Shot, CourseHole } from '../models/types.js';
@@ -43,7 +44,8 @@ router.post('/hole', async (req, res) => {
     }
 
     // Run DP optimizer
-    const strategies = dpOptimizeHole(hole, teeBox, distributions);
+    const roughPenalty = await getRoughPenalty();
+    const strategies = dpOptimizeHole(hole, teeBox, distributions, roughPenalty);
 
     res.json({ strategies, distributions });
   } catch (err) {

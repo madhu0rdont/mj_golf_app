@@ -2,6 +2,7 @@ import { expectedPutts } from './monte-carlo.js';
 import type { ClubDistribution, ApproachStrategy } from './monte-carlo.js';
 import type { CourseHole, HazardFeature } from '../models/types.js';
 import { projectPoint, haversineYards, pointInPolygon, bearingBetween, distanceToPolygonEdge } from './geo.js';
+import { query } from '../db.js';
 
 // Re-export for convenience
 export { buildDistributions } from './monte-carlo.js';
@@ -80,6 +81,22 @@ export function greedyClub(target: number, clubs: ClubDistribution[]): ClubDistr
     }
   }
   return best;
+}
+
+// ---------------------------------------------------------------------------
+// Rough Penalty (from hazard_penalties table)
+// ---------------------------------------------------------------------------
+
+export const DEFAULT_ROUGH_PENALTY = 0.3;
+
+/** Load the rough penalty from the hazard_penalties table. */
+export async function getRoughPenalty(): Promise<number> {
+  try {
+    const { rows } = await query('SELECT penalty FROM hazard_penalties WHERE type = $1', ['rough']);
+    return rows[0]?.penalty ?? DEFAULT_ROUGH_PENALTY;
+  } catch {
+    return DEFAULT_ROUGH_PENALTY;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -180,16 +197,29 @@ function findOBEntryDrop(
  * - Bunker: ball stays in bunker (playable surface)
  * - Water: move backward, validate safe drop
  * - Trees/rough/green: return as-is
+ * - Off fairway/green with no hazard: rough penalty
  */
 export function resolveHazardDrop(
   shotOrigin: { lat: number; lng: number },
   landing: { lat: number; lng: number },
   hazards: HazardFeature[],
-  _fairwayPolygons: { lat: number; lng: number }[][],
+  fairwayPolygons: { lat: number; lng: number }[][],
+  greenPoly: { lat: number; lng: number }[] = [],
+  roughPenalty: number = DEFAULT_ROUGH_PENALTY,
 ): HazardDropResult {
   const hazResult = checkHazards(landing, hazards);
   if (!hazResult.inHazard) {
-    return { landing, penalty: 0 };
+    // Not in any defined hazard — check if on fairway or green
+    if (greenPoly.length >= 3 && pointInPolygon(landing, greenPoly)) {
+      return { landing, penalty: 0 };
+    }
+    for (const fw of fairwayPolygons) {
+      if (fw.length >= 3 && pointInPolygon(landing, fw)) {
+        return { landing, penalty: 0 };
+      }
+    }
+    // Not on fairway or green = rough
+    return { landing, penalty: roughPenalty };
   }
 
   const hazardType = hazResult.hazardType!;
@@ -812,6 +842,7 @@ export function simulateHoleGPS(
   hole: CourseHole,
   distributions: ClubDistribution[],
   trials: number = DEFAULT_TRIALS,
+  roughPenalty: number = DEFAULT_ROUGH_PENALTY,
 ): OptimizedStrategy {
   const tee = { lat: hole.tee.lat, lng: hole.tee.lng };
   const pin = { lat: hole.pin.lat, lng: hole.pin.lng };
@@ -847,7 +878,7 @@ export function simulateHoleGPS(
         strokes += 0.5;
       }
 
-      const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway);
+      const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway, hole.green, roughPenalty);
       strokes += hazDrop.penalty;
       landing = hazDrop.landing;
 
@@ -880,7 +911,7 @@ export function simulateHoleGPS(
         strokes += 0.5;
       }
 
-      const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway);
+      const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway, hole.green, roughPenalty);
       strokes += hazDrop.penalty;
       landing = hazDrop.landing;
 
@@ -945,6 +976,7 @@ export function optimizeHole(
   teeBox: string,
   distributions: ClubDistribution[],
   trials: number = DEFAULT_TRIALS,
+  roughPenalty: number = DEFAULT_ROUGH_PENALTY,
 ): OptimizedStrategy[] {
   if (distributions.length === 0) return [];
 
@@ -952,7 +984,7 @@ export function optimizeHole(
   if (plans.length === 0) return [];
 
   const results = plans.map((plan) =>
-    simulateHoleGPS(plan, hole, distributions, trials),
+    simulateHoleGPS(plan, hole, distributions, trials, roughPenalty),
   );
 
   results.sort((a, b) => a.expectedStrokes - b.expectedStrokes);

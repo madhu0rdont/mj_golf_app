@@ -3,6 +3,7 @@ import { logger } from '../logger.js';
 import { computeClubShotGroups } from './club-shot-groups.js';
 import { buildDistributions } from './monte-carlo.js';
 import { generateGamePlan } from './game-plan.js';
+import { getRoughPenalty } from './strategy-optimizer.js';
 import type { ScoringMode } from './dp-optimizer.js';
 import type { Club, Shot, CourseWithHoles, CourseHole } from '../models/types.js';
 
@@ -71,7 +72,8 @@ export async function regenerateStalePlans() {
           if (course.holes.length === 0) continue;
 
           // Generate plan with the mode from the cache entry
-          const plan = generateGamePlan(course, teeBox, distributions, mode as ScoringMode);
+          const roughPenalty = await getRoughPenalty();
+          const plan = generateGamePlan(course, teeBox, distributions, mode as ScoringMode, roughPenalty);
 
           // Upsert game_plan_cache (stale = FALSE)
           const now = Date.now();

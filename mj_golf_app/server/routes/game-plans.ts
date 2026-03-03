@@ -4,6 +4,7 @@ import { query, toCamel } from '../db.js';
 import { logger } from '../logger.js';
 import { regenerateStalePlans } from '../services/plan-regenerator.js';
 import { generateGamePlan } from '../services/game-plan.js';
+import { getRoughPenalty } from '../services/strategy-optimizer.js';
 import { computeClubShotGroups } from '../services/club-shot-groups.js';
 import { buildDistributions } from '../services/monte-carlo.js';
 import type { ScoringMode } from '../services/dp-optimizer.js';
@@ -140,7 +141,8 @@ router.post('/:courseId/:teeBox/:mode/generate', async (req, res) => {
     }
 
     // Generate plan
-    const plan = generateGamePlan(course, teeBox, distributions, mode as ScoringMode);
+    const roughPenalty = await getRoughPenalty();
+    const plan = generateGamePlan(course, teeBox, distributions, mode as ScoringMode, roughPenalty);
 
     // Upsert cache
     const now = Date.now();

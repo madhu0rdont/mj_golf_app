@@ -323,6 +323,7 @@ function sampleTransitions(
   hole: CourseHole,
   zones: Zone[],
   greenZoneId: number,
+  roughPenalty: number,
 ): TransitionResult {
   const counts = new Map<number, number>();
   let totalPenalty = 0;
@@ -350,7 +351,7 @@ function sampleTransitions(
     }
 
     // Hazard check — OB drops at boundary, bunkers stay in place
-    const hazDrop = resolveHazardDrop(zone.position, landing, hole.hazards, hole.fairway);
+    const hazDrop = resolveHazardDrop(zone.position, landing, hole.hazards, hole.fairway, hole.green, roughPenalty);
     penalty += hazDrop.penalty;
     landing = hazDrop.landing;
 
@@ -406,6 +407,7 @@ function buildTransitionTable(
   zones: Zone[],
   distributions: ClubDistribution[],
   hole: CourseHole,
+  roughPenalty: number,
 ): TransitionTableEntry[] {
   const pin = { lat: hole.pin.lat, lng: hole.pin.lng };
   const greenZoneId = zones[zones.length - 1].id;
@@ -419,7 +421,7 @@ function buildTransitionTable(
 
     for (let ci = 0; ci < clubs.length; ci++) {
       for (let bi = 0; bi < bearings.length; bi++) {
-        const result = sampleTransitions(zone, clubs[ci], bearings[bi], hole, zones, greenZoneId);
+        const result = sampleTransitions(zone, clubs[ci], bearings[bi], hole, zones, greenZoneId, roughPenalty);
         entries.push({
           key: { zoneId: zone.id, clubIdx: ci, bearingIdx: bi },
           club: clubs[ci],
@@ -731,6 +733,7 @@ function simulateWithPolicy(
   distributions: ClubDistribution[],
   zones: Zone[],
   policy: Map<number, PolicyEntry>,
+  roughPenalty: number,
   trials: number = DEFAULT_TRIALS,
 ): OptimizedStrategy {
   const tee = { lat: hole.tee.lat, lng: hole.tee.lng };
@@ -792,7 +795,7 @@ function simulateWithPolicy(
         strokes += 0.5;
       }
 
-      const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway);
+      const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway, hole.green, roughPenalty);
       strokes += hazDrop.penalty;
       landing = hazDrop.landing;
 
@@ -823,7 +826,7 @@ function simulateWithPolicy(
         strokes += 0.5;
       }
 
-      const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway);
+      const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway, hole.green, roughPenalty);
       strokes += hazDrop.penalty;
       landing = hazDrop.landing;
 
@@ -896,6 +899,7 @@ export function dpOptimizeHole(
   hole: CourseHole,
   teeBox: string,
   distributions: ClubDistribution[],
+  roughPenalty: number = 0.3,
 ): OptimizedStrategy[] {
   if (distributions.length === 0) return [];
 
@@ -904,7 +908,7 @@ export function dpOptimizeHole(
   if (zones.length < 2) return [];
 
   // 2. Build transition table (shared across modes)
-  const table = buildTransitionTable(zones, distributions, hole);
+  const table = buildTransitionTable(zones, distributions, hole, roughPenalty);
   if (table.length === 0) return [];
 
   const modes: ScoringMode[] = ['scoring', 'safe', 'aggressive'];
@@ -952,7 +956,7 @@ export function dpOptimizeHole(
   for (let i = 0; i < plans.length; i++) {
     if (policies[i].size === 0) continue;
 
-    const strategy = simulateWithPolicy(plans[i], hole, distributions, zones, policies[i]);
+    const strategy = simulateWithPolicy(plans[i], hole, distributions, zones, policies[i], roughPenalty);
     strategy.strategyName = plans[i].name;
     strategy.strategyType = plans[i].type;
     results.push(strategy);
