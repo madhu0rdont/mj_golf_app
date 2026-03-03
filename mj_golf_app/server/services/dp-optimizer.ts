@@ -29,6 +29,7 @@ interface Zone {
   lie: 'fairway' | 'rough' | 'green';
   distToPin: number;
   isTerminal: boolean;
+  localBearing: number;
 }
 
 interface PolicyEntry {
@@ -91,13 +92,17 @@ export function discretizeHole(
   const greenPoly = hole.green ?? [];
   const zones: Zone[] = [];
 
-  // Tee zone
+  // Tee zone — localBearing points down the first centerLine segment
+  const teeBearing = centerLine.length >= 2
+    ? bearingBetween(tee, interpolateCenterLine(centerLine, tee, heading, ZONE_INTERVAL))
+    : heading;
   zones.push({
     id: 0,
     position: tee,
     lie: 'fairway',
     distToPin: totalDist,
     isTerminal: false,
+    localBearing: teeBearing,
   });
 
   // Walk centerline in intervals
@@ -121,17 +126,22 @@ export function discretizeHole(
         lie,
         distToPin,
         isTerminal: false,
+        localBearing,
       });
     }
   }
 
-  // Green zone (terminal)
+  // Green zone (terminal) — localBearing from last centerLine point to pin
+  const greenBearing = centerLine.length >= 2
+    ? bearingBetween(centerLine[centerLine.length - 2], pin)
+    : heading;
   zones.push({
     id: zones.length,
     position: pin,
     lie: 'green',
     distToPin: 0,
     isTerminal: true,
+    localBearing: greenBearing,
   });
 
   return zones;
@@ -289,12 +299,15 @@ function getEligibleClubs(
 
 function getAimBearings(
   zone: Zone,
-  pin: { lat: number; lng: number },
+  _pin: { lat: number; lng: number },
 ): number[] {
-  const pinBearing = bearingBetween(zone.position, pin);
+  // Center the bearing fan on the local centerLine direction, not the pin.
+  // On straight holes localBearing ≈ pinBearing so behavior is unchanged.
+  // On doglegs this naturally aims shots down the fairway.
+  const center = zone.localBearing;
   const bearings: number[] = [];
   for (let offset = -BEARING_RANGE; offset <= BEARING_RANGE; offset += BEARING_STEP) {
-    bearings.push((pinBearing + offset + 360) % 360);
+    bearings.push((center + offset + 360) % 360);
   }
   return bearings;
 }
@@ -436,6 +449,7 @@ function valueIteration(
   table: TransitionTableEntry[],
   mode: ScoringMode,
   par: number,
+  distributions: ClubDistribution[],
 ): ValueIterationResult {
   const pin = zones[zones.length - 1].position;
 
@@ -468,9 +482,19 @@ function valueIteration(
 
       const actions = byZone.get(zone.id);
       if (!actions || actions.length === 0) {
-        // No eligible clubs — use greedy fallback
+        // No eligible clubs — estimate strokes-to-hole realistically
         const chipDist = haversineYards(zone.position, pin);
-        const chipValue = 1 + expectedPutts(chipDist);
+        const minCarry = Math.min(...distributions.map(d => d.meanCarry));
+        let chipValue: number;
+        if (chipDist <= minCarry) {
+          // Within chip/pitch range — can get close to the pin
+          chipValue = 1 + expectedPutts(Math.max(3, chipDist * 0.1));
+        } else {
+          // Full approach shot — use greedyClub to estimate miss distance
+          const approachClub = greedyClub(chipDist, distributions);
+          const expectedMiss = Math.abs(chipDist - approachClub.meanCarry) + approachClub.stdCarry;
+          chipValue = 1 + expectedPutts(expectedMiss);
+        }
         V.set(zone.id, chipValue);
         continue;
       }
@@ -727,26 +751,35 @@ function simulateWithPolicy(
       const distToPin = haversineYards(currentPos, pin);
       if (distToPin <= chipThreshold) break;
 
-      // Look up policy for current zone
-      const entry = policy.get(currentZoneId);
-      if (!entry) break;
-
       const currentZone = zones.find((z) => z.id === currentZoneId);
       if (!currentZone) break;
 
-      const clubs = getEligibleClubs(currentZone, distributions);
-      if (entry.clubIdx >= clubs.length) break;
+      // Determine club and bearing — from policy or greedy fallback
+      let club: ClubDistribution;
+      let shotBearing: number;
 
-      const club = clubs[entry.clubIdx];
+      const entry = policy.get(currentZoneId);
+      const clubs = entry ? getEligibleClubs(currentZone, distributions) : [];
+
+      if (entry && entry.clubIdx < clubs.length) {
+        // Policy hit — use the DP-optimal action
+        club = clubs[entry.clubIdx];
+        const aimPoint = projectPoint(currentZone.position, entry.bearing, club.meanCarry);
+        const rawBearing = bearingBetween(currentPos, aimPoint);
+        const compensatedAim = compensateForBias(aimPoint, rawBearing, club);
+        shotBearing = bearingBetween(currentPos, compensatedAim);
+      } else {
+        // No policy or invalid club index — greedy fallback aimed at pin
+        club = greedyClub(distToPin, distributions);
+        const rawBearing = bearingBetween(currentPos, pin);
+        const compensatedAim = compensateForBias(pin, rawBearing, club);
+        shotBearing = bearingBetween(currentPos, compensatedAim);
+      }
+
       const lieMultiplier = currentZone.lie === 'rough' ? ROUGH_LIE_MULTIPLIER : 1.0;
 
       const carry = gaussianSample(club.meanCarry, club.stdCarry * lieMultiplier);
       const offline = gaussianSample(club.meanOffline, club.stdOffline * lieMultiplier);
-
-      const aimPoint = projectPoint(currentZone.position, entry.bearing, club.meanCarry);
-      const rawBearing = bearingBetween(currentPos, aimPoint);
-      const compensatedAim = compensateForBias(aimPoint, rawBearing, club);
-      const shotBearing = bearingBetween(currentPos, compensatedAim);
 
       let landing = projectPoint(currentPos, shotBearing, carry);
       if (Math.abs(offline) > 0.5) {
@@ -888,7 +921,7 @@ export function dpOptimizeHole(
 
   // 3. Value iteration for all modes
   for (const mode of modes) {
-    const { policy, values } = valueIteration(zones, table, mode, hole.par);
+    const { policy, values } = valueIteration(zones, table, mode, hole.par, distributions);
     policies.push(policy);
     allValues.push(values);
   }
