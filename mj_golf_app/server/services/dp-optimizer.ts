@@ -5,7 +5,7 @@ import { projectPoint, haversineYards, pointInPolygon, bearingBetween } from './
 import {
   gaussianSample,
   greedyClub,
-  checkHazards,
+  resolveHazardDrop,
   checkTreeTrajectory,
   compensateForBias,
   computeCarryNote,
@@ -349,12 +349,10 @@ function sampleTransitions(
       penalty += 0.5;
     }
 
-    // Hazard check
-    const hazResult = checkHazards(landing, hole.hazards);
-    if (hazResult.inHazard) {
-      penalty += hazResult.penalty;
-      landing = projectPoint(landing, bearingBetween(landing, zone.position), 5);
-    }
+    // Hazard check — OB drops at boundary, bunkers stay in place
+    const hazDrop = resolveHazardDrop(zone.position, landing, hole.hazards, hole.fairway);
+    penalty += hazDrop.penalty;
+    landing = hazDrop.landing;
 
     totalPenalty += penalty;
     totalPenaltySq += penalty * penalty;
@@ -794,11 +792,9 @@ function simulateWithPolicy(
         strokes += 0.5;
       }
 
-      const hazResult = checkHazards(landing, hole.hazards);
-      if (hazResult.inHazard) {
-        strokes += hazResult.penalty;
-        landing = projectPoint(landing, bearingBetween(landing, currentPos), 5);
-      }
+      const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway);
+      strokes += hazDrop.penalty;
+      landing = hazDrop.landing;
 
       currentPos = landing;
       currentZoneId = findNearestZone(landing, zones);
@@ -827,11 +823,9 @@ function simulateWithPolicy(
         strokes += 0.5;
       }
 
-      const hazResult = checkHazards(landing, hole.hazards);
-      if (hazResult.inHazard) {
-        strokes += hazResult.penalty;
-        landing = projectPoint(landing, bearingBetween(landing, currentPos), 5);
-      }
+      const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway);
+      strokes += hazDrop.penalty;
+      landing = hazDrop.landing;
 
       currentPos = landing;
       distToPin = haversineYards(currentPos, pin);

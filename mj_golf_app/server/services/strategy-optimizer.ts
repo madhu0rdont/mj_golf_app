@@ -100,6 +100,124 @@ export function checkHazards(
 }
 
 // ---------------------------------------------------------------------------
+// Hazard Drop Resolution (Rules of Golf)
+// ---------------------------------------------------------------------------
+
+export interface HazardDropResult {
+  landing: { lat: number; lng: number };
+  penalty: number;
+}
+
+const OB_DROP_OFFSET = 2;        // yards back from OB boundary
+const BINARY_SEARCH_STEPS = 8;   // ~1 yard precision on 250y shots
+const MAX_RETREAT_STEPS = 10;
+const RETREAT_STEP = 2;          // yards per retreat step
+
+/** Check if a point is in a "bad" hazard (OB, water, trees) — NOT bunker, which is playable. */
+function isInBadHazard(
+  point: { lat: number; lng: number },
+  hazards: HazardFeature[],
+): boolean {
+  for (const h of hazards) {
+    if (h.polygon.length < MIN_HAZARD_POINTS) continue;
+    if (h.type === 'bunker' || h.type === 'fairway_bunker' || h.type === 'greenside_bunker') continue;
+    if (h.type === 'rough' || h.type === 'green') continue;
+    if (pointInPolygon(point, h.polygon)) return true;
+  }
+  return false;
+}
+
+/** Step backward along retreatBearing until the point is not in a bad hazard. */
+function findSafeDrop(
+  point: { lat: number; lng: number },
+  retreatBearing: number,
+  hazards: HazardFeature[],
+): { lat: number; lng: number } {
+  for (let step = 0; step < MAX_RETREAT_STEPS; step++) {
+    if (!isInBadHazard(point, hazards)) return point;
+    point = projectPoint(point, retreatBearing, RETREAT_STEP);
+  }
+  return point;
+}
+
+/** Binary search along trajectory to find where ball enters OB, drop 2y back. */
+function findOBEntryDrop(
+  shotOrigin: { lat: number; lng: number },
+  landing: { lat: number; lng: number },
+  hazards: HazardFeature[],
+): { lat: number; lng: number } {
+  const trajectoryBearing = bearingBetween(shotOrigin, landing);
+  const totalDist = haversineYards(shotOrigin, landing);
+
+  // Binary search: lo = outside OB (shotOrigin side), hi = inside OB (landing side)
+  let lo = 0;
+  let hi = totalDist;
+
+  for (let i = 0; i < BINARY_SEARCH_STEPS; i++) {
+    const mid = (lo + hi) / 2;
+    const midPoint = projectPoint(shotOrigin, trajectoryBearing, mid);
+    const midHaz = checkHazards(midPoint, hazards);
+
+    if (midHaz.inHazard && midHaz.hazardType === 'ob') {
+      hi = mid;
+    } else {
+      lo = mid;
+    }
+  }
+
+  // Drop OB_DROP_OFFSET yards back from entry point
+  const dropDist = Math.max(0, hi - OB_DROP_OFFSET);
+  const dropPoint = projectPoint(shotOrigin, trajectoryBearing, dropDist);
+
+  // Validate the drop is not in another bad hazard
+  const retreatBearing = (trajectoryBearing + 180) % 360;
+  return findSafeDrop(dropPoint, retreatBearing, hazards);
+}
+
+/**
+ * Resolve hazard landing per Rules of Golf:
+ * - OB: drop at boundary entry point on playable ground
+ * - Bunker: ball stays in bunker (playable surface)
+ * - Water: move backward, validate safe drop
+ * - Trees/rough/green: return as-is
+ */
+export function resolveHazardDrop(
+  shotOrigin: { lat: number; lng: number },
+  landing: { lat: number; lng: number },
+  hazards: HazardFeature[],
+  _fairwayPolygons: { lat: number; lng: number }[][],
+): HazardDropResult {
+  const hazResult = checkHazards(landing, hazards);
+  if (!hazResult.inHazard) {
+    return { landing, penalty: 0 };
+  }
+
+  const hazardType = hazResult.hazardType!;
+
+  // Bunker: ball stays where it is (penalty represents shot difficulty)
+  if (hazardType === 'bunker' || hazardType === 'fairway_bunker' || hazardType === 'greenside_bunker') {
+    return { landing, penalty: hazResult.penalty };
+  }
+
+  // OB: find trajectory entry point, drop on playable side
+  if (hazardType === 'ob') {
+    const dropPoint = findOBEntryDrop(shotOrigin, landing, hazards);
+    return { landing: dropPoint, penalty: hazResult.penalty };
+  }
+
+  // Water: move backward, validate safe
+  if (hazardType === 'water') {
+    const retreatBearing = bearingBetween(landing, shotOrigin);
+    const rawDrop = projectPoint(landing, retreatBearing, 5);
+    const safeDrop = findSafeDrop(rawDrop, retreatBearing, hazards);
+    return { landing: safeDrop, penalty: hazResult.penalty };
+  }
+
+  // Trees/rough/green: return as-is with penalty
+  return { landing, penalty: hazResult.penalty };
+}
+
+// ---------------------------------------------------------------------------
 // Tree Trajectory Collision
 // ---------------------------------------------------------------------------
 
@@ -729,11 +847,9 @@ export function simulateHoleGPS(
         strokes += 0.5;
       }
 
-      const hazResult = checkHazards(landing, hole.hazards);
-      if (hazResult.inHazard) {
-        strokes += hazResult.penalty;
-        landing = projectPoint(landing, bearingBetween(landing, currentPos), 5);
-      }
+      const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway);
+      strokes += hazDrop.penalty;
+      landing = hazDrop.landing;
 
       currentPos = landing;
 
@@ -764,11 +880,9 @@ export function simulateHoleGPS(
         strokes += 0.5;
       }
 
-      const hazResult = checkHazards(landing, hole.hazards);
-      if (hazResult.inHazard) {
-        strokes += hazResult.penalty;
-        landing = projectPoint(landing, bearingBetween(landing, currentPos), 5);
-      }
+      const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway);
+      strokes += hazDrop.penalty;
+      landing = hazDrop.landing;
 
       currentPos = landing;
       distToPin = haversineYards(currentPos, pin);
