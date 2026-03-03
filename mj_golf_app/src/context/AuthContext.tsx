@@ -4,6 +4,8 @@ export interface User {
   id: string;
   username: string;
   displayName?: string;
+  email?: string;
+  profilePicture?: string;
   role: 'admin' | 'player';
   handedness: 'left' | 'right';
 }

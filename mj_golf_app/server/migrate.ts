@@ -346,6 +346,11 @@ export async function migrate() {
     END $$
   `);
 
+  // User profile fields: email + profile picture
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT`);
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture TEXT`);
+  await query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL`);
+
   // ---- One-time migration flags for post-deploy operations ----
   await query(`CREATE TABLE IF NOT EXISTS _migration_flags (
     flag TEXT PRIMARY KEY,

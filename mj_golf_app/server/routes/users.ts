@@ -11,12 +11,14 @@ const router = Router();
 router.get('/', requireAdmin, async (_req, res) => {
   try {
     const { rows } = await query(
-      'SELECT id, username, display_name, role, handedness, created_at, updated_at FROM users ORDER BY created_at',
+      'SELECT id, username, display_name, email, profile_picture, role, handedness, created_at, updated_at FROM users ORDER BY created_at',
     );
     res.json(rows.map((r) => ({
       id: r.id,
       username: r.username,
       displayName: r.display_name,
+      email: r.email || undefined,
+      profilePicture: r.profile_picture || undefined,
       role: r.role,
       handedness: r.handedness,
       createdAt: r.created_at,
@@ -31,7 +33,7 @@ router.get('/', requireAdmin, async (_req, res) => {
 // POST /api/users — create user (admin only)
 router.post('/', requireAdmin, async (req, res) => {
   try {
-    const { username, password, displayName, role, handedness } = req.body;
+    const { username, password, displayName, email, role, handedness } = req.body;
 
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password are required' });
@@ -41,6 +43,9 @@ router.post('/', requireAdmin, async (req, res) => {
     }
     if (handedness && !['left', 'right'].includes(handedness)) {
       return res.status(400).json({ error: 'Handedness must be left or right' });
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
     }
 
     // Check for duplicate username
@@ -52,20 +57,32 @@ router.post('/', requireAdmin, async (req, res) => {
       return res.status(409).json({ error: 'Username already exists' });
     }
 
+    // Check for duplicate email
+    if (email) {
+      const { rows: emailExisting } = await query(
+        'SELECT id FROM users WHERE lower(email) = lower($1)',
+        [email],
+      );
+      if (emailExisting.length > 0) {
+        return res.status(409).json({ error: 'Email already in use' });
+      }
+    }
+
     const id = crypto.randomUUID();
     const hash = await bcrypt.hash(password, 12);
     const now = Date.now();
 
     await query(
-      `INSERT INTO users (id, username, password, display_name, role, handedness, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
-      [id, username.toLowerCase(), hash, displayName || username, role || 'player', handedness || 'right', now],
+      `INSERT INTO users (id, username, password, display_name, email, role, handedness, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
+      [id, username.toLowerCase(), hash, displayName || username, email?.toLowerCase() || null, role || 'player', handedness || 'right', now],
     );
 
     res.status(201).json({
       id,
       username: username.toLowerCase(),
       displayName: displayName || username,
+      email: email?.toLowerCase() || undefined,
       role: role || 'player',
       handedness: handedness || 'right',
       createdAt: now,
@@ -81,7 +98,7 @@ router.post('/', requireAdmin, async (req, res) => {
 router.put('/me', async (req, res) => {
   try {
     const userId = req.session.userId!;
-    const { displayName, handedness, password } = req.body;
+    const { displayName, handedness, password, email, profilePicture } = req.body;
 
     const sets: string[] = [];
     const values: unknown[] = [];
@@ -102,6 +119,41 @@ router.put('/me', async (req, res) => {
       values.push(hash);
       sets.push(`password = $${values.length}`);
     }
+    if (email !== undefined) {
+      if (email === null || email === '') {
+        values.push(null);
+        sets.push(`email = $${values.length}`);
+      } else {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          return res.status(400).json({ error: 'Invalid email format' });
+        }
+        // Check uniqueness (exclude current user)
+        const { rows: emailExisting } = await query(
+          'SELECT id FROM users WHERE lower(email) = lower($1) AND id != $2',
+          [email, userId],
+        );
+        if (emailExisting.length > 0) {
+          return res.status(409).json({ error: 'Email already in use' });
+        }
+        values.push(email.toLowerCase());
+        sets.push(`email = $${values.length}`);
+      }
+    }
+    if (profilePicture !== undefined) {
+      if (profilePicture === null) {
+        values.push(null);
+        sets.push(`profile_picture = $${values.length}`);
+      } else {
+        if (typeof profilePicture !== 'string' || !profilePicture.startsWith('data:image/')) {
+          return res.status(400).json({ error: 'Profile picture must be a data:image URL' });
+        }
+        if (profilePicture.length > 200_000) {
+          return res.status(400).json({ error: 'Profile picture too large (max ~150KB)' });
+        }
+        values.push(profilePicture);
+        sets.push(`profile_picture = $${values.length}`);
+      }
+    }
 
     if (sets.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
@@ -114,18 +166,51 @@ router.put('/me', async (req, res) => {
     await query(`UPDATE users SET ${sets.join(', ')} WHERE id = $${values.length}`, values);
 
     const { rows } = await query(
-      'SELECT id, username, display_name, role, handedness FROM users WHERE id = $1',
+      'SELECT id, username, display_name, email, profile_picture, role, handedness FROM users WHERE id = $1',
       [userId],
     );
     res.json({
       id: rows[0].id,
       username: rows[0].username,
       displayName: rows[0].display_name,
+      email: rows[0].email || undefined,
+      profilePicture: rows[0].profile_picture || undefined,
       role: rows[0].role,
       handedness: rows[0].handedness,
     });
   } catch (err) {
     logger.error('Failed to update user profile', { error: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/users/:id/clear-data — clear a user's practice data but keep account (admin only)
+router.post('/:id/clear-data', requireAdmin, async (req, res) => {
+  try {
+    const targetId = req.params.id;
+
+    // Verify user exists
+    const { rows } = await query('SELECT id, role FROM users WHERE id = $1', [targetId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (rows[0].role === 'admin') {
+      return res.status(400).json({ error: 'Admin accounts have no player data to clear' });
+    }
+
+    await withTransaction(async (client) => {
+      await client.query('DELETE FROM shots WHERE user_id = $1', [targetId]);
+      await client.query('DELETE FROM sessions WHERE user_id = $1', [targetId]);
+      await client.query('DELETE FROM wedge_overrides WHERE user_id = $1', [targetId]);
+      await client.query('DELETE FROM game_plan_cache WHERE user_id = $1', [targetId]);
+      await client.query('DELETE FROM game_plan_history WHERE user_id = $1', [targetId]);
+      await client.query('DELETE FROM clubs WHERE user_id = $1', [targetId]);
+    });
+
+    logger.info(`Cleared all data for user ${targetId}`);
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error('Failed to clear user data', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });

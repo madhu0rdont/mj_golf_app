@@ -12,7 +12,6 @@ const PRIMARY_LINKS = [
 
 const UTILITY_LINKS = [
   { to: '/faq', icon: HelpCircle, label: 'How It Works' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 interface TopBarProps {
@@ -71,17 +70,38 @@ export function TopBar({ title, showBack, rightAction }: TopBarProps) {
           <div className="relative" ref={avatarRef}>
             <button
               onClick={() => setAvatarOpen(!avatarOpen)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-white"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-white overflow-hidden"
               aria-label="User menu"
             >
-              {initials}
+              {user?.profilePicture ? (
+                <img src={user.profilePicture} alt="" className="h-full w-full object-cover" />
+              ) : (
+                initials
+              )}
             </button>
             {avatarOpen && (
               <div className="absolute right-0 top-10 w-44 rounded-xl border border-border bg-card shadow-lg overflow-hidden">
-                <div className="px-4 py-3 border-b border-border">
-                  <p className="text-sm font-semibold text-text-dark">{user?.displayName || user?.username}</p>
-                  <p className="text-xs text-text-muted">{user?.role}</p>
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+                  {user?.profilePicture ? (
+                    <img src={user.profilePicture} alt="" className="h-9 w-9 rounded-full object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-bold text-white flex-shrink-0">
+                      {initials}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-text-dark truncate">{user?.displayName || user?.username}</p>
+                    <p className="text-xs text-text-muted">{user?.role}</p>
+                  </div>
                 </div>
+                <Link
+                  to="/settings"
+                  onClick={() => setAvatarOpen(false)}
+                  className="flex w-full items-center gap-2 px-4 py-3 text-sm text-text-medium hover:bg-surface transition-colors"
+                >
+                  <Settings size={16} />
+                  Settings
+                </Link>
                 <button
                   onClick={() => { setAvatarOpen(false); logout(); }}
                   className="flex w-full items-center gap-2 px-4 py-3 text-sm text-coral hover:bg-surface transition-colors"

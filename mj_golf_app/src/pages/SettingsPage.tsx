@@ -1,20 +1,103 @@
-import { useState, useRef } from 'react';
-import { Download, Upload, Trash2, LogOut, Loader2 } from 'lucide-react';
+import { useState, useRef, useCallback } from 'react';
+import { Download, Upload, LogOut, Loader2, Camera, X } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { Button } from '../components/ui/Button';
-import { Modal } from '../components/ui/Modal';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
-import { exportAllData, importAllData, clearAllData } from '../db/backup';
+import { exportAllData, importAllData } from '../db/backup';
 import { api } from '../lib/api';
+
+/** Resize an image file to maxSize x maxSize, return base64 data URL */
+function resizeImage(file: File, maxSize: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement('canvas');
+      // Crop to square from center, then resize
+      const min = Math.min(img.width, img.height);
+      const sx = (img.width - min) / 2;
+      const sy = (img.height - min) / 2;
+      canvas.width = maxSize;
+      canvas.height = maxSize;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, sx, sy, min, min, 0, 0, maxSize, maxSize);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Failed to load image'));
+    };
+    img.src = url;
+  });
+}
 
 export function SettingsPage() {
   const { handedness, setHandedness } = useSettings();
-  const { logout } = useAuth();
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const { user, logout, updateUser } = useAuth();
   const [importStatus, setImportStatus] = useState('');
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pictureInputRef = useRef<HTMLInputElement>(null);
+
+  // Profile editing state
+  const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [profilePreview, setProfilePreview] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [profileStatus, setProfileStatus] = useState('');
+
+  const hasProfileChanges =
+    displayName !== (user?.displayName || '') ||
+    email !== (user?.email || '') ||
+    profilePreview !== null;
+
+  const handlePictureSelect = useCallback(async (file: File) => {
+    try {
+      const dataUrl = await resizeImage(file, 128);
+      setProfilePreview(dataUrl);
+    } catch {
+      setProfileStatus('Failed to process image');
+    }
+  }, []);
+
+  const handleRemovePicture = useCallback(() => {
+    setProfilePreview('remove');
+  }, []);
+
+  const handleSaveProfile = useCallback(async () => {
+    setSaving(true);
+    setProfileStatus('');
+    try {
+      const body: Record<string, unknown> = {};
+      if (displayName !== (user?.displayName || '')) body.displayName = displayName;
+      if (email !== (user?.email || '')) body.email = email || null;
+      if (profilePreview === 'remove') {
+        body.profilePicture = null;
+      } else if (profilePreview) {
+        body.profilePicture = profilePreview;
+      }
+
+      const result = await api.put<{
+        id: string;
+        username: string;
+        displayName: string;
+        email?: string;
+        profilePicture?: string;
+        role: 'admin' | 'player';
+        handedness: 'left' | 'right';
+      }>('/users/me', body);
+      updateUser(result);
+      setProfilePreview(null);
+      setProfileStatus('Saved');
+      setTimeout(() => setProfileStatus(''), 2000);
+    } catch (err) {
+      setProfileStatus(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }, [displayName, email, profilePreview, user, updateUser]);
 
   const handleExport = async () => {
     try {
@@ -37,22 +120,95 @@ export function SettingsPage() {
     }
   };
 
-  const handleClear = async () => {
-    await clearAllData();
-    setShowClearConfirm(false);
-    window.location.reload();
-  };
-
-  const handleResetBag = async () => {
-    await clearAllData();
-    await api.post('/seed', {});
-    window.location.reload();
-  };
+  // Determine which picture to show
+  const currentPicture =
+    profilePreview === 'remove'
+      ? null
+      : profilePreview || user?.profilePicture || null;
+  const initials = (user?.displayName || user?.username || '?').slice(0, 2).toUpperCase();
 
   return (
     <>
       <TopBar title="Settings" showBack />
       <div className="px-4 py-4">
+        {/* Profile */}
+        <section className="mb-6">
+          <h3 className="mb-3 text-sm font-medium text-text-medium uppercase">Profile</h3>
+          <div className="flex flex-col items-center gap-3 mb-4">
+            <div className="relative">
+              <button
+                onClick={() => pictureInputRef.current?.click()}
+                className="relative flex h-20 w-20 items-center justify-center rounded-full bg-primary text-xl font-bold text-white overflow-hidden ring-2 ring-border hover:ring-primary transition-all"
+              >
+                {currentPicture ? (
+                  <img src={currentPicture} alt="Profile" className="h-full w-full object-cover" />
+                ) : (
+                  initials
+                )}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity">
+                  <Camera size={20} className="text-white" />
+                </div>
+              </button>
+              {currentPicture && (
+                <button
+                  onClick={handleRemovePicture}
+                  className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-coral text-white shadow-sm hover:bg-coral/80 transition-colors"
+                  title="Remove picture"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+            <input
+              ref={pictureInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => e.target.files?.[0] && handlePictureSelect(e.target.files[0])}
+              className="hidden"
+            />
+            <p className="text-xs text-text-muted">Tap to change photo</p>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-text-medium">Display Name</label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder={user?.username}
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-text-medium">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Optional"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          </div>
+
+          {hasProfileChanges && (
+            <Button
+              onClick={handleSaveProfile}
+              disabled={saving}
+              className="mt-3 w-full"
+            >
+              {saving ? <Loader2 size={16} className="animate-spin" /> : null}
+              {saving ? 'Saving...' : 'Save Profile'}
+            </Button>
+          )}
+          {profileStatus && (
+            <p className={`mt-2 text-xs ${profileStatus === 'Saved' ? 'text-primary' : 'text-coral'}`}>
+              {profileStatus}
+            </p>
+          )}
+        </section>
+
         {/* Handedness */}
         <section className="mb-6">
           <h3 className="mb-2 text-sm font-medium text-text-medium uppercase">Handedness</h3>
@@ -112,18 +268,6 @@ export function SettingsPage() {
           </div>
         </section>
 
-        {/* Danger Zone */}
-        <section className="mb-6">
-          <h3 className="mb-2 text-sm font-medium text-coral uppercase">Danger Zone</h3>
-          <Button
-            variant="danger"
-            onClick={() => setShowClearConfirm(true)}
-            className="w-full justify-start"
-          >
-            <Trash2 size={16} /> Clear All Data
-          </Button>
-        </section>
-
         {/* Log Out */}
         <section className="mb-6">
           <Button variant="secondary" onClick={logout} className="w-full justify-start">
@@ -137,27 +281,6 @@ export function SettingsPage() {
         </section>
       </div>
 
-      <Modal
-        open={showClearConfirm}
-        onClose={() => setShowClearConfirm(false)}
-        title="Clear All Data"
-      >
-        <p className="mb-4 text-sm text-text-medium">
-          This will permanently delete all clubs, sessions, and shot data. This action cannot be
-          undone. Consider exporting your data first.
-        </p>
-        <div className="flex flex-col gap-2">
-          <Button variant="danger" onClick={handleClear} className="w-full">
-            Delete Everything
-          </Button>
-          <Button variant="secondary" onClick={handleResetBag} className="w-full">
-            Reset to Default Bag Only
-          </Button>
-          <Button variant="ghost" onClick={() => setShowClearConfirm(false)} className="w-full">
-            Cancel
-          </Button>
-        </div>
-      </Modal>
     </>
   );
 }
