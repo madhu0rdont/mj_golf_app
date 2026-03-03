@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.5.3 — Rules of Golf Hazard Drop Logic
+- OB drops now land at the boundary entry point (binary search along trajectory, 2y offset) instead of 5y backward from inside OB — prevents cascading penalties from balls dropped in unplayable positions
+- Bunker balls stay in place (penalty represents shot difficulty, not a re-drop)
+- Water drops validated via `findSafeDrop()` to avoid landing in adjacent hazards
+- Admin map orientation now matches course management page (fitBounds + heading correction)
+
 ## v1.5.2 — DP Optimizer: V Fallback, MC Resilience, Dogleg Aim Bearings
 - Fix inflated V values for no-action zones: approach-aware fallback using `greedyClub` instead of broken `expectedPutts(rawDist)` (~0.7–1.0 stroke deflation, making Driver/3Wood competitive on long holes)
 - MC simulation no longer breaks on missing policy entries: fires inline greedy shots and continues, so each scoring mode produces independent expected-stroke estimates
