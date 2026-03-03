@@ -28,6 +28,7 @@ export interface OptimizedStrategy extends ApproachStrategy {
   scoreDistribution: ScoreDistribution;
   blowupRisk: number; // P(double bogey or worse), 0-1
   stdStrokes: number; // standard deviation of simulated scores
+  fairwayRate: number; // proportion of MC trials with first shot on fairway/green (0-1)
   aimPoints: AimPoint[];
 }
 

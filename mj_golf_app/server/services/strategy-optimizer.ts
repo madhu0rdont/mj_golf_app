@@ -35,6 +35,7 @@ export interface OptimizedStrategy extends ApproachStrategy {
   scoreDistribution: ScoreDistribution;
   blowupRisk: number;
   stdStrokes: number;
+  fairwayRate: number;  // proportion of MC trials with first shot on fairway/green (0-1)
   aimPoints: AimPoint[];
 }
 
@@ -853,10 +854,12 @@ export function simulateHoleGPS(
   const chipThreshold = Math.max(HOLE_THRESHOLD, minClubCarry * 0.5);
 
   const trialScores: number[] = [];
+  let fairwayHits = 0;
 
   for (let t = 0; t < trials; t++) {
     let currentPos = { lat: tee.lat, lng: tee.lng };
     let strokes = 0;
+    let shotIdx = 0;
 
     for (const shot of plan.shots) {
       const carry = gaussianSample(shot.clubDist.meanCarry, shot.clubDist.stdCarry);
@@ -884,6 +887,12 @@ export function simulateHoleGPS(
       const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway, hole.green, roughPenalty);
       strokes += hazDrop.penalty;
       landing = hazDrop.landing;
+
+      // Track first-shot fairway/green rate
+      if (shotIdx === 0 && hazDrop.penalty === 0) {
+        fairwayHits++;
+      }
+      shotIdx++;
 
       currentPos = landing;
 
@@ -966,6 +975,7 @@ export function simulateHoleGPS(
     strategyType: plan.type,
     scoreDistribution: scoreDist,
     blowupRisk,
+    fairwayRate: fairwayHits / trials,
     aimPoints,
   };
 }

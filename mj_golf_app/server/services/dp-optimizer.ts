@@ -745,6 +745,7 @@ function simulateWithPolicy(
   const chipThreshold = Math.max(HOLE_THRESHOLD, minClubCarry * 0.5);
 
   const trialScores: number[] = [];
+  let fairwayHits = 0;
 
   for (let t = 0; t < trials; t++) {
     let currentPos = { lat: tee.lat, lng: tee.lng };
@@ -801,6 +802,11 @@ function simulateWithPolicy(
       const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway, hole.green, roughPenalty);
       strokes += hazDrop.penalty;
       landing = hazDrop.landing;
+
+      // Track first-shot fairway/green rate
+      if (shotIdx === 0 && hazDrop.penalty === 0) {
+        fairwayHits++;
+      }
 
       currentPos = landing;
       currentZoneId = findNearestZone(landing, zones);
@@ -884,6 +890,7 @@ function simulateWithPolicy(
     strategyType: plan.type,
     scoreDistribution: scoreDist,
     blowupRisk,
+    fairwayRate: fairwayHits / trials,
     aimPoints,
   };
 }
@@ -965,8 +972,16 @@ export function dpOptimizeHole(
     results.push(strategy);
   }
 
-  // Sort by expected strokes ascending
-  results.sort((a, b) => a.expectedStrokes - b.expectedStrokes);
+  // Sort by expected strokes ascending, with fairway rate as tiebreaker
+  // When strategies are within 0.2 strokes, prefer the one with higher fairway rate
+  results.sort((a, b) => {
+    const strokeDiff = a.expectedStrokes - b.expectedStrokes;
+    if (Math.abs(strokeDiff) > 0.2) return strokeDiff;
+    // Within 0.2 strokes — prefer higher fairway/green rate
+    const fairwayDiff = b.fairwayRate - a.fairwayRate;
+    if (Math.abs(fairwayDiff) > 0.05) return fairwayDiff;
+    return strokeDiff;
+  });
 
   return results;
 }
