@@ -1,6 +1,6 @@
 import { expectedPutts } from './monte-carlo.js';
 import type { ClubDistribution } from './monte-carlo.js';
-import type { CourseHole } from '../models/types.js';
+import type { CourseHole, HazardFeature } from '../models/types.js';
 import { projectPoint, haversineYards, pointInPolygon, bearingBetween } from './geo.js';
 import {
   gaussianSample,
@@ -83,8 +83,11 @@ export function discretizeHole(
   const totalDist = hole.playsLikeYards?.[teeBox] ?? hole.yardages[teeBox] ?? Object.values(hole.yardages)[0] ?? 0;
   if (totalDist === 0) return [];
 
-  const centerLine = hole.centerLine ?? [];
   const fairwayPolygons = hole.fairway ?? [];
+  let centerLine = hole.centerLine ?? [];
+  if (centerLine.length < 2 && fairwayPolygons.length > 0) {
+    centerLine = synthesizeCenterLine(tee, pin, totalDist, fairwayPolygons, hole.hazards);
+  }
   const greenPoly = hole.green ?? [];
   const zones: Zone[] = [];
 
@@ -173,6 +176,80 @@ function classifyLie(
     if (fw.length >= 3 && pointInPolygon(pos, fw)) return 'fairway';
   }
   return 'rough';
+}
+
+// ---------------------------------------------------------------------------
+// Synthetic Center Line (for doglegs without centerLine data)
+// ---------------------------------------------------------------------------
+
+function scoreCandidatePoint(
+  point: { lat: number; lng: number },
+  pin: { lat: number; lng: number },
+  fairwayPolygons: { lat: number; lng: number }[][],
+  hazards: HazardFeature[] | undefined,
+): number {
+  let score = 0;
+
+  // Reward for being on the fairway
+  for (const fw of fairwayPolygons) {
+    if (fw.length >= 3 && pointInPolygon(point, fw)) {
+      score += 10;
+      break;
+    }
+  }
+
+  // Penalty for being in a hazard
+  if (hazards) {
+    for (const h of hazards) {
+      if (h.polygon.length >= 3 && pointInPolygon(point, h.polygon)) {
+        score -= 20;
+        break;
+      }
+    }
+  }
+
+  // Small reward for progress toward pin (0–2 range)
+  const distToPin = haversineYards(point, pin);
+  // Normalize: closer to pin = higher reward, max 2
+  score += Math.max(0, 2 - distToPin / 200);
+
+  return score;
+}
+
+function synthesizeCenterLine(
+  tee: { lat: number; lng: number },
+  pin: { lat: number; lng: number },
+  totalDist: number,
+  fairwayPolygons: { lat: number; lng: number }[][],
+  hazards: HazardFeature[] | undefined,
+): { lat: number; lng: number; elevation: number }[] {
+  const path: { lat: number; lng: number; elevation: number }[] = [{ ...tee, elevation: 0 }];
+  const stepSize = 20; // yards per step
+  let current = tee;
+
+  for (let d = stepSize; d < totalDist - GREEN_RADIUS; d += stepSize) {
+    const baseBearing = bearingBetween(current, pin);
+
+    let bestPoint = projectPoint(current, baseBearing, stepSize);
+    let bestScore = -Infinity;
+
+    // Fan of bearings: ±75° in 5° increments
+    for (let offset = -75; offset <= 75; offset += 5) {
+      const bearing = (baseBearing + offset + 360) % 360;
+      const candidate = projectPoint(current, bearing, stepSize);
+      const s = scoreCandidatePoint(candidate, pin, fairwayPolygons, hazards);
+      if (s > bestScore) {
+        bestScore = s;
+        bestPoint = candidate;
+      }
+    }
+
+    path.push({ ...bestPoint, elevation: 0 });
+    current = bestPoint;
+  }
+
+  path.push({ ...pin, elevation: 0 });
+  return path;
 }
 
 // ---------------------------------------------------------------------------
@@ -539,6 +616,9 @@ function extractPlan(
   const pin = { lat: hole.pin.lat, lng: hole.pin.lng };
   const shots: NamedStrategyPlan['shots'] = [];
 
+  // Under the 58-degree (shortest club) distance → can reach the green every time
+  const approachThreshold = Math.min(...distributions.map((d) => d.meanCarry));
+
   let currentZone = zones[0]; // tee
   const maxShots = hole.par + 1; // reasonable limit for plan extraction
 
@@ -546,24 +626,33 @@ function extractPlan(
     if (currentZone.isTerminal) break;
 
     // Use forced first action on the tee shot if provided
-    let clubIdx: number;
+    let club: ClubDistribution | undefined;
     let bearing: number;
+
     if (i === 0 && forcedFirstAction) {
-      clubIdx = forcedFirstAction.clubIdx;
+      const clubs = getEligibleClubs(currentZone, distributions);
+      club = clubs[forcedFirstAction.clubIdx];
       bearing = forcedFirstAction.bearing;
     } else {
       const entry = policy.get(currentZone.id);
-      if (!entry) break;
-      clubIdx = entry.clubIdx;
-      bearing = entry.bearing;
+      if (entry) {
+        const clubs = getEligibleClubs(currentZone, distributions);
+        club = clubs[entry.clubIdx];
+        bearing = entry.bearing;
+      } else {
+        // No policy entry — greedy fallback aimed at pin
+        club = undefined;
+        bearing = bearingBetween(currentZone.position, pin);
+      }
     }
 
-    const clubs = getEligibleClubs(currentZone, distributions);
-    if (clubIdx >= clubs.length) break;
+    // If club is undefined (policy miss or index out of range), use greedy club
+    if (!club) {
+      club = greedyClub(currentZone.distToPin, distributions);
+      bearing = bearingBetween(currentZone.position, pin);
+    }
 
-    const club = clubs[clubIdx];
     const aimPoint = projectPoint(currentZone.position, bearing, club.meanCarry);
-
     shots.push({ clubDist: club, aimPoint });
 
     // Simulate expected landing for next zone
@@ -572,12 +661,29 @@ function extractPlan(
 
     if (landingDist <= GREEN_RADIUS) break;
 
+    // Within approach threshold — add one final approach to the pin and stop
+    if (landingDist <= approachThreshold) {
+      const approachClub = greedyClub(landingDist, distributions);
+      shots.push({ clubDist: approachClub, aimPoint: pin });
+      break;
+    }
+
     // Find the zone closest to expected landing
     const nextZoneId = findNearestZone(landing, zones);
     const nextZone = zones.find((z) => z.id === nextZoneId);
     if (!nextZone || nextZone.isTerminal) break;
 
     currentZone = nextZone;
+  }
+
+  // Post-loop: if last shot lands within approach range but we didn't add approach yet
+  if (shots.length > 0) {
+    const lastShot = shots[shots.length - 1];
+    const lastLandingDist = haversineYards(lastShot.aimPoint, pin);
+    if (lastLandingDist > GREEN_RADIUS && lastLandingDist <= approachThreshold) {
+      const approachClub = greedyClub(lastLandingDist, distributions);
+      shots.push({ clubDist: approachClub, aimPoint: pin });
+    }
   }
 
   // If no shots extracted, fallback to a simple approach
