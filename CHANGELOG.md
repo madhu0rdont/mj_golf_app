@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.5.9 — Test Coverage & Course Logos
+- Add test coverage for users, shots, and wedge-overrides routes (66 new tests)
+- Tests cover admin CRUD, race condition handling (23505), Zod validation, email regex, role guards
+- Remove diagnostic test files (hole7-diagnostic, hole7-real-diagnostic) — debug artifacts with no assertions
+- Add course logos: Tilden Park, TCC Brookline, Harding Park, Meadow Club, Blackhawk
+- Logos auto-matched by course name in Admin and Strategy Planner pages
+
 ## v1.5.8 — Security Hardening
 - Sanitize external API error responses — no Anthropic internals or stack traces leaked to clients
 - Global write rate limiter: 200 requests per 15 minutes on all mutating endpoints (POST/PUT/PATCH/DELETE)
