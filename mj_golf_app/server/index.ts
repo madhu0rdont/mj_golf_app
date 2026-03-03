@@ -23,8 +23,9 @@ import extractRouter from './routes/extract.js';
 import wedgeOverridesRouter from './routes/wedge-overrides.js';
 import coursesRouter from './routes/courses.js';
 import adminRouter from './routes/admin.js';
-import gamePlansRouter from './routes/game-plans.js';
+import gamePlansRouter, { markPlansStale } from './routes/game-plans.js';
 import strategyRouter from './routes/strategy.js';
+import { readFileSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -124,6 +125,41 @@ app.get('/{*splat}', (_req, res) => {
 async function start() {
   await migrate();
   await seed();
+
+  // Auto-regenerate game plans when optimizer version changes
+  try {
+    const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
+    const appVersion = pkg.version as string;
+    const { rows } = await pool.query(
+      `SELECT value FROM app_settings WHERE key = 'optimizer_version'`,
+    );
+    const dbVersion = rows[0]?.value;
+    if (dbVersion !== appVersion) {
+      logger.info(`Optimizer version changed: ${dbVersion ?? 'none'} → ${appVersion}, marking plans stale`);
+      await pool.query(
+        `INSERT INTO app_settings (key, value) VALUES ('optimizer_version', $1)
+         ON CONFLICT (key) DO UPDATE SET value = $1`,
+        [appVersion],
+      );
+      await markPlansStale(`Optimizer updated to ${appVersion}`);
+    }
+  } catch {
+    // app_settings table may not exist yet — create it
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    `);
+    const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
+    await pool.query(
+      `INSERT INTO app_settings (key, value) VALUES ('optimizer_version', $1)
+       ON CONFLICT (key) DO UPDATE SET value = $1`,
+      [pkg.version],
+    );
+    await markPlansStale(`Optimizer updated to ${pkg.version}`);
+  }
+
   app.listen(PORT, '0.0.0.0', () => {
     logger.info(`Server listening on port ${PORT}`);
   });
