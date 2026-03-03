@@ -252,6 +252,32 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
         geodesic: true,
       });
     }
+
+    // Fit bounds to show entire hole, then orient tee-to-pin upward
+    const bounds = new google.maps.LatLngBounds();
+    bounds.extend({ lat: hole.tee.lat, lng: hole.tee.lng });
+    bounds.extend({ lat: hole.pin.lat, lng: hole.pin.lng });
+    for (const poly of (hole.fairway ?? [])) {
+      for (const p of poly) bounds.extend(p);
+    }
+    if (hole.green?.length) {
+      for (const p of hole.green) bounds.extend(p);
+    }
+    map.fitBounds(bounds, { top: 40, bottom: 40, left: 20, right: 20 });
+
+    const heading = bearingBetween(hole.tee, hole.pin);
+    google.maps.event.addListenerOnce(map, 'idle', () => {
+      try {
+        map.moveCamera({
+          center: map.getCenter()!,
+          zoom: map.getZoom()!,
+          heading,
+          tilt: 0,
+        });
+      } catch {
+        map.setHeading(heading);
+      }
+    });
   }, [hole]);
 
   // Render hazard/fairway/green polygons on map
