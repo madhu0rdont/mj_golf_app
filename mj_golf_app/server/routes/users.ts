@@ -8,17 +8,18 @@ import { requireAdmin } from '../middleware/auth.js';
 const router = Router();
 
 // GET /api/users — list all users (admin only)
+// Excludes profile_picture blob to keep response small; use GET /api/users/:id/picture instead
 router.get('/', requireAdmin, async (_req, res) => {
   try {
     const { rows } = await query(
-      'SELECT id, username, display_name, email, profile_picture, role, handedness, created_at, updated_at FROM users ORDER BY created_at',
+      'SELECT id, username, display_name, email, (profile_picture IS NOT NULL) AS has_picture, role, handedness, created_at, updated_at FROM users ORDER BY created_at',
     );
     res.json(rows.map((r) => ({
       id: r.id,
       username: r.username,
       displayName: r.display_name,
       email: r.email || undefined,
-      profilePicture: r.profile_picture || undefined,
+      hasProfilePicture: r.has_picture,
       role: r.role,
       handedness: r.handedness,
       createdAt: r.created_at,
@@ -26,6 +27,18 @@ router.get('/', requireAdmin, async (_req, res) => {
     })));
   } catch (err) {
     logger.error('Failed to list users', { error: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/users/:id/picture — get profile picture for a single user
+router.get('/:id/picture', requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await query('SELECT profile_picture FROM users WHERE id = $1', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    res.json({ profilePicture: rows[0].profile_picture || null });
+  } catch (err) {
+    logger.error('Failed to get user picture', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
   }
 });

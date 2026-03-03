@@ -69,6 +69,13 @@ export async function deleteSession(id: string): Promise<void> {
 }
 
 async function revalidateSessions() {
-  // Revalidate all session-related SWR keys
-  await mutate((key: string) => typeof key === 'string' && key.startsWith('/api/sessions'), undefined, { revalidate: true });
+  // Revalidate session list keys (not individual session detail keys)
+  await mutate(
+    (key: string) =>
+      typeof key === 'string' &&
+      key.startsWith('/api/sessions') &&
+      !key.includes('/shots'),
+    undefined,
+    { revalidate: true },
+  );
 }

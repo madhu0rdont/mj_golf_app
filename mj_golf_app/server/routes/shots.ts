@@ -13,6 +13,9 @@ router.get('/', async (req, res) => {
     const values: unknown[] = [userId];
     let paramIndex = 2;
 
+    // Only JOIN sessions when filtering by date (avoids unnecessary join for yardage book)
+    const needsSessionJoin = !!req.query.since;
+
     if (req.query.since) {
       conditions.push(`s.date >= $${paramIndex++}`);
       values.push(Number(req.query.since));
@@ -26,9 +29,10 @@ router.get('/', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit as string) || 10000, 50000);
     values.push(limit);
 
+    const join = needsSessionJoin ? 'JOIN sessions s ON s.id = shots.session_id' : '';
     const { rows } = await query(
       `SELECT shots.* FROM shots
-       JOIN sessions s ON s.id = shots.session_id
+       ${join}
        ${where}
        ORDER BY shots.id
        LIMIT $${paramIndex}`,

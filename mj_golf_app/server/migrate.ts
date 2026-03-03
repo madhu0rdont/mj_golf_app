@@ -195,7 +195,9 @@ export async function migrate() {
   `);
   await query(`
     CREATE INDEX IF NOT EXISTS idx_gph_course_time
-      ON game_plan_history(course_id, tee_box, mode, created_at)
+      ON game_plan_history(course_id, tee_box, mode, created_at);
+    CREATE INDEX IF NOT EXISTS idx_gph_user_course_time
+      ON game_plan_history(user_id, course_id, tee_box, mode, created_at DESC)
   `);
 
   // Green polygon for course holes

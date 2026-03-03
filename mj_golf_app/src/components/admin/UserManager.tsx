@@ -9,13 +9,31 @@ interface UserRecord {
   username: string;
   displayName: string;
   email?: string;
-  profilePicture?: string;
+  hasProfilePicture?: boolean;
   role: 'admin' | 'player';
   handedness: 'left' | 'right';
   createdAt: number;
 }
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
+/** Lazy-loads a user's profile picture from the separate endpoint */
+function UserAvatar({ user }: { user: UserRecord }) {
+  const { data } = useSWR<{ profilePicture: string | null }>(
+    user.hasProfilePicture ? `/api/users/${user.id}/picture` : null,
+    fetcher,
+  );
+
+  if (data?.profilePicture) {
+    return <img src={data.profilePicture} alt="" className="h-8 w-8 rounded-full object-cover flex-shrink-0" />;
+  }
+
+  return (
+    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-white flex-shrink-0">
+      {(user.displayName || user.username).slice(0, 2).toUpperCase()}
+    </div>
+  );
+}
 
 const inputClass = 'w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-primary focus:ring-1 focus:ring-primary';
 
@@ -212,13 +230,7 @@ export function UserManager() {
         {users?.map((u) => (
           <div key={u.id} className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
             <div className="flex items-center gap-3">
-              {u.profilePicture ? (
-                <img src={u.profilePicture} alt="" className="h-8 w-8 rounded-full object-cover flex-shrink-0" />
-              ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-white flex-shrink-0">
-                  {(u.displayName || u.username).slice(0, 2).toUpperCase()}
-                </div>
-              )}
+              <UserAvatar user={u} />
               <div>
                 <p className="text-sm font-medium text-text-dark">
                   {u.displayName || u.username}
