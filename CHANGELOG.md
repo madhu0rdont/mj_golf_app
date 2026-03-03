@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.5.6 — Homepage Improvements & Worker Threads
+- Dynamic user name: homepage title now shows the logged-in user's first name instead of hardcoded "Madhu's"
+- Bag button promoted to same size/styling as Play and Practice in a 3-column grid
+- Estimated handicap badge: new `/api/game-plans/handicap` endpoint computes average differential from cached scoring plans using course rating/slope, displayed on the homepage
+- Worker threads: game plan generation (DP optimizer) now runs in `worker_threads` so the site stays responsive during background plan regeneration
+- Decoupled optimizer version from package version — UI-only version bumps no longer trigger costly plan regeneration
+- Static asset caching: hashed assets cached 1 year (immutable), index.html no-cache for instant deploys
+- N+1 query fix in scorecard update (18 queries → 1) and batched hazard penalty upserts
+- Composite index on `shots(user_id, session_id)` for faster yardage book queries
+- SWR exponential backoff for stale plan polling (3s→6s→12s→30s cap)
+- Parallel plan regeneration: 2 concurrent worker threads with pre-loaded course data
+
 ## v1.5.5 — Fairway-Aware Bearing Selection
 - Finer bearing resolution: `BEARING_STEP` reduced from 5° to 2° (31 bearings per zone instead of 13), enabling the optimizer to resolve narrow fairway windows
 - Lie cascade correction: rough landings now penalized for cascading effects (wider dispersion from `ROUGH_LIE_MULTIPLIER` leading to more rough on subsequent shots), preventing the optimizer from favoring rough-landing bearings with better approach distances
