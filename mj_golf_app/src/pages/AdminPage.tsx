@@ -15,6 +15,11 @@ import type { Course, CourseHole, HazardFeature } from '../models/course';
 const COURSE_LOGOS: Record<string, string> = {
   claremont: '/course-logos/claremont.svg',
   presidio: '/course-logos/presidio.webp',
+  tilden: '/course-logos/tilden.webp',
+  tcc: '/course-logos/tcc.png',
+  harding: '/course-logos/harding.jpg',
+  meadow: '/course-logos/meadow.webp',
+  blackhawk: '/course-logos/blackhawk.png',
 };
 
 function getCourseLogoKey(name: string): string | undefined {
