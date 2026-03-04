@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.7.0 — FlagstIQ Rebrand & Admin Enhancements
+- **Rebrand**: renamed from "MJ Golf" to "FlagstIQ" across codebase, GitHub repo, Railway, wiki, and README
+- **Course logo upload**: admin UI allows uploading custom course logos (base64, 128x128 center-crop); logos appear on Admin, Course Management, and Settings pages
+- **Handicap course info**: info button next to "X courses tracked" on homepage shows which courses feed the handicap calculation
+- **Game plan loader**: rich phase-aware progress during plan generation with 18 descriptive messages, progress bar, and rotating golf tips
+- **Stale plan banner**: now shows per-hole phase messages and progress bar during auto-regeneration instead of generic "auto-refreshing..."
+- **Copyright footer**: "© 2026 FlagstIQ" on login and settings pages
+- **Login branding**: logo updated from "MJ Golf" to "FlagstIQ" on login and setup views
+- Removed "Yardage Book · Season" tagline from homepage
+
 ## v1.6.2 — Strategy Consistency & Handicap Auto-Refresh
 - Hole viewer now reads strategies from game plan cache first, ensuring the per-hole strategy recommendations always match the game plan
 - Falls back to fresh DP computation only when no cached plan exists
