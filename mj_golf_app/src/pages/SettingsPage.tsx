@@ -322,7 +322,7 @@ export function SettingsPage() {
 
         {/* About */}
         <section className="flex items-center justify-center gap-3">
-          <span className="text-xs text-text-muted">MJ Golf v{__APP_VERSION__}</span>
+          <span className="text-xs text-text-muted">FlagstIQ v{__APP_VERSION__}</span>
         </section>
       </div>
 

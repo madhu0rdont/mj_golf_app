@@ -18,9 +18,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'MJ Golf',
-        short_name: 'MJ Golf',
-        description: 'Club Distances & Yardage Book for Foresight GC4',
+        name: 'FlagstIQ',
+        short_name: 'FlagstIQ',
+        description: 'Course strategy & practice analytics for serious golfers',
         theme_color: '#2D6A4F',
         background_color: '#F3F0EB',
         display: 'standalone',

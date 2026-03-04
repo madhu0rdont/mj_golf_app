@@ -223,7 +223,7 @@ export function LoginPage() {
               </div>
 
               <p className="text-center text-sm text-text-medium">
-                New to MJ Golf?{' '}
+                New to FlagstIQ?{' '}
                 <button type="button" onClick={() => switchView('register')} className="font-semibold text-turf hover:text-fairway transition-colors">
                   Create account
                 </button>

@@ -18,7 +18,7 @@ export async function exportAllData(): Promise<void> {
   const date = new Date().toISOString().slice(0, 10);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `mj-golf-backup-${date}.json`;
+  a.download = `flagstiq-backup-${date}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }

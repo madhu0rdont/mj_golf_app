@@ -1,4 +1,4 @@
-# MJ Golf App
+# FlagstIQ
 
 ## Deployment
 - **Railway** — deploy via `railway up` from the project root

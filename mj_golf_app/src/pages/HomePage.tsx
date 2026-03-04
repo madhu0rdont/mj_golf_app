@@ -67,7 +67,7 @@ export function HomePage() {
 
   return (
     <>
-      <TopBar title="MJ Golf" />
+      <TopBar title="FlagstIQ" />
       <div className="relative z-[1]">
         {/* Hero */}
         <section className="px-8 pt-8 pb-0">

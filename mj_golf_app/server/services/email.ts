@@ -2,7 +2,7 @@ import { Resend } from 'resend';
 import { logger } from '../logger.js';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const EMAIL_FROM = process.env.EMAIL_FROM || 'MJ Golf <noreply@mjgolf.com>';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'FlagstIQ <noreply@flagstiq.com>';
 
 async function send(to: string, subject: string, html: string) {
   if (!resend) {
@@ -24,7 +24,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
     <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px; color: #0e1a10;">
       <h1 style="font-size: 24px; font-weight: 700; color: #1a2e1e; margin-bottom: 8px;">Reset your password</h1>
       <p style="font-size: 14px; color: #666; margin-bottom: 24px;">
-        Click the button below to set a new password for your MJ Golf account. This link expires in 1 hour.
+        Click the button below to set a new password for your FlagstIQ account. This link expires in 1 hour.
       </p>
       <a href="${resetUrl}" style="display: inline-block; background-color: #2d5a27; color: white; padding: 12px 32px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 14px;">
         Reset Password
@@ -34,13 +34,13 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
       </p>
     </div>
   `;
-  await send(to, 'Reset your password — MJ Golf', html);
+  await send(to, 'Reset your password — FlagstIQ', html);
 }
 
 export async function sendWelcomeEmail(to: string, displayName: string) {
   const html = `
     <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px; color: #0e1a10;">
-      <h1 style="font-size: 24px; font-weight: 700; color: #1a2e1e; margin-bottom: 8px;">Welcome to MJ Golf, ${displayName}!</h1>
+      <h1 style="font-size: 24px; font-weight: 700; color: #1a2e1e; margin-bottom: 8px;">Welcome to FlagstIQ, ${displayName}!</h1>
       <p style="font-size: 14px; color: #666; margin-bottom: 16px;">
         Your account has been created and is pending admin approval. You'll receive another email once your account is activated.
       </p>
@@ -49,7 +49,7 @@ export async function sendWelcomeEmail(to: string, displayName: string) {
       </p>
     </div>
   `;
-  await send(to, 'Welcome to MJ Golf', html);
+  await send(to, 'Welcome to FlagstIQ', html);
 }
 
 export async function sendAccountApprovedEmail(to: string, displayName: string) {
@@ -58,12 +58,12 @@ export async function sendAccountApprovedEmail(to: string, displayName: string) 
     <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px; color: #0e1a10;">
       <h1 style="font-size: 24px; font-weight: 700; color: #1a2e1e; margin-bottom: 8px;">You're in, ${displayName}!</h1>
       <p style="font-size: 14px; color: #666; margin-bottom: 24px;">
-        Your MJ Golf account has been approved. You can now sign in and start tracking your game.
+        Your FlagstIQ account has been approved. You can now sign in and start tracking your game.
       </p>
       <a href="${appUrl}" style="display: inline-block; background-color: #2d5a27; color: white; padding: 12px 32px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 14px;">
         Sign In
       </a>
     </div>
   `;
-  await send(to, 'Your MJ Golf account is approved!', html);
+  await send(to, 'Your FlagstIQ account is approved!', html);
 }
