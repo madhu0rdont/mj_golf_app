@@ -1,4 +1,4 @@
-# MJ Golf
+# FlagstIQ
 
 A full-stack golf performance tracking app built for the Foresight GC4 launch monitor. Log practice sessions, build a recency-weighted yardage book, play simulated rounds on the range, and get smart club recommendations backed by your own data.
 
@@ -71,15 +71,15 @@ A full-stack golf performance tracking app built for the Foresight GC4 launch mo
 ## Quick Start
 
 ```bash
-git clone https://github.com/madhu0rdont/mj_golf_app.git
-cd mj_golf_app
+git clone https://github.com/madhu0rdont/flagstiq.git
+cd flagstiq
 npm install
 ```
 
 Create a `.env` file:
 
 ```env
-DATABASE_URL=postgresql://user:pass@localhost:5432/mj_golf
+DATABASE_URL=postgresql://user:pass@localhost:5432/flagstiq
 APP_PASSWORD=your_password
 SESSION_SECRET=your_secret
 ```
@@ -158,4 +158,4 @@ See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
 ## Documentation
 
-See the [Wiki](https://github.com/madhu0rdont/mj_golf_app/wiki) for detailed documentation on architecture, data models, the yardage book engine, physics imputation math, interleaved practice scoring, and more.
+See the [Wiki](https://github.com/madhu0rdont/flagstiq/wiki) for detailed documentation on architecture, data models, the yardage book engine, physics imputation math, interleaved practice scoring, and more.
