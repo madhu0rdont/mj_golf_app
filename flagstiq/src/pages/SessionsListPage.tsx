@@ -55,8 +55,11 @@ export function SessionsListPage() {
       <TopBar title="All Practice Rounds" showBack />
       <div className="px-4 py-4">
         {!sessions || sessions.length === 0 ? (
-          <div className="rounded-2xl border border-border p-8 text-center text-sm text-text-muted">
-            No sessions yet.
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-border p-8 text-center">
+            <p className="text-sm text-text-muted">No sessions yet.</p>
+            <Button onClick={() => navigate('/')} size="sm">
+              Start a Practice Session
+            </Button>
           </div>
         ) : (
           <div className="flex flex-col gap-2">

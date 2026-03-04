@@ -134,7 +134,7 @@ export function SettingsPage() {
     try {
       const result = await importAllData(file);
       setImportStatus(`Imported ${result.clubs} clubs, ${result.sessions} sessions, ${result.shots} shots`);
-      window.location.reload();
+      setImporting(false);
     } catch (err) {
       setImportStatus('Import failed: ' + (err instanceof Error ? err.message : 'Invalid file'));
       setImporting(false);

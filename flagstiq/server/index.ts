@@ -183,9 +183,27 @@ async function start() {
     );
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     logger.info(`Server listening on port ${PORT}`);
   });
+
+  function shutdown(signal: string) {
+    logger.info(`${signal} received, shutting down gracefully...`);
+    server.close(() => {
+      pool.end().then(() => {
+        logger.info('Server and database pool closed');
+        process.exit(0);
+      });
+    });
+    // Force exit after 10s if graceful shutdown stalls
+    setTimeout(() => {
+      logger.warn('Graceful shutdown timed out, forcing exit');
+      process.exit(1);
+    }, 10_000);
+  }
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 start().catch((err) => {

@@ -49,6 +49,7 @@ export function UserManager() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [clearDataUser, setClearDataUser] = useState<UserRecord | null>(null);
   const [clearing, setClearing] = useState(false);
   const [editUser, setEditUser] = useState<UserRecord | null>(null);
@@ -107,6 +108,7 @@ export function UserManager() {
   };
 
   const handleDelete = async (userId: string) => {
+    setDeleting(true);
     try {
       const res = await fetch(`/api/users/${userId}`, {
         method: 'DELETE',
@@ -120,6 +122,8 @@ export function UserManager() {
       mutate();
     } catch {
       setError('Failed to delete user');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -311,13 +315,15 @@ export function UserManager() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleDelete(u.id)}
-                    className="text-xs font-medium text-coral hover:text-coral/80"
+                    disabled={deleting}
+                    className="text-xs font-medium text-coral hover:text-coral/80 disabled:opacity-50"
                   >
-                    Confirm
+                    {deleting ? 'Deleting...' : 'Confirm'}
                   </button>
                   <button
                     onClick={() => setDeleteConfirm(null)}
-                    className="text-xs font-medium text-text-muted hover:text-text-dark"
+                    disabled={deleting}
+                    className="text-xs font-medium text-text-muted hover:text-text-dark disabled:opacity-50"
                   >
                     Cancel
                   </button>

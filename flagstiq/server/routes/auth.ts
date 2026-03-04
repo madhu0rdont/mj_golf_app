@@ -5,7 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { query } from '../db.js';
 import { logger } from '../logger.js';
 import { isValidEmail, isValidPassword } from '../utils/validation.js';
-import { sendPasswordResetEmail, sendWelcomeEmail } from '../services/email.js';
+import { sendPasswordResetEmail, sendWelcomeEmail, sendAdminNotificationEmail } from '../services/email.js';
 
 const router = Router();
 
@@ -23,6 +23,14 @@ const forgotPasswordLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Too many reset requests. Try again later.' },
+});
+
+const resetPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many reset attempts. Try again later.' },
 });
 
 const registerLimiter = rateLimit({
@@ -178,7 +186,7 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
 });
 
 // POST /api/auth/reset-password — set new password using reset token
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', resetPasswordLimiter, async (req, res) => {
   const { token, password } = req.body;
 
   if (!token || !password) {
@@ -262,6 +270,10 @@ router.post('/register', registerLimiter, async (req, res) => {
     logger.error('Failed to send welcome email', { error: String(err) });
   });
 
+  sendAdminNotificationEmail(username, email).catch((err) => {
+    logger.error('Failed to send admin notification email', { error: String(err) });
+  });
+
   logger.info(`New account registered: ${username} (pending approval)`);
   res.status(201).json({ message: 'Account created. Pending admin approval.' });
 });
@@ -293,10 +305,11 @@ router.post('/setup', async (req, res) => {
   // Create player account
   const playerId = crypto.randomUUID();
   const playerHash = await bcrypt.hash(playerPassword, 12);
+  const playerHandedness = req.body.playerHandedness || 'right';
   await query(
     `INSERT INTO users (id, username, password, display_name, role, handedness, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, 'player', 'left', $5, $5)`,
-    [playerId, playerUsername.toLowerCase(), playerHash, playerDisplayName || playerUsername, now],
+     VALUES ($1, $2, $3, $4, 'player', $5, $6, $6)`,
+    [playerId, playerUsername.toLowerCase(), playerHash, playerDisplayName || playerUsername, playerHandedness, now],
   );
 
   // Assign any existing data to the new player account
@@ -321,7 +334,7 @@ router.post('/setup', async (req, res) => {
         username: playerUsername.toLowerCase(),
         displayName: playerDisplayName || playerUsername,
         role: 'player',
-        handedness: 'left',
+        handedness: playerHandedness,
       },
     });
   });

@@ -52,6 +52,28 @@ export async function sendWelcomeEmail(to: string, displayName: string) {
   await send(to, 'Welcome to FlagstIQ', html);
 }
 
+export async function sendAdminNotificationEmail(username: string, email: string) {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!adminEmail) {
+    logger.info(`[EMAIL] No ADMIN_EMAIL set, skipping new-registration notification for ${username}`);
+    return;
+  }
+
+  const appUrl = process.env.APP_URL || 'https://mjgolf.up.railway.app';
+  const html = `
+    <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px; color: #0e1a10;">
+      <h1 style="font-size: 24px; font-weight: 700; color: #1a2e1e; margin-bottom: 8px;">New Registration</h1>
+      <p style="font-size: 14px; color: #666; margin-bottom: 16px;">
+        <strong>${username}</strong> (${email}) just registered and is waiting for approval.
+      </p>
+      <a href="${appUrl}/admin" style="display: inline-block; background-color: #2d5a27; color: white; padding: 12px 32px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 14px;">
+        Review in Admin
+      </a>
+    </div>
+  `;
+  await send(adminEmail, 'New FlagstIQ Registration — Pending Approval', html);
+}
+
 export async function sendAccountApprovedEmail(to: string, displayName: string) {
   const appUrl = process.env.APP_URL || 'https://mjgolf.up.railway.app';
   const html = `

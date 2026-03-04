@@ -28,6 +28,7 @@ vi.mock('../../services/email.js', () => ({
   sendPasswordResetEmail: vi.fn().mockResolvedValue(undefined),
   sendWelcomeEmail: vi.fn().mockResolvedValue(undefined),
   sendAccountApprovedEmail: vi.fn().mockResolvedValue(undefined),
+  sendAdminNotificationEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
 import authRouter from '../../routes/auth.js';

@@ -27,6 +27,7 @@ interface AuthContextValue {
     playerUsername: string;
     playerPassword: string;
     playerDisplayName?: string;
+    playerHandedness?: 'left' | 'right';
   }) => Promise<{ success: boolean; error?: string }>;
   forgotPassword: (email: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   resetPassword: (token: string, password: string) => Promise<{ success: boolean; message?: string; error?: string }>;
@@ -98,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     playerUsername: string;
     playerPassword: string;
     playerDisplayName?: string;
+    playerHandedness?: 'left' | 'right';
   }) => {
     const res = await fetch('/api/auth/setup', {
       method: 'POST',

@@ -6,8 +6,11 @@ import { requireAdmin } from '../middleware/auth.js';
 const router = Router();
 router.use(requireAdmin);
 
-// POST /api/seed — re-seed database if empty
+// POST /api/seed — re-seed database if empty (dev only)
 router.post('/', async (_req, res) => {
+  if (process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT) {
+    return res.status(403).json({ error: 'Seed route disabled in production' });
+  }
   try {
     await seed();
     res.json({ ok: true });

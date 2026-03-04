@@ -33,6 +33,7 @@ export function LoginPage() {
   const [playerUsername, setPlayerUsername] = useState('');
   const [playerPassword, setPlayerPassword] = useState('');
   const [playerDisplayName, setPlayerDisplayName] = useState('');
+  const [playerHandedness, setPlayerHandedness] = useState<'right' | 'left'>('right');
 
   const switchView = (v: View) => {
     setError('');
@@ -101,6 +102,7 @@ export function LoginPage() {
       playerUsername,
       playerPassword,
       playerDisplayName: playerDisplayName || undefined,
+      playerHandedness,
     });
     if (!result.success) {
       setError(result.error || 'Setup failed');
@@ -143,6 +145,25 @@ export function LoginPage() {
             <div>
               <label className="mb-1 block text-xs font-medium text-text-medium">Display Name (optional)</label>
               <input type="text" autoComplete="off" value={playerDisplayName} onChange={(e) => setPlayerDisplayName(e.target.value)} className={inputClass} placeholder="MJ" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-text-medium">Handedness</label>
+              <div className="flex gap-2">
+                {(['left', 'right'] as const).map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => setPlayerHandedness(h)}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                      playerHandedness === h
+                        ? 'border-fairway bg-fairway/10 text-fairway'
+                        : 'border-border bg-surface text-text-muted'
+                    }`}
+                  >
+                    {h === 'left' ? 'Left' : 'Right'}-Handed
+                  </button>
+                ))}
+              </div>
             </div>
 
             {error && <p className="text-sm text-coral">{error}</p>}
