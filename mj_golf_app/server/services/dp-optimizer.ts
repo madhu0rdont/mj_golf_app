@@ -800,12 +800,12 @@ function simulateWithPolicy(
       const clubs = entry ? getEligibleClubs(currentZone, distributions) : [];
 
       if (entry && entry.clubIdx < clubs.length) {
-        // Policy hit — use the DP-optimal action
+        // Policy hit — use the DP-optimal action.
+        // The DP bearing already compensates for lateral bias (transition sampling
+        // includes meanOffline). Don't apply compensateForBias — that would double-compensate.
         club = clubs[entry.clubIdx];
         const aimPoint = projectPoint(currentZone.position, entry.bearing, club.meanCarry);
-        const rawBearing = bearingBetween(currentPos, aimPoint);
-        const compensatedAim = compensateForBias(aimPoint, rawBearing, club);
-        shotBearing = bearingBetween(currentPos, compensatedAim);
+        shotBearing = bearingBetween(currentPos, aimPoint);
       } else {
         // No policy or invalid club index — greedy fallback aimed at pin
         club = greedyClub(distToPin, distributions);
@@ -892,22 +892,30 @@ function simulateWithPolicy(
   const blowupRisk = scoreDist.double + scoreDist.worse;
 
   // Build aim points from plan
+  // Note: The DP optimizer already compensates for lateral bias via its transition
+  // sampling (meanOffline is included in every sample). The bearing it selects already
+  // aims left/right to center landings on the fairway. We must NOT apply
+  // compensateForBias() here — that would double-compensate.
   const aimPoints: AimPoint[] = [];
   let aimFrom = { lat: tee.lat, lng: tee.lng };
   for (let i = 0; i < plan.shots.length; i++) {
     const s = plan.shots[i];
     const bearing = bearingBetween(aimFrom, s.aimPoint);
-    const compensatedPos = compensateForBias(s.aimPoint, bearing, s.clubDist);
+    // The DP aim point IS where to point the club. Compute where the ball
+    // actually lands (aim point + meanOffline perpendicular) for the caddy tip.
+    const expectedLanding = Math.abs(s.clubDist.meanOffline) > 0.5
+      ? projectPoint(s.aimPoint, bearing + 90, s.clubDist.meanOffline)
+      : s.aimPoint;
     const isApproach = i === plan.shots.length - 1;
     aimPoints.push({
-      position: compensatedPos,
+      position: s.aimPoint,
       clubName: s.clubDist.clubName,
       shotNumber: i + 1,
       carry: Math.round(s.clubDist.meanCarry),
       carryNote: computeCarryNote(aimFrom, s.clubDist.meanCarry, bearing, hole.hazards),
-      tip: generateCaddyTip(aimFrom, compensatedPos, s.aimPoint, s.clubDist, hole.hazards, isApproach),
+      tip: generateCaddyTip(aimFrom, s.aimPoint, expectedLanding, s.clubDist, hole.hazards, isApproach),
     });
-    aimFrom = s.aimPoint;
+    aimFrom = expectedLanding;
   }
 
   const label = plan.shots
