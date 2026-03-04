@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.7.1 — Closed Beta Hardening
+- **Seed route guard**: disabled in production (`NODE_ENV` / `RAILWAY_ENVIRONMENT` check)
+- **Rate-limit reset-password**: 5 attempts per 15 minutes to prevent brute-force token guessing
+- **Graceful shutdown**: SIGTERM/SIGINT handlers close HTTP server and database pool cleanly (10s timeout)
+- **Admin registration notifications**: new users trigger an email to `ADMIN_EMAIL` with approve link
+- **Setup handedness picker**: first-time setup form now lets the player choose left/right instead of hardcoding
+- **Admin delete loading state**: delete confirmation shows "Deleting..." spinner and disables buttons during request
+- **Empty sessions CTA**: "Start a Practice Session" button when no sessions exist
+- Removed `window.location.reload()` after data import in Settings
+
 ## v1.7.0 — FlagstIQ Rebrand & Admin Enhancements
 - **Rebrand**: renamed from "MJ Golf" to "FlagstIQ" across codebase, GitHub repo, Railway, wiki, and README
 - **Course logo upload**: admin UI allows uploading custom course logos (base64, 128x128 center-crop); logos appear on Admin, Course Management, and Settings pages
