@@ -1,5 +1,6 @@
 import { query } from './db.js';
 import { logger } from './logger.js';
+import { regenerateStalePlans } from './services/plan-regenerator.js';
 import bcrypt from 'bcrypt';
 import crypto from 'node:crypto';
 
@@ -376,6 +377,10 @@ export async function migrate() {
       [STRATEGY_SYNC_VERSION, Date.now()],
     );
     logger.info('Marked all cached plans stale for strategy optimizer sync');
+    // Fire-and-forget regeneration after server finishes starting
+    setTimeout(() => {
+      regenerateStalePlans().catch((err) => logger.error('Post-migration regen failed', { error: String(err) }));
+    }, 5000);
   }
 
   // Home course preference
