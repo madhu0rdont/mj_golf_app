@@ -321,8 +321,9 @@ export function SettingsPage() {
         </section>
 
         {/* About */}
-        <section className="flex items-center justify-center gap-3">
+        <section className="flex flex-col items-center justify-center gap-1">
           <span className="text-xs text-text-muted">FlagstIQ v{__APP_VERSION__}</span>
+          <span className="text-xs text-text-muted">&copy; 2026 FlagstIQ - All rights reserved.</span>
         </section>
       </div>
 
