@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.6.2 — Strategy Consistency & Handicap Auto-Refresh
+- Hole viewer now reads strategies from game plan cache first, ensuring the per-hole strategy recommendations always match the game plan
+- Falls back to fresh DP computation only when no cached plan exists
+- All 3 mode strategies (scoring, safe, aggressive) stored per hole in game plan cache via `allStrategies` field on `HolePlan`
+- Handicap and course count auto-refresh immediately after manual plan generation
+- Handicap auto-refreshes when stale plans finish auto-regenerating (stale → fresh transition)
+- Fix double bias compensation in DP optimizer aim points — transition sampling already models `meanOffline`, so `compensateForBias()` was shifting aim ~8y too far; now only applied on greedy fallback paths
+
 ## v1.6.1 — Home Course & Optimizer Fixes
 - Home course user preference: selectable from Settings page, stored in DB (`home_course_id` column on users table), displayed on homepage with gold dot label
 - Settings page home course dropdown with course logo thumbnails, integrated into existing profile save flow
