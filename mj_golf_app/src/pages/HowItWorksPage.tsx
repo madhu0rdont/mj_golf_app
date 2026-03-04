@@ -550,7 +550,7 @@ For doglegs without explicit center line data, the optimizer synthesizes one by 
           <H4>Step 2: Action space</H4>
           <P>{String.raw`From each non-terminal zone, the optimizer enumerates every possible action: a (club, aim bearing) pair.
 
-Eligible clubs are those whose mean carry falls between 50% and 120% of the remaining distance to the pin. This keeps the search space practical — you wouldn't hit driver from 80 yards, and you wouldn't hit a wedge from 280. Typically 5–7 clubs qualify per zone.
+Eligible clubs are those whose mean carry falls between 50% and 110% of the remaining distance to the pin. This keeps the search space practical — you wouldn't hit driver from 80 yards, and you wouldn't hit a wedge from 280. Typically 5–7 clubs qualify per zone.
 
 Aim bearings are sampled at 2° increments across $\pm$30° from the center line bearing at each zone — 31 bearings total. Using the center line direction instead of the pin bearing naturally aims tee shots down the fairway on doglegs. The fine 2° resolution lets the optimizer find narrow fairway windows (e.g., a 9°-wide fairway at 230 yards) that coarser steps would miss entirely.
 
@@ -736,7 +736,9 @@ Total: ~5–8 seconds per hole, ~120 seconds for 18 holes. All computation runs 
   Bearing range — $\pm$30° from center line bearing (31 bearings total)
   Samples per action — 200 (Gaussian shots for transition table)
   Rough lie multiplier — 1.15× std deviation
+  Carry ratio range — 50%–110% of remaining distance
   Green threshold — 10 yards (ball is "on the green")
+  Chip range — 30 yards (near-green, chip/putt)
   Chip zone — 10–40 yards (1 chip + putts from 3y)
   Max shots per hole — 8 (safety cap)
   Trials per strategy — 2,000 (Monte Carlo policy scoring)

@@ -9,6 +9,7 @@ export interface User {
   role: 'admin' | 'player';
   handedness: 'left' | 'right';
   status: 'active' | 'pending' | 'rejected';
+  homeCourseId?: string;
 }
 
 interface AuthContextValue {

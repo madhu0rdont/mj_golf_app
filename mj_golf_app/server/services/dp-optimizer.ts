@@ -65,7 +65,8 @@ const ROUGH_LIE_MULTIPLIER = 1.15; // rough increases std by 15%
 const MAX_VALUE_ITERATIONS = 50;
 const CONVERGENCE_THRESHOLD = 0.001;
 const MIN_CARRY_RATIO = 0.5;     // club carry must be ≥ 50% of dist to pin
-const MAX_CARRY_RATIO = 1.2;     // club carry must be ≤ 120% of dist to pin
+const MAX_CARRY_RATIO = 1.10;    // club carry must be ≤ 110% of dist to pin
+const CHIP_RANGE = 30;           // within this distance, treat as near-green (chip/putt)
 
 const MODE_LABELS: Record<ScoringMode, { name: string; type: 'scoring' | 'safe' | 'balanced' }> = {
   scoring: { name: 'Optimal Scoring', type: 'scoring' },
@@ -694,23 +695,37 @@ function extractPlan(
       bearing = bearingBetween(currentZone.position, pin);
     }
 
-    const aimPoint = projectPoint(currentZone.position, bearing, club.meanCarry);
+    const rawLanding = projectPoint(currentZone.position, bearing, club.meanCarry);
+
+    // Resolve hazards — if ball goes OB/water, landing adjusts to drop point
+    const hazDrop = resolveHazardDrop(
+      currentZone.position, rawLanding,
+      hole.hazards ?? [], hole.fairway ?? [], hole.green ?? [], 0.3,
+    );
+    const landing = hazDrop.landing;
+    const aimPoint = hazDrop.penalty > 0 ? landing : rawLanding;
+
     shots.push({ clubDist: club, aimPoint });
 
-    // Simulate expected landing for next zone
-    const landing = projectPoint(currentZone.position, bearing, club.meanCarry);
     const landingDist = haversineYards(landing, pin);
 
     if (landingDist <= GREEN_RADIUS) break;
 
+    // Within chip range — ball is near the green, putting/chipping handles it
+    if (landingDist < CHIP_RANGE) break;
+
     // Within approach threshold — add one final approach to the pin and stop
+    // Show the actual approach distance, not the club's full carry
     if (landingDist <= approachThreshold) {
       const approachClub = greedyClub(landingDist, distributions);
-      shots.push({ clubDist: approachClub, aimPoint: pin });
+      shots.push({
+        clubDist: { ...approachClub, meanCarry: landingDist },
+        aimPoint: pin,
+      });
       break;
     }
 
-    // Find the zone closest to expected landing
+    // Find the zone closest to expected landing (uses resolved position)
     const nextZoneId = findNearestZone(landing, zones);
     const nextZone = zones.find((z) => z.id === nextZoneId);
     if (!nextZone || nextZone.isTerminal) break;
@@ -722,9 +737,12 @@ function extractPlan(
   if (shots.length > 0) {
     const lastShot = shots[shots.length - 1];
     const lastLandingDist = haversineYards(lastShot.aimPoint, pin);
-    if (lastLandingDist > GREEN_RADIUS && lastLandingDist <= approachThreshold) {
+    if (lastLandingDist >= CHIP_RANGE && lastLandingDist <= approachThreshold) {
       const approachClub = greedyClub(lastLandingDist, distributions);
-      shots.push({ clubDist: approachClub, aimPoint: pin });
+      shots.push({
+        clubDist: { ...approachClub, meanCarry: lastLandingDist },
+        aimPoint: pin,
+      });
     }
   }
 

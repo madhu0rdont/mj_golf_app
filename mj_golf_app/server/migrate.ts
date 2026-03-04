@@ -378,6 +378,9 @@ export async function migrate() {
     logger.info('Marked all cached plans stale for strategy optimizer sync');
   }
 
+  // Home course preference
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS home_course_id TEXT REFERENCES courses(id)`);
+
   // ── Auth flows: user status + password reset tokens ──
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active' NOT NULL`);
 

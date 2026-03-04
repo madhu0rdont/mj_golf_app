@@ -108,7 +108,7 @@ router.post('/', requireAdmin, async (req, res) => {
 router.put('/me', async (req, res) => {
   try {
     const userId = req.session.userId!;
-    const { displayName, handedness, password, email, profilePicture } = req.body;
+    const { displayName, handedness, password, email, profilePicture, homeCourseId } = req.body;
 
     const sets: string[] = [];
     const values: unknown[] = [];
@@ -164,6 +164,19 @@ router.put('/me', async (req, res) => {
         sets.push(`profile_picture = $${values.length}`);
       }
     }
+    if (homeCourseId !== undefined) {
+      if (homeCourseId === null || homeCourseId === '') {
+        values.push(null);
+        sets.push(`home_course_id = $${values.length}`);
+      } else {
+        const { rows: courseRows } = await query('SELECT id FROM courses WHERE id = $1', [homeCourseId]);
+        if (courseRows.length === 0) {
+          return res.status(400).json({ error: 'Course not found' });
+        }
+        values.push(homeCourseId);
+        sets.push(`home_course_id = $${values.length}`);
+      }
+    }
 
     if (sets.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
@@ -176,7 +189,7 @@ router.put('/me', async (req, res) => {
     await query(`UPDATE users SET ${sets.join(', ')} WHERE id = $${values.length}`, values);
 
     const { rows } = await query(
-      'SELECT id, username, display_name, email, profile_picture, role, handedness FROM users WHERE id = $1',
+      'SELECT id, username, display_name, email, profile_picture, role, handedness, home_course_id FROM users WHERE id = $1',
       [userId],
     );
     res.json({
@@ -187,6 +200,7 @@ router.put('/me', async (req, res) => {
       profilePicture: rows[0].profile_picture || undefined,
       role: rows[0].role,
       handedness: rows[0].handedness,
+      homeCourseId: rows[0].home_course_id || undefined,
     });
   } catch (err) {
     logger.error('Failed to update user profile', { error: String(err) });

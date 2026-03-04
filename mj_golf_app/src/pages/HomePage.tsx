@@ -19,8 +19,8 @@ export function HomePage() {
   // Build club name map for sessions
   const clubMap = new Map(clubs?.map((c) => [c.id, c.name]) ?? []);
 
-  // Find home course (first course or most used)
-  const homeCourse = courses?.[0];
+  // Find home course from user preference
+  const homeCourse = courses?.find(c => c.id === user?.homeCourseId) || null;
 
   return (
     <>

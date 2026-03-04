@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.6.1 — Home Course & Optimizer Fixes
+- Home course user preference: selectable from Settings page, stored in DB (`home_course_id` column on users table), displayed on homepage with gold dot label
+- Settings page home course dropdown with course logo thumbnails, integrated into existing profile save flow
+- Auth responses (`/login`, `/check`, `/setup`) include `homeCourseId` in user payload
+- DP optimizer: tighten `MAX_CARRY_RATIO` from 1.20 to 1.10 — prevents overshooting (e.g., 4H at 215y no longer eligible from 193y remaining)
+- DP optimizer: add `CHIP_RANGE = 30` — within 30 yards of the pin, treat as chip/putt zone instead of adding a phantom full-wedge approach shot
+- DP optimizer: cap approach shot carry label at actual remaining distance (not club's full carry) for accurate visualization
+- DP optimizer: run `resolveHazardDrop()` in `extractPlan()` — projected landings that cross OB/water now resolve to the drop point, so the visualization shows the correct drop location and the next shot starts from there
+
 ## v1.6.0 — Auth Flows & Login Redesign
 - Forgot password flow with email magic link (Resend API, SHA-256 hashed tokens, 1-hour expiry)
 - Open registration with admin approval: new users land in "pending" status until an admin approves

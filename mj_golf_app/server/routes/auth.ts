@@ -80,6 +80,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         role: user.role,
         handedness: user.handedness,
         status: user.status,
+        homeCourseId: user.home_course_id || undefined,
       },
     });
   });
@@ -129,6 +130,7 @@ router.get('/check', async (req, res) => {
       role: user.role,
       handedness: user.handedness,
       status: user.status,
+      homeCourseId: user.home_course_id || undefined,
     },
   });
 });

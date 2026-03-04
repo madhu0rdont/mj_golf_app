@@ -4,8 +4,24 @@ import { TopBar } from '../components/layout/TopBar';
 import { Button } from '../components/ui/Button';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
+import { useCourses } from '../hooks/useCourses';
 import { exportAllData, importAllData } from '../db/backup';
 import { api } from '../lib/api';
+
+const COURSE_LOGOS: Record<string, string> = {
+  claremont: '/course-logos/claremont.svg',
+  presidio: '/course-logos/presidio.webp',
+  tilden: '/course-logos/tilden.webp',
+  tcc: '/course-logos/tcc.svg',
+  harding: '/course-logos/harding.webp',
+  meadow: '/course-logos/meadow-club.webp',
+  blackhawk: '/course-logos/blackhawk.png',
+};
+
+function getCourseLogoKey(name: string): string | undefined {
+  const lower = name.toLowerCase();
+  return Object.keys(COURSE_LOGOS).find((key) => lower.includes(key));
+}
 
 /** Resize an image file to maxSize x maxSize, return base64 data URL */
 function resizeImage(file: File, maxSize: number): Promise<string> {
@@ -36,6 +52,7 @@ function resizeImage(file: File, maxSize: number): Promise<string> {
 export function SettingsPage() {
   const { handedness, setHandedness } = useSettings();
   const { user, logout, updateUser } = useAuth();
+  const { courses } = useCourses();
   const [importStatus, setImportStatus] = useState('');
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,6 +61,7 @@ export function SettingsPage() {
   // Profile editing state
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [homeCourseId, setHomeCourseId] = useState(user?.homeCourseId || '');
   const [profilePreview, setProfilePreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [profileStatus, setProfileStatus] = useState('');
@@ -51,6 +69,7 @@ export function SettingsPage() {
   const hasProfileChanges =
     displayName !== (user?.displayName || '') ||
     email !== (user?.email || '') ||
+    homeCourseId !== (user?.homeCourseId || '') ||
     profilePreview !== null;
 
   const handlePictureSelect = useCallback(async (file: File) => {
@@ -73,6 +92,7 @@ export function SettingsPage() {
       const body: Record<string, unknown> = {};
       if (displayName !== (user?.displayName || '')) body.displayName = displayName;
       if (email !== (user?.email || '')) body.email = email || null;
+      if (homeCourseId !== (user?.homeCourseId || '')) body.homeCourseId = homeCourseId || null;
       if (profilePreview === 'remove') {
         body.profilePicture = null;
       } else if (profilePreview) {
@@ -87,6 +107,7 @@ export function SettingsPage() {
         profilePicture?: string;
         role: 'admin' | 'player';
         handedness: 'left' | 'right';
+        homeCourseId?: string;
       }>('/users/me', body);
       updateUser(result);
       setProfilePreview(null);
@@ -97,7 +118,7 @@ export function SettingsPage() {
     } finally {
       setSaving(false);
     }
-  }, [displayName, email, profilePreview, user, updateUser]);
+  }, [displayName, email, homeCourseId, profilePreview, user, updateUser]);
 
   const handleExport = async () => {
     try {
@@ -189,6 +210,29 @@ export function SettingsPage() {
                 placeholder="Optional"
                 className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-fairway focus:ring-1 focus:ring-fairway"
               />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-text-medium">Home Course</label>
+              <div className="flex items-center gap-2">
+                {(() => {
+                  const selected = courses?.find(c => c.id === homeCourseId);
+                  const logoKey = selected ? getCourseLogoKey(selected.name) : undefined;
+                  const logoUrl = logoKey ? COURSE_LOGOS[logoKey] : null;
+                  return logoUrl ? (
+                    <img src={logoUrl} alt="" className="h-6 w-6 rounded object-contain flex-shrink-0" />
+                  ) : null;
+                })()}
+                <select
+                  value={homeCourseId}
+                  onChange={(e) => setHomeCourseId(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-fairway focus:ring-1 focus:ring-fairway"
+                >
+                  <option value="">None</option>
+                  {courses?.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
