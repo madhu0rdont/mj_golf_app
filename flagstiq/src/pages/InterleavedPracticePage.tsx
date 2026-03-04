@@ -1,6 +1,10 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, HelpCircle } from 'lucide-react';
+import { HelpSheet } from '../components/help/HelpSheet';
+
+const InterleavedHelpContent = lazy(() => import('../components/help/InterleavedHelpContent'));
+const ClubSelectionHelpContent = lazy(() => import('../components/help/ClubSelectionHelpContent'));
 import { TopBar } from '../components/layout/TopBar';
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
@@ -174,6 +178,7 @@ export function InterleavedPracticePage() {
   const [scorecardOpen, setScorecardOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedStrategyClubId, setSelectedStrategyClubId] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   // Monte Carlo club distributions from actual shot data
   const clubDistributions = useMemo(
@@ -302,7 +307,15 @@ export function InterleavedPracticePage() {
   if (phase === 'setup') {
     return (
       <>
-        <TopBar title="Interleaved Practice" showBack />
+        <TopBar
+          title="Interleaved Practice"
+          showBack
+          rightAction={
+            <button onClick={() => setHelpOpen(true)} className="rounded-lg p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works">
+              <HelpCircle size={20} />
+            </button>
+          }
+        />
         <div className="px-4 py-4">
           <div className="flex gap-3 mb-6">
             <div className="flex-1">
@@ -346,15 +359,20 @@ export function InterleavedPracticePage() {
         title="Interleaved Practice"
         showBack
         rightAction={
-          completedScores.length > 0 ? (
-            <button
-              onClick={() => setScorecardOpen(true)}
-              className="rounded-lg p-1.5 text-primary hover:text-primary-light"
-              aria-label="Scorecard"
-            >
-              <ClipboardList size={20} />
+          <div className="flex items-center gap-1">
+            <button onClick={() => setHelpOpen(true)} className="rounded-lg p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works">
+              <HelpCircle size={20} />
             </button>
-          ) : undefined
+            {completedScores.length > 0 && (
+              <button
+                onClick={() => setScorecardOpen(true)}
+                className="rounded-lg p-1.5 text-primary hover:text-primary-light"
+                aria-label="Scorecard"
+              >
+                <ClipboardList size={20} />
+              </button>
+            )}
+          </div>
         }
       />
       <div className="px-4 py-4">
@@ -659,6 +677,14 @@ export function InterleavedPracticePage() {
         defaultFullShot={!suggestion?.tip}
         onAdd={handleAddShot}
       />
+
+      <HelpSheet open={helpOpen} onClose={() => setHelpOpen(false)} title="How It Works">
+        <Suspense fallback={<div className="py-8 text-center text-text-muted text-sm">Loading...</div>}>
+          <InterleavedHelpContent />
+          <div className="my-4 border-t border-border" />
+          <ClubSelectionHelpContent />
+        </Suspense>
+      </HelpSheet>
     </>
   );
 }

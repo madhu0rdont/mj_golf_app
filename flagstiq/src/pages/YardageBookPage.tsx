@@ -1,10 +1,14 @@
+import { lazy, Suspense, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, HelpCircle } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { YardagesTab } from '../components/yardage/YardagesTab';
 import { WedgeMatrixTab } from '../components/yardage/WedgeMatrixTab';
 import { DetailsTab } from '../components/yardage/DetailsTab';
 import { GappingTab } from '../components/yardage/GappingTab';
+import { HelpSheet } from '../components/help/HelpSheet';
+
+const YardageBookHelpContent = lazy(() => import('../components/help/YardageBookHelpContent'));
 
 const VIEWS = [
   { key: 'yardages', label: 'Yardages', to: '/yardage' },
@@ -16,6 +20,7 @@ const VIEWS = [
 export function YardageBookPage() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const activeKey = pathname.endsWith('/wedge-matrix')
     ? 'wedge-matrix'
@@ -27,7 +32,15 @@ export function YardageBookPage() {
 
   return (
     <>
-      <TopBar title="Yardage Book" showBack />
+      <TopBar
+        title="Yardage Book"
+        showBack
+        rightAction={
+          <button onClick={() => setHelpOpen(true)} className="rounded-lg p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works">
+            <HelpCircle size={20} />
+          </button>
+        }
+      />
       <div className="px-4 pt-3 pb-4">
         {/* View picker */}
         <div className="relative mb-4">
@@ -56,6 +69,12 @@ export function YardageBookPage() {
         {activeKey === 'details' && <DetailsTab />}
         {activeKey === 'gapping' && <GappingTab />}
       </div>
+
+      <HelpSheet open={helpOpen} onClose={() => setHelpOpen(false)} title="How It Works">
+        <Suspense fallback={<div className="py-8 text-center text-text-muted text-sm">Loading...</div>}>
+          <YardageBookHelpContent />
+        </Suspense>
+      </HelpSheet>
     </>
   );
 }

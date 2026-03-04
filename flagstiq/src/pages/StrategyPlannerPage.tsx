@@ -1,6 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { lazy, Suspense, useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { ChevronLeft, MapPin } from 'lucide-react';
+import { ChevronLeft, HelpCircle, MapPin } from 'lucide-react';
+import { HelpSheet } from '../components/help/HelpSheet';
+
+const CourseManagementHelpContent = lazy(() => import('../components/help/CourseManagementHelpContent'));
 import { TopBar } from '../components/layout/TopBar';
 import { LoadingPage } from '../components/ui/LoadingPage';
 import { HoleSelector } from '../components/strategy/HoleSelector';
@@ -81,6 +84,7 @@ export function StrategyPlannerPage() {
   const [showSim, setShowSim] = useState(false);
   const [selectedStrategyIdx, setSelectedStrategyIdx] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('hole');
+  const [helpOpen, setHelpOpen] = useState(false);
 
   // Sync URL when course/hole changes
   useEffect(() => {
@@ -145,12 +149,17 @@ export function StrategyPlannerPage() {
   if (!courses?.length) {
     return (
       <>
-        <TopBar title="Course Management" />
+        <TopBar title="Course Management" rightAction={<button onClick={() => setHelpOpen(true)} className="rounded-lg p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works"><HelpCircle size={20} /></button>} />
         <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center">
           <p className="text-sm text-text-muted">
             No courses available yet. Ask an admin to import one.
           </p>
         </div>
+        <HelpSheet open={helpOpen} onClose={() => setHelpOpen(false)} title="How It Works">
+          <Suspense fallback={<div className="py-8 text-center text-text-muted text-sm">Loading...</div>}>
+            <CourseManagementHelpContent />
+          </Suspense>
+        </HelpSheet>
       </>
     );
   }
@@ -159,7 +168,7 @@ export function StrategyPlannerPage() {
   if (!courseId) {
     return (
       <>
-        <TopBar title="Course Management" />
+        <TopBar title="Course Management" rightAction={<button onClick={() => setHelpOpen(true)} className="rounded-lg p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works"><HelpCircle size={20} /></button>} />
         <div className="px-4 py-3 pb-6">
           <div className="grid grid-cols-2 gap-3">
             {courses.map((c) => (
@@ -167,13 +176,18 @@ export function StrategyPlannerPage() {
             ))}
           </div>
         </div>
+        <HelpSheet open={helpOpen} onClose={() => setHelpOpen(false)} title="How It Works">
+          <Suspense fallback={<div className="py-8 text-center text-text-muted text-sm">Loading...</div>}>
+            <CourseManagementHelpContent />
+          </Suspense>
+        </HelpSheet>
       </>
     );
   }
 
   return (
     <>
-      <TopBar title="Course Management" />
+      <TopBar title="Course Management" rightAction={<button onClick={() => setHelpOpen(true)} className="rounded-lg p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works"><HelpCircle size={20} /></button>} />
       <div className="flex flex-col gap-3 px-4 py-3 pb-6">
         {/* Course header with back button */}
         <button
@@ -319,6 +333,11 @@ export function StrategyPlannerPage() {
           )
         )}
       </div>
+      <HelpSheet open={helpOpen} onClose={() => setHelpOpen(false)} title="How It Works">
+        <Suspense fallback={<div className="py-8 text-center text-text-muted text-sm">Loading...</div>}>
+          <CourseManagementHelpContent />
+        </Suspense>
+      </HelpSheet>
     </>
   );
 }
