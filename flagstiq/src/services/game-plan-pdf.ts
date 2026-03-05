@@ -12,8 +12,8 @@ const PAGE_WIDTH = 595.28; // A4 portrait
 const PAGE_HEIGHT = 841.89;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 
-const MAP_SIZE = 130; // pt (square)
-const MAP_GAP = 10; // pt gap between map and text
+const MAP_SIZE = 110; // pt (square)
+const MAP_GAP = 8; // pt gap between map and text
 const MAP_PX_SCALE = 2; // render at 2x for crisp PDF output
 const MAP_PX = MAP_SIZE * MAP_PX_SCALE; // canvas pixels
 
@@ -38,11 +38,11 @@ const C = {
   par: [45, 106, 79] as RGB, // #2D6A4F
   bogey: [155, 155, 155] as RGB, // #9B9B9B
 
-  // Text
+  // Text — darkened from website values for print legibility
   textDark: [14, 26, 16] as RGB, // #0e1a10
-  textMedium: [26, 46, 30] as RGB, // #1a2e1e
-  textMuted: [200, 185, 154] as RGB, // #c8b99a — sand tone
-  textFaint: [212, 201, 176] as RGB, // #d4c9b0
+  textMedium: [60, 70, 58] as RGB, // #3c463a
+  textMuted: [120, 110, 90] as RGB, // #786e5a — readable on white
+  textFaint: [160, 150, 130] as RGB, // #a09682
 
   // Surface
   surface: [244, 240, 232] as RGB, // #f4f0e8 — linen
@@ -64,6 +64,8 @@ function setFont(doc: jsPDF, style: 'normal' | 'bold', size: number, color: RGB)
 function ensureSpace(doc: jsPDF, y: number, needed: number): number {
   if (y + needed > PAGE_HEIGHT - MARGIN) {
     doc.addPage();
+    doc.setFillColor(...C.surface);
+    doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, 'F');
     return MARGIN;
   }
   return y;
@@ -562,7 +564,7 @@ function renderHoleCard(
 
   const nameW = doc.getTextWidth(hole.strategy.strategyName);
   const clubSeq = hole.strategy.clubs.map((c) => c.clubName).join('  >  ');
-  setFont(doc, 'normal', 8, C.textMuted);
+  setFont(doc, 'normal', 8, C.textFaint);
   const maxClubW = textWidth - nameW - 20;
   if (maxClubW > 30) {
     doc.text(clubSeq, textLeft + nameW + 10, ry, { maxWidth: maxClubW });
@@ -594,15 +596,9 @@ function renderHoleCard(
 export function exportGamePlanPDF(plan: GamePlan, courseHoles?: CourseHole[]): void {
   const doc = new jsPDF('portrait', 'pt', 'a4');
 
-  // Set page background to match app surface color
-  const totalPages = Math.ceil(plan.holes.length / 5) + 1; // rough estimate
-  for (let p = 0; p < totalPages; p++) {
-    if (p > 0) doc.addPage();
-    doc.setFillColor(...C.surface);
-    doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, 'F');
-  }
-  // Reset to first page
-  doc.setPage(1);
+  // Paint first page background
+  doc.setFillColor(...C.surface);
+  doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, 'F');
 
   // Pre-render all hole maps
   const holeMaps = new Map<number, string>();
