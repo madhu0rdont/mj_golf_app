@@ -62,38 +62,30 @@ function aggregateScoreDistribution(holes: HolePlan[]): ScoreDistribution {
 }
 
 // ---------------------------------------------------------------------------
-// Generator (server-side — no setTimeout yield, no onProgress)
+// Assembly — builds GamePlan from pre-computed per-hole strategies
 // ---------------------------------------------------------------------------
 
 /** Mode index mapping: scoring=0, safe=1, aggressive=2 (order from dpOptimizeHole) */
 const MODE_INDEX: Record<ScoringMode, number> = { scoring: 0, safe: 1, aggressive: 2 };
 
-export function generateGamePlan(
+/**
+ * Assemble a GamePlan from pre-computed strategies per hole.
+ * Used by both the sequential `generateGamePlan` and the parallel worker pool.
+ */
+export function assembleGamePlan(
   course: CourseWithHoles,
   teeBox: string,
-  distributions: ClubDistribution[],
-  mode: ScoringMode = 'scoring',
-  roughPenalty: number = DEFAULT_ROUGH_PENALTY,
+  mode: ScoringMode,
+  holeStrategies: Map<number, OptimizedStrategy[]>,
 ): GamePlan {
   const holes: HolePlan[] = [];
 
-  // Per-hole DP results (cached so we don't recompute for key holes)
-  const allStrategies = new Map<number, OptimizedStrategy[]>();
-
   for (const hole of course.holes) {
-    let strategies = dpOptimizeHole(hole, teeBox, distributions, roughPenalty);
+    const strategies = holeStrategies.get(hole.holeNumber);
+    if (!strategies || strategies.length === 0) continue;
 
-    // Fallback to template-based optimizer if DP returns nothing
-    if (strategies.length === 0) {
-      strategies = optimizeHole(hole, teeBox, distributions, undefined, roughPenalty);
-    }
-
-    allStrategies.set(hole.holeNumber, strategies);
-
-    // Pick the strategy matching the requested mode
     const modeIdx = MODE_INDEX[mode];
     const strategy = strategies[modeIdx] ?? strategies[0];
-    if (!strategy) continue;
 
     const yardage = hole.yardages[teeBox] ?? Object.values(hole.yardages)[0] ?? 0;
     const playsLikeYardage = hole.playsLikeYards?.[teeBox] ?? null;
@@ -104,14 +96,14 @@ export function generateGamePlan(
       yardage,
       playsLikeYardage,
       strategy,
-      allStrategies: allStrategies.get(hole.holeNumber) ?? [strategy],
+      allStrategies: strategies,
       colorCode: colorCodeHole(strategy),
     });
   }
 
   // Key holes: biggest delta between scoring (idx 0) and safe (idx 1) expected strokes
   const deltas = course.holes.map((hole) => {
-    const strats = allStrategies.get(hole.holeNumber) ?? [];
+    const strats = holeStrategies.get(hole.holeNumber) ?? [];
     if (strats.length < 2) return { holeNumber: hole.holeNumber, delta: 0 };
     return {
       holeNumber: hole.holeNumber,
@@ -134,4 +126,31 @@ export function generateGamePlan(
     totalPlaysLike,
     holes,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Generator (server-side — sequential, used by single-worker path)
+// ---------------------------------------------------------------------------
+
+export function generateGamePlan(
+  course: CourseWithHoles,
+  teeBox: string,
+  distributions: ClubDistribution[],
+  mode: ScoringMode = 'scoring',
+  roughPenalty: number = DEFAULT_ROUGH_PENALTY,
+): GamePlan {
+  const allStrategies = new Map<number, OptimizedStrategy[]>();
+
+  for (const hole of course.holes) {
+    let strategies = dpOptimizeHole(hole, teeBox, distributions, roughPenalty);
+
+    // Fallback to template-based optimizer if DP returns nothing
+    if (strategies.length === 0) {
+      strategies = optimizeHole(hole, teeBox, distributions, undefined, roughPenalty);
+    }
+
+    allStrategies.set(hole.holeNumber, strategies);
+  }
+
+  return assembleGamePlan(course, teeBox, mode, allStrategies);
 }

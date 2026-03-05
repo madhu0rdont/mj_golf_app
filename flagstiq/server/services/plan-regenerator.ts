@@ -2,15 +2,15 @@ import crypto from 'node:crypto';
 import { query, toCamel } from '../db.js';
 import { logger } from '../logger.js';
 import { getRoughPenalty } from './strategy-optimizer.js';
-import { generatePlanInWorker } from './plan-worker-pool.js';
+import { generatePlanParallel } from './plan-worker-pool.js';
 import type { ScoringMode } from './dp-optimizer.js';
 import type { Club, Shot, CourseWithHoles, CourseHole } from '../models/types.js';
 
 // PostgreSQL advisory lock ID for plan regeneration
 const REGEN_LOCK_ID = 1337;
 
-// Max concurrent worker threads for plan generation
-const WORKER_CONCURRENCY = 2;
+// Max concurrent plan regenerations (each plan already uses N parallel workers)
+const WORKER_CONCURRENCY = 1;
 
 export async function regenerateStalePlans() {
   // Acquire advisory lock (non-blocking). Returns false if another instance holds it.
@@ -73,7 +73,7 @@ export async function regenerateStalePlans() {
             const course = courseMap.get(courseId);
             if (!course) return;
 
-            const plan = await generatePlanInWorker({
+            const plan = await generatePlanParallel({
               clubs,
               shots,
               course,

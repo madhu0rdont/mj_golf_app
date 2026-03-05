@@ -4,7 +4,7 @@ import { query, toCamel } from '../db.js';
 import { logger } from '../logger.js';
 import { regenerateStalePlans } from '../services/plan-regenerator.js';
 import { getRoughPenalty } from '../services/strategy-optimizer.js';
-import { generatePlanInWorker } from '../services/plan-worker-pool.js';
+import { generatePlanParallel } from '../services/plan-worker-pool.js';
 import type { ScoringMode } from '../services/dp-optimizer.js';
 import type { Club, Shot, CourseWithHoles, CourseHole } from '../models/types.js';
 
@@ -187,9 +187,9 @@ router.post('/:courseId/:teeBox/:mode/generate', async (req, res) => {
     const { rows: shotRows } = await query('SELECT * FROM shots WHERE user_id = $1', [userId]);
     const shots = shotRows.map(toCamel<Shot>);
 
-    // Generate plan in worker thread (non-blocking)
+    // Generate plan across parallel worker threads (non-blocking)
     const roughPenalty = await getRoughPenalty();
-    const plan = await generatePlanInWorker({
+    const plan = await generatePlanParallel({
       clubs,
       shots,
       course,
