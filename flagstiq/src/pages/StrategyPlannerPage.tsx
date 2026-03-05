@@ -325,6 +325,7 @@ export function StrategyPlannerPage() {
               staleReason={staleReason}
               isFetching={isFetching}
               cacheAge={cacheAge}
+              courseHoles={course?.holes}
             />
           ) : (
             <div className="flex items-center justify-center h-[55vh] rounded-2xl border border-border bg-surface">

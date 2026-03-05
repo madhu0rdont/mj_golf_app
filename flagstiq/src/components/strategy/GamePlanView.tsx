@@ -5,6 +5,7 @@ import { exportGamePlanPDF } from '../../services/game-plan-pdf';
 import type { GamePlan, HolePlan } from '../../services/game-plan';
 import type { ScoreDistribution } from '../../services/strategy-optimizer';
 import type { ClubDistribution } from '../../services/monte-carlo';
+import type { CourseHole } from '../../models/course';
 
 interface GamePlanViewProps {
   gamePlan: GamePlan | null;
@@ -16,6 +17,7 @@ interface GamePlanViewProps {
   staleReason?: string | null;
   isFetching?: boolean;
   cacheAge?: number | null;
+  courseHoles?: CourseHole[];
 }
 
 const STALE_REASON_LABELS: Record<string, string> = {
@@ -293,7 +295,7 @@ function copySummary(plan: GamePlan) {
   navigator.clipboard.writeText(lines.join('\n'));
 }
 
-export function GamePlanView({ gamePlan, progress, isGenerating, onGenerate, distributions, isStale, staleReason, isFetching, cacheAge }: GamePlanViewProps) {
+export function GamePlanView({ gamePlan, progress, isGenerating, onGenerate, distributions, isStale, staleReason, isFetching, cacheAge, courseHoles }: GamePlanViewProps) {
   // Loading cached plan from server
   if (isFetching && !gamePlan && !isGenerating) {
     return (
@@ -408,7 +410,7 @@ export function GamePlanView({ gamePlan, progress, isGenerating, onGenerate, dis
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => exportGamePlanPDF(gamePlan)}
+              onClick={() => exportGamePlanPDF(gamePlan, courseHoles)}
               className="flex-1"
             >
               <FileDown size={14} />
