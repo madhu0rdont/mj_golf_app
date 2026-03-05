@@ -112,8 +112,9 @@ function buildProjection(
   const cosLat = Math.cos((center.lat * Math.PI) / 180);
   const yPerDegLng = YARDS_PER_DEG_LAT * cosLat;
 
+  // Rotate so tee is at 6 o'clock (bottom), pin at 12 o'clock (top)
   const bearing = bearingBetween(hole.tee, hole.pin);
-  const rotRad = ((90 - bearing) * Math.PI) / 180;
+  const rotRad = (bearing * Math.PI) / 180;
   const cosR = Math.cos(rotRad);
   const sinR = Math.sin(rotRad);
 
@@ -123,10 +124,17 @@ function buildProjection(
     return { x: dx * cosR - dy * sinR, y: dx * sinR + dy * cosR };
   }
 
+  // Bounding box: only fairway, green, bunkers, tee, pin, and aim points.
+  // OB/water/trees/rough are excluded so the crop maximizes legibility.
+  const CROP_TYPES = new Set(['bunker', 'fairway_bunker', 'greenside_bunker']);
   const pts: { x: number; y: number }[] = [toLocal(hole.tee), toLocal(hole.pin)];
   for (const poly of hole.fairway) for (const p of poly) pts.push(toLocal(p));
   for (const p of hole.green) pts.push(toLocal(p));
-  for (const h of hole.hazards) for (const p of h.polygon) pts.push(toLocal(p));
+  for (const h of hole.hazards) {
+    if (CROP_TYPES.has(h.type)) {
+      for (const p of h.polygon) pts.push(toLocal(p));
+    }
+  }
   for (const a of aimPoints) pts.push(toLocal(a.position));
 
   let minX = Infinity,
@@ -283,40 +291,16 @@ function renderHoleMapCanvas(hole: CourseHole, aimPoints: AimPoint[]): string {
     drawCanvasPolygon(ctx, hole.green, proj, 'rgba(0,200,83,0.30)', 'rgba(0,200,83,0.60)', 1);
   }
 
-  // 5. Hazards — same colors/opacities as HoleViewer
+  // 5. Hazards — bunkers and water only (skip OB, trees, rough for legibility)
+  const SKIP_TYPES = new Set(['ob', 'trees', 'rough']);
   for (const h of hole.hazards) {
-    if (h.polygon.length < 3) continue;
+    if (h.polygon.length < 3 || SKIP_TYPES.has(h.type)) continue;
     const color = HAZARD_COLORS[h.type] ?? '#FFFFFF';
-    const isOB = h.type === 'ob';
     const r = parseInt(color.slice(1, 3), 16);
     const g = parseInt(color.slice(3, 5), 16);
     const b = parseInt(color.slice(5, 7), 16);
 
-    if (isOB) {
-      // HoleViewer: fillOpacity 0.1, strokeWeight 0, dashed boundary line
-      drawCanvasPolygon(
-        ctx,
-        h.polygon,
-        proj,
-        `rgba(${r},${g},${b},0.10)`,
-        'transparent',
-        0,
-      );
-      // Dashed boundary (matches HoleViewer dashLine)
-      ctx.strokeStyle = `rgba(${r},${g},${b},0.80)`;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([8, 6]);
-      ctx.beginPath();
-      const first = proj.project(h.polygon[0]);
-      ctx.moveTo(first.x, first.y);
-      for (let i = 1; i < h.polygon.length; i++) {
-        const p = proj.project(h.polygon[i]);
-        ctx.lineTo(p.x, p.y);
-      }
-      ctx.closePath();
-      ctx.stroke();
-      ctx.setLineDash([]);
-    } else {
+    {
       // HoleViewer: fillOpacity 0.3, strokeWeight 2
       drawCanvasPolygon(
         ctx,
