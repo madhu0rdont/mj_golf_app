@@ -56,7 +56,6 @@ interface TransitionResult {
 
 const ZONE_INTERVAL = 20;        // yards between zone markers along centerline
 const LATERAL_OFFSET = 20;       // yards left/right of centerline
-const BEARING_STEP = 2;          // degrees (finer resolution for narrow fairway windows)
 const BEARING_RANGE = 30;        // ±degrees from pin bearing
 const TEE_LOOK_AHEAD = 200;     // yards — center tee bearing fan on driver landing zone
 const SAMPLES_PER_ACTION = 200;
@@ -306,16 +305,24 @@ function getEligibleClubs(
   });
 }
 
+/** Adaptive bearing step based on hole distance (yards). */
+function bearingStepForDistance(yardage: number): number {
+  if (yardage < 180) return 4;   // 16 bearings — short holes
+  if (yardage <= 350) return 3;  // 21 bearings — mid-length holes
+  return 2;                      // 31 bearings — long holes / doglegs
+}
+
 function getAimBearings(
   zone: Zone,
   _pin: { lat: number; lng: number },
+  bearingStep: number,
 ): number[] {
   // Center the bearing fan on the local centerLine direction, not the pin.
   // On straight holes localBearing ≈ pinBearing so behavior is unchanged.
   // On doglegs this naturally aims shots down the fairway.
   const center = zone.localBearing;
   const bearings: number[] = [];
-  for (let offset = -BEARING_RANGE; offset <= BEARING_RANGE; offset += BEARING_STEP) {
+  for (let offset = -BEARING_RANGE; offset <= BEARING_RANGE; offset += bearingStep) {
     bearings.push((center + offset + 360) % 360);
   }
   return bearings;
@@ -420,6 +427,7 @@ function buildTransitionTable(
   distributions: ClubDistribution[],
   hole: CourseHole,
   roughPenalty: number,
+  bearingStep: number,
 ): TransitionTableEntry[] {
   const pin = { lat: hole.pin.lat, lng: hole.pin.lng };
   const greenZoneId = zones[zones.length - 1].id;
@@ -429,7 +437,7 @@ function buildTransitionTable(
     if (zone.isTerminal) continue;
 
     const clubs = getEligibleClubs(zone, distributions);
-    const bearings = getAimBearings(zone, pin);
+    const bearings = getAimBearings(zone, pin, bearingStep);
 
     for (let ci = 0; ci < clubs.length; ci++) {
       for (let bi = 0; bi < bearings.length; bi++) {
@@ -959,7 +967,9 @@ export function dpOptimizeHole(
   if (zones.length < 2) return [];
 
   // 2. Build transition table (shared across modes)
-  const table = buildTransitionTable(zones, distributions, hole, roughPenalty);
+  const yardage = hole.yardages[teeBox] ?? Object.values(hole.yardages)[0] ?? 400;
+  const bearingStep = bearingStepForDistance(yardage);
+  const table = buildTransitionTable(zones, distributions, hole, roughPenalty, bearingStep);
   if (table.length === 0) return [];
 
   const modes: ScoringMode[] = ['scoring', 'safe', 'aggressive'];
