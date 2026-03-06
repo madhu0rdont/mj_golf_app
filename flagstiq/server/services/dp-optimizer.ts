@@ -14,6 +14,7 @@ import {
   HOLE_THRESHOLD,
   MAX_SHOTS_PER_HOLE,
   DEFAULT_TRIALS,
+  isOnGreen,
 } from './strategy-optimizer.js';
 import type { OptimizedStrategy, NamedStrategyPlan, AimPoint } from './strategy-optimizer.js';
 
@@ -61,7 +62,7 @@ const TEE_LOOK_AHEAD = 200;     // yards — center tee bearing fan on driver la
 const SAMPLES_BASE = 100;       // minimum samples for safe zones
 const SAMPLES_HAZARD = 250;     // zones with hazards in play
 const SAMPLES_HIGH_RISK = 350;  // zones with OB or water in play
-const GREEN_RADIUS = 10;         // yards — terminal zone threshold
+const GREEN_RADIUS = 10;         // yards — used for zone discretization near pin
 const ROUGH_LIE_MULTIPLIER = 1.15; // rough increases std by 15%
 const MAX_VALUE_ITERATIONS = 50;
 const CONVERGENCE_THRESHOLD = 0.001;
@@ -415,9 +416,9 @@ function sampleTransitions(
     totalPenalty += penalty;
     totalPenaltySq += penalty * penalty;
 
-    // Check if landing is on/near the green
+    // Check if landing is on the green (polygon geofence, fallback to 10yd radius)
     const distToPin = haversineYards(landing, hole.pin);
-    if (distToPin <= GREEN_RADIUS) {
+    if (isOnGreen(landing, hole.green, hole.pin)) {
       greenCount++;
       counts.set(greenZoneId, (counts.get(greenZoneId) ?? 0) + 1);
     } else {
@@ -759,7 +760,7 @@ function extractPlan(
 
     const landingDist = haversineYards(landing, pin);
 
-    if (landingDist <= GREEN_RADIUS) break;
+    if (isOnGreen(landing, hole.green, hole.pin)) break;
 
     // Within chip range — ball is near the green, putting/chipping handles it
     if (landingDist < CHIP_RANGE) break;
@@ -837,7 +838,7 @@ function simulateWithPolicy(
 
     for (let shotIdx = 0; shotIdx < MAX_SHOTS_PER_HOLE; shotIdx++) {
       const distToPin = haversineYards(currentPos, pin);
-      if (distToPin <= chipThreshold) break;
+      if (isOnGreen(currentPos, hole.green, hole.pin) || distToPin <= chipThreshold) break;
 
       const currentZone = zones.find((z) => z.id === currentZoneId);
       if (!currentZone) break;
@@ -927,7 +928,8 @@ function simulateWithPolicy(
     }
 
     // Putting
-    if (distToPin > HOLE_THRESHOLD && distToPin <= chipThreshold) {
+    const onGreen = isOnGreen(currentPos, hole.green, hole.pin);
+    if (!onGreen && distToPin <= chipThreshold) {
       trialScores.push(strokes + 1 + expectedPutts(3));
     } else {
       trialScores.push(strokes + expectedPutts(distToPin));

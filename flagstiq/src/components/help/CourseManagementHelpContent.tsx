@@ -38,7 +38,7 @@ All computation runs server-side, parallelized across multiple worker threads (~
       <H4>Step 1: Zone discretization</H4>
       <P>{String.raw`The optimizer breaks each hole into a grid of discrete zones. Starting from the tee, it walks along the hole's center line in 20-yard intervals. At each interval, it creates 3 lateral positions: center (on the center line), left (20 yards left), and right (20 yards right). Each zone records its GPS position, its distance to the pin, and its lie — fairway or rough — determined by checking whether the position falls inside any fairway polygon.
 
-The tee is zone 0. The green is a terminal zone: once the ball reaches within 10 yards of the pin, the hole is over and only putting remains. A typical hole has ~50 zones.
+The tee is zone 0. The green is a terminal zone: once the ball lands inside the green polygon (or within 10 yards of the pin if no polygon is defined), the hole is over and only putting remains. A typical hole has ~50 zones.
 
 $$\text{zones} = \{\text{tee}\} \cup \bigcup_{d=20,40,\ldots}^{d_\text{pin}-10} \{\text{center}_d, \text{left}_d, \text{right}_d\} \cup \{\text{green}\}$$
 
@@ -148,7 +148,7 @@ If the club has no measured apex or descent angle, it falls back to a symmetric 
 $$h(d) = 4 \cdot 28 \cdot \frac{d}{\text{carry}} \cdot \left(1 - \frac{d}{\text{carry}}\right)$$`}</P>
 
       <H4>Putting model</H4>
-      <P>{String.raw`Once on the green (within 10 yards of the pin), the same log-curve putting model converts distance to expected putts:
+      <P>{String.raw`Once on the green (inside the green polygon, or within 10 yards of the pin as fallback), the same log-curve putting model converts distance to expected putts:
 
 $$\text{putts}(d) = 1.0 + 0.42 \cdot \ln(d)$$
 
@@ -236,7 +236,7 @@ Holes are parallelized across $\min(\text{CPUs}, 4)$ worker threads for near-lin
   Samples per action — adaptive: 100 (safe), 250 (bunkers), 350 (OB/water)
   Rough lie multiplier — 1.15× std deviation
   Carry ratio range — 50%–110% of remaining distance
-  Green threshold — 10 yards (ball is "on the green")
+  Green threshold — green polygon geofence (falls back to 10 yards if no polygon defined)
   Chip range — 30 yards (near-green, chip/putt)
   Chip zone — 10–40 yards (1 chip + putts from 3y)
   Max shots per hole — 8 (safety cap)

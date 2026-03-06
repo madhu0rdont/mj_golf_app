@@ -53,8 +53,18 @@ export interface NamedStrategyPlan {
 // Constants
 // ---------------------------------------------------------------------------
 
-export const HOLE_THRESHOLD = 10;
+export const HOLE_THRESHOLD = 10;  // yards — fallback when no green polygon defined
 export const MAX_SHOTS_PER_HOLE = 8;
+
+/** Check if a position is on the green using polygon geofence, falling back to 10-yard radius */
+export function isOnGreen(
+  pos: { lat: number; lng: number },
+  greenPoly: { lat: number; lng: number }[],
+  pin: { lat: number; lng: number },
+): boolean {
+  if (greenPoly.length >= 3 && pointInPolygon(pos, greenPoly)) return true;
+  return haversineYards(pos, pin) <= HOLE_THRESHOLD;
+}
 export const DEFAULT_TRIALS = 2000;
 export const MIN_HAZARD_POINTS = 3;
 export const TREE_HEIGHT_YARDS = 15; // ~45 feet — typical mature golf course tree
@@ -897,11 +907,11 @@ export function simulateHoleGPS(
       currentPos = landing;
 
       const distToPin = haversineYards(currentPos, pin);
-      if (distToPin <= chipThreshold) break;
+      if (isOnGreen(currentPos, hole.green, hole.pin) || distToPin <= chipThreshold) break;
     }
 
     let distToPin = haversineYards(currentPos, pin);
-    while (distToPin > chipThreshold && strokes < MAX_SHOTS_PER_HOLE) {
+    while (!isOnGreen(currentPos, hole.green, hole.pin) && distToPin > chipThreshold && strokes < MAX_SHOTS_PER_HOLE) {
       const club = greedyClub(distToPin, distributions);
       const carry = gaussianSample(club.meanCarry, club.stdCarry);
       const offline = gaussianSample(club.meanOffline, club.stdOffline);
@@ -931,7 +941,8 @@ export function simulateHoleGPS(
       distToPin = haversineYards(currentPos, pin);
     }
 
-    if (distToPin > HOLE_THRESHOLD && distToPin <= chipThreshold) {
+    const onGreen = isOnGreen(currentPos, hole.green, hole.pin);
+    if (!onGreen && distToPin <= chipThreshold) {
       trialScores.push(strokes + 1 + expectedPutts(3));
     } else {
       trialScores.push(strokes + expectedPutts(distToPin));
