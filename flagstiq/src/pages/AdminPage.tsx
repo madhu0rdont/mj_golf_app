@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router';
-import { Map, Shield, Upload, ChevronLeft, MapPin, Users, LogOut, Camera, Loader2 } from 'lucide-react';
+import { Map, Shield, Upload, ChevronLeft, MapPin, Users, LogOut, Camera, Loader2, BarChart3 } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { LoadingPage } from '../components/ui/LoadingPage';
 import { KmlImporter } from '../components/admin/KmlImporter';
@@ -8,6 +8,7 @@ import { HazardMapper } from '../components/admin/HazardMapper';
 import { ElevationRefresh } from '../components/admin/ElevationRefresh';
 import { PenaltyEditor } from '../components/admin/PenaltyEditor';
 import { UserManager } from '../components/admin/UserManager';
+import { UsageDashboard } from '../components/admin/UsageDashboard';
 import { useCourses, useCourse, mutateCourses, mutateCourse } from '../hooks/useCourses';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
@@ -53,13 +54,14 @@ function resizeImage(file: File, maxSize: number): Promise<string> {
   });
 }
 
-type View = 'dashboard' | 'course-grid' | 'course-edit' | 'penalties' | 'import' | 'users';
+type View = 'dashboard' | 'course-grid' | 'course-edit' | 'penalties' | 'import' | 'users' | 'usage';
 
 function deriveView(pathname: string, courseId: string): View {
   if (pathname === '/admin/penalties') return 'penalties';
   if (pathname === '/admin/import') return 'import';
   if (pathname === '/admin/courses') return 'course-grid';
   if (pathname === '/admin/users') return 'users';
+  if (pathname === '/admin/usage') return 'usage';
   if (courseId) return 'course-edit';
   return 'dashboard';
 }
@@ -272,6 +274,17 @@ export function AdminPage() {
                 <p className="font-display text-sm font-light text-text-dark">Users</p>
                 <p className="text-xs text-text-muted">Manage user accounts & roles</p>
               </button>
+
+              <button
+                onClick={() => navigate('/admin/usage')}
+                className="shimmer-hover flex flex-col items-center gap-2 rounded-sm border border-border bg-card p-5 text-center hover:border-fairway hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-1 transition-all"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-sm bg-turf/10">
+                  <BarChart3 size={20} className="text-primary" />
+                </div>
+                <p className="font-display text-sm font-light text-text-dark">Usage & Spend</p>
+                <p className="text-xs text-text-muted">API costs & usage tracking</p>
+              </button>
             </div>
 
             <button
@@ -367,6 +380,20 @@ export function AdminPage() {
               <span className="text-xs font-medium">Admin</span>
             </button>
             <UserManager />
+          </div>
+        )}
+
+        {/* Usage & Spend */}
+        {view === 'usage' && (
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => navigate('/admin')}
+              className="flex items-center gap-1 text-sm text-text-muted hover:text-text-dark transition-colors self-start -ml-1"
+            >
+              <ChevronLeft size={16} />
+              <span className="text-xs font-medium">Admin</span>
+            </button>
+            <UsageDashboard />
           </div>
         )}
       </div>

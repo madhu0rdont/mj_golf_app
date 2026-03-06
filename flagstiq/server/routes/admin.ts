@@ -601,4 +601,84 @@ router.delete('/:id/holes/geofence', async (req, res) => {
   }
 });
 
+// GET /api/admin/usage — API usage and spend dashboard data
+router.get('/usage', async (req, res) => {
+  try {
+    const days = Math.min(90, Math.max(1, parseInt(req.query.days as string) || 30));
+    const since = Date.now() - days * 24 * 60 * 60 * 1000;
+
+    // Summary by service
+    const { rows: summaryRows } = await query(
+      `SELECT service,
+              COUNT(*)::int AS calls,
+              COALESCE(SUM(estimated_cost), 0) AS total_cost,
+              COALESCE(SUM(input_tokens), 0)::int AS input_tokens,
+              COALESCE(SUM(output_tokens), 0)::int AS output_tokens,
+              COALESCE(SUM(items), 0)::int AS total_items,
+              COALESCE(SUM(api_calls), 0)::int AS total_api_calls
+       FROM api_usage
+       WHERE created_at >= $1
+       GROUP BY service`,
+      [since],
+    );
+
+    const summary: Record<string, unknown> = {};
+    let totalCost = 0;
+    for (const row of summaryRows) {
+      summary[row.service] = {
+        calls: row.calls,
+        totalCost: parseFloat(row.total_cost),
+        inputTokens: row.input_tokens,
+        outputTokens: row.output_tokens,
+        totalItems: row.total_items,
+        totalApiCalls: row.total_api_calls,
+      };
+      totalCost += parseFloat(row.total_cost);
+    }
+
+    // Daily breakdown
+    const { rows: dailyRows } = await query(
+      `SELECT
+         TO_CHAR(TO_TIMESTAMP(created_at / 1000), 'YYYY-MM-DD') AS date,
+         service,
+         COALESCE(SUM(estimated_cost), 0) AS cost
+       FROM api_usage
+       WHERE created_at >= $1
+       GROUP BY date, service
+       ORDER BY date`,
+      [since],
+    );
+
+    // Pivot daily rows into { date, claude, google_elevation, resend }
+    const dailyMap = new Map<string, Record<string, number>>();
+    for (const row of dailyRows) {
+      if (!dailyMap.has(row.date)) dailyMap.set(row.date, { claude: 0, google_elevation: 0, resend: 0 });
+      dailyMap.get(row.date)![row.service] = parseFloat(row.cost);
+    }
+    const daily = Array.from(dailyMap.entries()).map(([date, costs]) => ({ date, ...costs }));
+
+    // Recent entries
+    const { rows: recentRows } = await query(
+      `SELECT u.id, u.service, u.endpoint, u.user_id,
+              us.username, u.input_tokens, u.output_tokens,
+              u.items, u.api_calls, u.estimated_cost, u.created_at
+       FROM api_usage u
+       LEFT JOIN users us ON us.id = u.user_id
+       WHERE u.created_at >= $1
+       ORDER BY u.created_at DESC
+       LIMIT 50`,
+      [since],
+    );
+
+    res.json({
+      summary: { ...summary, totalCost },
+      daily,
+      recent: recentRows.map(toCamel),
+    });
+  } catch (err) {
+    logger.error('Failed to fetch usage data', { error: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

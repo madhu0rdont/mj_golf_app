@@ -405,5 +405,24 @@ export async function migrate() {
   await query(`CREATE INDEX IF NOT EXISTS idx_prt_token_hash ON password_reset_tokens(token_hash)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_prt_user_id ON password_reset_tokens(user_id)`);
 
+  // ── API usage tracking ──
+  await query(`
+    CREATE TABLE IF NOT EXISTS api_usage (
+      id SERIAL PRIMARY KEY,
+      service TEXT NOT NULL,
+      endpoint TEXT,
+      user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      input_tokens INTEGER,
+      output_tokens INTEGER,
+      items INTEGER DEFAULT 1,
+      api_calls INTEGER DEFAULT 1,
+      estimated_cost REAL,
+      metadata JSONB,
+      created_at BIGINT NOT NULL
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_api_usage_service ON api_usage(service)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_api_usage_created ON api_usage(created_at)`);
+
   logger.info('Database migration complete');
 }

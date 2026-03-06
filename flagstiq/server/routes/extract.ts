@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
 import { logger } from '../logger.js';
+import { logApiUsage } from '../services/usage.js';
 
 const router = Router();
 
@@ -90,6 +91,22 @@ router.post('/', extractLimiter, async (req, res) => {
     }
 
     const data = await response.json();
+
+    // Log Claude Vision API usage
+    const usage = data.usage;
+    if (usage) {
+      const inputCost = (usage.input_tokens / 1_000_000) * 3;
+      const outputCost = (usage.output_tokens / 1_000_000) * 15;
+      logApiUsage({
+        service: 'claude',
+        endpoint: 'extract',
+        userId: (req.session as { userId?: string }).userId,
+        inputTokens: usage.input_tokens,
+        outputTokens: usage.output_tokens,
+        estimatedCost: inputCost + outputCost,
+      });
+    }
+
     res.json(data);
   } catch (err) {
     logger.error('Failed to extract shot data', { error: String(err) });

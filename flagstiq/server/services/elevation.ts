@@ -1,3 +1,5 @@
+import { logApiUsage } from './usage.js';
+
 const ELEVATION_URL = 'https://maps.googleapis.com/maps/api/elevation/json';
 const BATCH_SIZE = 512;
 
@@ -46,6 +48,16 @@ export async function fetchElevations(
       });
     }
   }
+
+  // Log Google Elevation API usage
+  const batchCount = Math.ceil(coordinates.length / BATCH_SIZE);
+  logApiUsage({
+    service: 'google_elevation',
+    endpoint: 'elevation',
+    items: coordinates.length,
+    apiCalls: batchCount,
+    estimatedCost: batchCount * 0.007,
+  });
 
   return results;
 }

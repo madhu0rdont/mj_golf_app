@@ -1,10 +1,11 @@
 import { Resend } from 'resend';
 import { logger } from '../logger.js';
+import { logApiUsage } from './usage.js';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'FlagstIQ <noreply@flagstiq.com>';
 
-async function send(to: string, subject: string, html: string) {
+async function send(to: string, subject: string, html: string, emailType: string) {
   if (!resend) {
     logger.info(`[EMAIL-DEV] To: ${to} | Subject: ${subject}`);
     logger.info(`[EMAIL-DEV] ${html.replace(/<[^>]+>/g, '')}`);
@@ -14,6 +15,12 @@ async function send(to: string, subject: string, html: string) {
   try {
     await resend.emails.send({ from: EMAIL_FROM, to, subject, html });
     logger.info(`Email sent to ${to}: ${subject}`);
+    logApiUsage({
+      service: 'resend',
+      endpoint: emailType,
+      items: 1,
+      estimatedCost: 0.0002,
+    });
   } catch (err) {
     logger.error('Failed to send email', { error: String(err), to, subject });
   }
@@ -34,7 +41,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
       </p>
     </div>
   `;
-  await send(to, 'Reset your password — FlagstIQ', html);
+  await send(to, 'Reset your password — FlagstIQ', html, 'password_reset');
 }
 
 export async function sendWelcomeEmail(to: string, displayName: string) {
@@ -49,7 +56,7 @@ export async function sendWelcomeEmail(to: string, displayName: string) {
       </p>
     </div>
   `;
-  await send(to, 'Welcome to FlagstIQ', html);
+  await send(to, 'Welcome to FlagstIQ', html, 'welcome');
 }
 
 export async function sendAdminNotificationEmail(username: string, email: string) {
@@ -71,7 +78,7 @@ export async function sendAdminNotificationEmail(username: string, email: string
       </a>
     </div>
   `;
-  await send(adminEmail, 'New FlagstIQ Registration — Pending Approval', html);
+  await send(adminEmail, 'New FlagstIQ Registration — Pending Approval', html, 'admin_notification');
 }
 
 export async function sendAccountApprovedEmail(to: string, displayName: string) {
@@ -87,5 +94,5 @@ export async function sendAccountApprovedEmail(to: string, displayName: string) 
       </a>
     </div>
   `;
-  await send(to, 'Your FlagstIQ account is approved!', html);
+  await send(to, 'Your FlagstIQ account is approved!', html, 'account_approved');
 }
