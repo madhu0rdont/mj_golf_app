@@ -1,74 +1,99 @@
 # FlagstIQ
 
-A full-stack golf performance tracking app built for the Foresight GC4 launch monitor. Log practice sessions, build a recency-weighted yardage book, play simulated rounds on the range, and get smart club recommendations backed by your own data.
+> A full-stack golf performance tracking app built for the Foresight GC4 launch monitor. Log practice sessions, build a recency-weighted yardage book, play simulated rounds on the range, and get AI-powered course strategy backed by your own data.
+
+![Version](https://img.shields.io/badge/version-1.7.2-green)
+
+![Railway](https://img.shields.io/badge/deployed-Railway-blueviolet)
+
+![License](https://img.shields.io/badge/license-MIT-blue)---
+
+## Table of contents
+
+- [Features](#features)
+- [Tech stack](#tech-stack)
+- [Quick start](#quick-start)
+- [Scripts](#scripts)
+- [Project structure](#project-structure)
+- [Deployment](#deployment)
+- [Documentation](#documentation)
+- [Changelog](#changelog)
+
+---
 
 ## Features
 
-### Practice Modes
+### 🏌️ Practice modes
 
-- **Block Practice** — Single-club sessions via photo capture (Claude Vision AI), CSV import, or manual entry. Full Trackman-style metrics: carry, total, ball speed, launch angle, spin, apex, descent, offline.
+| Mode | Description |
+| --- | --- |
+| Block Practice | Single-club sessions via AI photo capture (Claude Vision), CSV import, or manual entry. Full Trackman-style metrics: carry, total, ball speed, launch angle, spin, apex, descent, offline. |
+| Interleaved Practice | Simulated 9 or 18-hole rounds on the range. Randomized holes (par 3–5), iterative physics distance model, real-time club recommendations, and a full scorecard with scoring zone analysis. |
+| Wedge Distance Practice | Test wedges across three swing positions (full, shoulder, hip) in a matrix grid. Builds a distance ladder that feeds directly into club recommendations. |
 
-- **Interleaved Practice** — Play a simulated 9 or 18-hole round on the range. The app generates randomized holes (par 3–5), tracks remaining distance with an iterative physics model, recommends clubs (including grip-down and partial swing options), and produces a full scorecard with scoring zone analysis.
+### 📖 Yardage book
 
-- **Wedge Distance Practice** — Test your wedges across three swing positions (full, shoulder, hip) in a matrix grid. Builds a distance ladder that feeds into club recommendations.
-
-### Yardage Book
-
-- **Recency-weighted averages** — 30-day half-life exponential decay so your book reflects your current game, not last year's numbers
-- **Physics-based imputation** — Clubs without shot data get estimated flight profiles by scaling PGA Tour reference data to your carry distance and loft
-- **Interleaved full shots** — Shots marked as "full" during simulated rounds feed back into your book numbers
+- **Recency-weighted averages** — 30-day half-life exponential decay keeps your book current
+- **Physics-based imputation** — Clubs without shot data get estimated flight profiles scaled from PGA Tour Trackman reference data
 - **Gapping analysis** — Visual bar chart showing distance gaps and overlaps between clubs
-- **Wedge matrix** — Distance grid for each wedge at each swing position with manual overrides
-- **Freshness indicators** — Fresh (<14d), Aging (14–45d), Stale (>45d)
+- **Wedge matrix** — Distance grid per wedge at each swing position with manual overrides
+- **Freshness indicators** — Fresh (&lt;14d) · Aging (14–45d) · Stale (&gt;45d)
 
-### Session Summary
+### 🗺️ Course strategy
+
+- **DP/MDP optimizer** — Dynamic Programming (Markov Decision Process) computes optimal shot-by-shot strategies per hole across three modes: Scoring, Safe, and Aggressive
+- **Game plan PDF** — Printable hole-by-hole game plan with tactical maps, caddy tips, and score distributions
+- **Hazard mapper** — Satellite imagery with KML import and hazard overlays
+- **Monte Carlo simulation** — 2,000 trials per hole for accurate score distribution estimates
+- **Estimated handicap** — Computed from cached scoring plans using course rating and slope
+
+### 📊 Session summary
 
 - 7 hero stat cards (carry, total, speed, launch, descent, peak height, offline)
-- Side-by-side trajectory and dispersion charts (SVG with dark fairway backgrounds)
-- Trackman data table with mishit toggle
-- Previous session comparison deltas
-- Interleaved round scorecard with per-hole shot details and scoring zones
-- Edit and delete sessions from the summary page
+- Side-by-side trajectory and dispersion charts (SVG with fairway backgrounds)
+- Trackman data table with mishit toggle and previous session comparison deltas
+- Shot shape classification: straight / draw / fade / hook / slice / pull / push
+- Shot quality grading: pure / good / acceptable / mishit
 
-### Smart Club Recommendations
-
-- **Course mode**: enter a target yardage, get the top 3 clubs ranked by confidence (Great / OK / Stretch)
-- **Interleaved practice**: real-time recommendations including grip-down adjustments (~5 yds per inch) and wedge swing positions (full / shoulder / hip)
-- Wedge overrides from your actual distance testing take precedence over defaults
-
-### Club Bag Management
+### 🎒 Club bag management
 
 - Default 14-club bag seeded on first launch (Driver through Putter)
-- Full CRUD with brand, model, loft, shaft, flex
+- Full CRUD with brand, model, loft, shaft, and flex
 - Drag-to-reorder with touch-friendly sorting
 - Category-colored badges
 
-### Data Ingestion
+### 📥 Data ingestion
 
 - **AI Photo Extraction** — Photograph the GC4 screen; Claude Vision extracts tabular data server-side
-- **CSV Import** — Upload Foresight FSX/app CSV exports with auto column mapping
+- **CSV Import** — Upload Foresight FSX/app exports with auto column mapping
 - **Manual Entry** — Shot-by-shot form with expandable advanced fields and real-time validation
 
-### Shot Classification
+---
 
-- **Shape**: straight / draw / fade / hook / slice / pull / push (from spin axis + offline, handedness-aware)
-- **Quality**: pure / good / acceptable / mishit (statistical deviation from session mean, classified per-club for multi-club sessions)
-
-## Tech Stack
+## Tech stack
 
 | Layer | Technology |
-|-------|------------|
+| --- | --- |
 | Frontend | React 19, TypeScript, Vite 7, Tailwind CSS v4 |
-| Data Fetching | SWR (stale-while-revalidate) |
+| Data fetching | SWR (stale-while-revalidate) |
 | Server | Express 5, PostgreSQL, connect-pg-simple |
 | AI | Claude Vision API (server-side photo extraction) |
 | Charts | Recharts + custom SVG (trajectory, dispersion) |
 | Testing | Vitest (unit), Playwright (E2E) |
 | Deployment | Railway (Express + Postgres) |
 | PWA | vite-plugin-pwa (Workbox) |
-| Drag/Drop | @dnd-kit/core + sortable |
+| Drag/drop | @dnd-kit/core + sortable |
 
-## Quick Start
+---
+
+## Quick start
+
+### Prerequisites
+
+- Node.js 20+
+- PostgreSQL (or use Railway’s auto-provisioned instance)
+
+### Install
 
 ```bash
 git clone https://github.com/madhu0rdont/flagstiq.git
@@ -76,7 +101,9 @@ cd flagstiq
 npm install
 ```
 
-Create a `.env` file:
+### Configure environment
+
+Create a `.env` file in the project root:
 
 ```env
 DATABASE_URL=postgresql://user:pass@localhost:5432/flagstiq
@@ -84,25 +111,33 @@ APP_PASSWORD=your_password
 SESSION_SECRET=your_secret
 ```
 
+> **Optional:** Set `ANTHROPIC_API_KEY` to enable AI photo extraction and course strategy features.
+
+### Run
+
 ```bash
 npm run dev
 ```
 
-This starts both the Vite dev server (port 5173) and the Express API (port 3001) concurrently. The database schema auto-migrates and a default 14-club bag is seeded on first run.
+This starts both the Vite dev server (port **5173**) and the Express API (port **3001**) concurrently. The database schema auto-migrates and a default 14-club bag is seeded on first run.
+
+---
 
 ## Scripts
 
 | Command | Description |
-|---------|-------------|
-| `npm run dev` | Start frontend + backend in development |
-| `npm run build` | Build client (Vite) + server (tsc) for production |
-| `npm start` | Run the production server |
-| `npm run test:run` | Run unit tests (Vitest) |
-| `npm run test:e2e` | Run E2E tests (Playwright) |
-| `npm run test:coverage` | Unit tests with coverage report |
-| `npm run lint` | ESLint |
+| --- | --- |
+| npm run dev | Start frontend + backend in development |
+| npm run build | Build client (Vite) + server (tsc) for production |
+| npm start | Run the production server |
+| npm run test:run | Run unit tests (Vitest) |
+| npm run test:e2e | Run E2E tests (Playwright) |
+| npm run test:coverage | Unit tests with coverage report |
+| npm run lint | ESLint |
 
-## Project Structure
+---
+
+## Project structure
 
 ```
 src/                          # React frontend
@@ -142,20 +177,48 @@ e2e/                          # Playwright E2E tests
 src/services/__tests__/       # Vitest unit tests
 ```
 
+---
+
 ## Deployment
 
-Deployed on **Railway** with auto-provisioned PostgreSQL:
+FlagstIQ is deployed on **Railway** with auto-provisioned PostgreSQL.
 
-1. Connect the GitHub repo to Railway
-2. Set environment variables: `DATABASE_URL`, `APP_PASSWORD`, `SESSION_SECRET`
-3. Build: `npm run build` | Start: `npm start`
+1. Connect the GitHub repo to a new Railway project
+2. Set the following environment variables in Railway:
+
+   | Variable | Description |
+   | --- | --- |
+   | DATABASE_URL | Auto-provided by Railway Postgres plugin |
+   | APP_PASSWORD | App login password |
+   | SESSION_SECRET | Secure random string for session signing |
+   | ANTHROPIC_API_KEY | Required for AI features |
+   | ADMIN_EMAIL | Receives new user registration notifications |
+3. Build command: `npm run build`
+4. Start command: `npm start`
 
 The Express server serves both the REST API and the built SPA from the `dist/` folder.
+
+---
+
+## Documentation
+
+See the [Wiki](https://github.com/madhu0rdont/flagstiq/wiki) for detailed documentation on:
+
+- Architecture overview
+- Data models
+- Yardage book engine & recency weighting
+- Physics imputation math
+- Interleaved practice scoring
+- DP/MDP strategy optimizer
+
+---
 
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
-## Documentation
+Current version: **v1.7.2** — PDF Tactical Maps & DP Optimizer Performance
 
-See the [Wiki](https://github.com/madhu0rdont/flagstiq/wiki) for detailed documentation on architecture, data models, the yardage book engine, physics imputation math, interleaved practice scoring, and more.
+---
+
+© 2026 FlagstIQ
