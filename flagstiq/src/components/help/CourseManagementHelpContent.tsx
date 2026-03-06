@@ -37,67 +37,95 @@ Anything outside fairway, green, and hazard polygons is treated as rough.`}</P>
       <H3>The Optimizer</H3>
 
       <H4>Overview</H4>
-      <P>{`The optimizer models each hole as a Markov Decision Process and solves it with dynamic programming. It doesn't use pre-built strategy templates. Instead, it explores every reachable position on the hole, every eligible club from that position, and every aim direction — then finds the sequence of decisions that minimizes your expected score.
+      <P>{`The optimizer models each hole as a Markov Decision Process and solves it with dynamic programming using continuous interpolation. Rather than snapping the ball to the nearest pre-defined zone, it evaluates each simulated landing in a continuous coordinate system and interpolates the value of any position from nearby anchor states.
 
-This means the optimizer discovers strategies on its own. It might figure out that a 3-wood off the tee followed by a gap wedge scores better than driver-plus-9-iron because the 3-wood avoids the fairway bunker at 260 yards. And because it solves for every zone on the hole, it already knows the best recovery play if your tee shot ends up in the rough.`}</P>
+This means the optimizer discovers strategies on its own. It might figure out that a 3-wood off the tee followed by a gap wedge scores better than driver-plus-9-iron because the 3-wood avoids the fairway bunker at 260 yards. And because it solves for every anchor on the hole, it already knows the best recovery play if your tee shot ends up in the trees.`}</P>
 
-      <H4>Step 1 — Discretize the hole into zones</H4>
-      <P>{String.raw`Starting from the tee, the optimizer walks along the hole's center line in 20-yard steps. At each step, it creates three zones: center (on the center line), left (20 yards left), and right (20 yards right). Each zone records its GPS position, distance to the pin, and its lie — fairway, rough, or green — determined by checking whether the position falls inside any course polygon.
+      <H4>Step 1 — Discretize the hole into anchor states</H4>
+      <P>{String.raw`Starting from the tee, the optimizer walks along the hole's center line in 20-yard steps. At each step, it creates three anchors: center (on the center line), left (20 yards left), and right (20 yards right). Each anchor records its GPS position, its hole-frame coordinates $(s, u)$, distance to the pin, elevation, and its lie class.
 
-$$\text{zones} = \{\text{tee}\} \cup \bigcup_{d=20,40,\ldots} \{\text{center}_d, \text{left}_d, \text{right}_d\} \cup \{\text{green}\}$$
+$$\text{anchors} = \{\text{tee}\} \cup \bigcup_{d=20,40,\ldots} \{\text{center}_d, \text{left}_d, \text{right}_d\} \cup \{\text{green}\}$$
 
-The green zone is terminal — once the ball lands inside the green polygon (falling back to within 10 yards of the pin if no polygon is defined), the hole is over and only putting remains. A typical par 4 has about 50 zones.
+Anchors are placed in a hole-relative coordinate frame. The $s$ coordinate is arc distance from tee along the center line (yards), and the $u$ coordinate is signed perpendicular offset (positive = right of center line when facing the pin). This decouples the optimizer from raw GPS and enables spatial interpolation.
+
+The green anchor is terminal — once the ball lands inside the green polygon (falling back to within 10 yards of the pin if no polygon is defined), the hole is over and only putting remains. A typical par 4 has about 50 anchors.
 
 For doglegs without explicit center line data, the optimizer builds a synthetic one. It walks from tee toward pin in 20-yard steps, scoring candidate directions across a $\pm$75° fan. Candidates on the fairway score +10, inside a hazard score −20, and proximity to the pin earns a small bonus. The result follows the fairway's natural curve around the dogleg.`}</P>
 
-      <H4>Step 2 — Enumerate every possible action</H4>
-      <P>{String.raw`From each zone, the optimizer considers every (club, aim bearing) combination.
+      <H4>Lie classification</H4>
+      <P>{String.raw`Each anchor and each simulated landing gets a lie class based on which course polygons contain it. The optimizer recognizes 7 lie types, each with a dispersion multiplier $\lambda$ that widens your shot distribution to model the difficulty of that surface:
 
-Eligible clubs are filtered to those with mean carry between 50% and 110% of the remaining distance — you wouldn't hit driver from 80 yards or a wedge from 280. Drivers are only available from the tee. This usually yields 5–7 clubs per zone.
+  Fairway — 1.0× (clean contact, baseline dispersion)
+  Rough — 1.15× (+15%, uncertain contact from thick grass)
+  Green — 1.0× (ball at rest, putting model takes over)
+  Fairway bunker — 1.25× (+25%, sand lie affects distance and accuracy)
+  Greenside bunker — 1.20× (+20%, difficult recovery from sand)
+  Trees — 1.40× (+40%, restricted swing, trajectory constraints)
+  Recovery — 1.60× (+60%, worst-case lie requiring a punch out)
+
+The lie multiplier is applied to both carry standard deviation and offline standard deviation when sampling shot outcomes. A ball in the trees has 40% wider dispersion than the same club from the fairway.`}</P>
+
+      <H4>Step 2 — Enumerate every possible action</H4>
+      <P>{String.raw`From each anchor, the optimizer considers every (club, aim bearing) combination.
+
+Eligible clubs are filtered to those with mean carry between 50% and 110% of the remaining distance — you wouldn't hit driver from 80 yards or a wedge from 280. Drivers are only available from the tee. This usually yields 5–7 clubs per anchor.
 
 Aim bearings span $\pm$30° from the local center line direction. The step size adapts to hole length: 4° for short holes (<180 yards, giving 16 bearings), 3° for mid-length (180–350 yards, 21 bearings), and 2° for long holes (350+ yards, 31 bearings). Using the center line direction instead of aiming straight at the pin naturally routes tee shots down the fairway on doglegs.
 
-Total: roughly 100–220 actions per zone, all evaluated exhaustively.`}</P>
+Total: roughly 100–220 actions per anchor, all evaluated exhaustively.`}</P>
 
-      <H4>Step 3 — Sample where each action lands</H4>
-      <P>{String.raw`For each (zone, club, bearing) triple, the optimizer fires a batch of shots sampled from your measured distributions to build a probability map of outcomes.
+      <H4>Step 3 — Sample outcome descriptors</H4>
+      <P>{String.raw`For each (anchor, club, bearing) triple, the optimizer fires a batch of shots sampled from your measured distributions to build a set of landing outcomes.
 
 $$\text{carry} \sim \mathcal{N}(\mu_\text{carry},\; \sigma_\text{carry} \cdot \lambda) \qquad \text{offline} \sim \mathcal{N}(\mu_\text{offline},\; \sigma_\text{offline} \cdot \lambda)$$
 
-The lie multiplier $\lambda$ is 1.0 from the fairway and 1.15 from the rough — rough lies widen your dispersion by 15% due to uncertain contact.
+The lie multiplier $\lambda$ comes from the anchor's lie class — a shot from rough uses 1.15×, from trees uses 1.40×, and so on.
 
-The sample count adapts to hazard density near the zone: 100 samples for safe areas, 250 near bunkers, and 350 near water or OB where precision matters most.
+The sample count adapts to hazard density near the anchor: 100 samples for safe areas, 250 near bunkers, and 350 near water or OB where precision matters most.
 
-Each sample is projected to a GPS carry landing point with per-shot elevation adjustment (uphill shots land shorter, downhill longer), checked for tree collisions along the 3D flight arc, extended by a slope-and-surface-aware rollout to a resting position, checked against hazard polygons (with drop logic and stroke penalties), and then mapped to the nearest zone. The result is a transition table:
+Each sample is projected to a GPS carry landing point with per-shot elevation adjustment, checked for tree collisions along the 3D flight arc, extended by a slope-and-surface-aware rollout to a resting position, checked against hazard polygons (with drop logic and stroke penalties), classified into its lie class, and then projected into hole-frame $(s, u)$ coordinates.
 
-$$P(z' \mid z, a) = \frac{\text{samples landing in zone } z'}{N}$$
+The result is a set of landing outcome descriptors — each recording its $(s, u)$ position, lie class, penalty, and distance to pin. Unlike the old transition table, outcomes are not mapped to discrete zones. They retain their continuous coordinates for interpolation during value iteration.`}</P>
 
-Along with the expected penalty, penalty variance, probability of reaching the green, and probability of hitting the fairway. This table is built once and shared across all three scoring modes.`}</P>
+      <H4>Step 4 — Solve via interpolation-based value iteration</H4>
+      <P>{String.raw`With the outcome table built, the optimizer computes the expected strokes to finish from every anchor. It runs three times with different objectives, producing three strategies per hole.
 
-      <H4>Step 4 — Solve for optimal play via value iteration</H4>
-      <P>{String.raw`With the transition table built, the optimizer uses the Bellman equation to compute the expected strokes to finish from every zone. It runs three times with different objectives, producing three strategies per hole.
+To evaluate the value of a landing outcome at any $(s, u)$ position, the optimizer uses a spatial index that groups anchors by lie compatibility:
 
-Each mode includes a lie cascade correction $\mathcal{L}$ that accounts for the downstream cost of rough landings. When a ball lands in rough but maps to a fairway zone, that zone's value assumes a fairway lie for subsequent shots, which is too optimistic. The correction compensates:
+  Fairway group — fairway anchors
+  Off-fairway group — rough, trees, recovery anchors
+  Bunker group — fairway bunker, greenside bunker anchors
+  Green group — terminal green anchor
 
-$$\mathcal{L}(z, a) = \rho \cdot \bigl(1 - P(\text{fairway} \mid z,a) - P(\text{green} \mid z,a)\bigr)$$
+For a landing at $(s, u)$ with lie class $\ell$, the engine finds the $k = 6$ nearest compatible anchors and computes Gaussian kernel weights:
 
-where $\rho$ is the rough penalty (default 0.3 strokes).
+$$w_i = \exp\!\left(-\frac{(s - s_i)^2}{2 \cdot 25^2} - \frac{(u - u_i)^2}{2 \cdot 20^2}\right)$$
+
+The continuation value is the weighted average:
+
+$$V(s, u, \ell) = \frac{\sum_i w_i \cdot V_i}{\sum_i w_i}$$
+
+Inside 60 yards of the pin, the engine bypasses interpolation with a short-game model that uses lie-specific expected strokes — for example, a fairway lie at 40 yards gets $1 + \text{putts}(\max(3,\, 40 \times 0.15))$ while a bunker lie adds a penalty.
+
+The Q-value for each action is computed by evaluating every outcome individually:
+
+$$Q(z, a) = \frac{1}{N} \sum_{n=1}^{N} \bigl[1 + \text{penalty}_n + V(s_n, u_n, \ell_n)\bigr]$$
 
 Scoring mode — minimizes pure expected strokes:
-$$V(z) = \min_a \left[ 1 + \mathbb{E}[\text{penalty}] + \mathcal{L} + \sum_{z'} P(z') \cdot V(z') \right]$$
+$$\pi^*(z) = \arg\min_a\; Q(z, a)$$
 
 Safe mode — penalizes high-variance plays with $+1.0 \cdot \sigma$:
-$$V(z) = \min_a \left[ 1 + \mathbb{E}[\text{penalty}] + \mathcal{L} + \sum_{z'} P(z') \cdot V(z') + 1.0 \cdot \sigma_\text{penalty} \right]$$
+$$\pi^*(z) = \arg\min_a\; \bigl[Q(z, a) + 1.0 \cdot \sigma(z, a)\bigr]$$
 
 Aggressive mode — rewards reaching the green with $-0.6 \cdot P(\text{green})$:
-$$V(z) = \min_a \left[ 1 + \mathbb{E}[\text{penalty}] + \mathcal{L} + \sum_{z'} P(z') \cdot V(z') - 0.6 \cdot P(\text{green}) \right]$$
+$$\pi^*(z) = \arg\min_a\; \bigl[Q(z, a) - 0.6 \cdot P(\text{green} \mid z, a)\bigr]$$
 
-Iteration starts with all zones at 10 strokes and the green zone at $\text{expectedPutts}(0)$. It converges when the maximum value change drops below 0.001 — typically within 10 iterations. The optimal policy $\pi^*(z)$ at each zone is the action that achieves the minimum value.`}</P>
+Iteration starts with all anchors at 10 strokes and the green anchor at $\text{expectedPutts}(0)$. It converges when the maximum value change drops below 0.001 — typically within 10 iterations. The anchor values $V$ store the true expected strokes, while the policy tracks the mode-adjusted preference.`}</P>
 
       <H4>Step 5 — Extract and score each strategy</H4>
       <P>{String.raw`The optimizer traces each mode's policy from tee to green to build a concrete shot plan — which club to hit, where to aim, expected landing. But to get accurate score distributions, it then runs 2,000 Monte Carlo trials per strategy.
 
-Each trial starts at the tee and follows the policy conditionally: when the ball lands in an unexpected zone (rough right instead of fairway center), the policy already has an optimal action for that zone. This produces realistic score distributions that account for recovery shots — the critical advantage over static club sequences.
+Each trial starts at the tee and follows the policy conditionally: when the ball lands in an unexpected position (rough right instead of fairway center), the system finds the nearest compatible anchor and uses that anchor's optimal action. This produces realistic score distributions that account for recovery shots — the critical advantage over static club sequences.
 
 Trial outcomes are bucketed relative to par:
 
@@ -157,15 +185,15 @@ Slope also affects rollout. At the landing point, the simulator measures the loc
 
 At course import, the centerLine stores GPS elevation at each waypoint. The optimizer pre-computes an elevation profile — elevation samples every 10 yards along the centerLine — and uses O(1) interpolation to look up elevation at any distance from the tee.
 
-Each zone records its elevation (meters above sea level) and distance from the tee. When simulating a shot, the elevation delta between the source zone and the projected landing point determines how far the ball travels along the ground:
+Each anchor records its elevation (meters above sea level) and distance from the tee. When simulating a shot, the elevation delta between the source anchor and the projected landing point determines how far the ball travels along the ground:
 
 $$\text{groundCarry} = \text{carry} - \Delta\text{elev} \times 1.09$$
 
 Uphill shots ($\Delta\text{elev} > 0$) cover less ground — the ball has to climb, so its horizontal footprint shrinks. Downhill shots ($\Delta\text{elev} < 0$) cover more ground — the ball descends longer before touching down.
 
-This adjustment applies to every sampled shot in the transition table, every Monte Carlo trial, and every greedy recovery shot. Club selection also uses elevation-adjusted "plays like" distance — on an uphill approach, the optimizer selects a stronger club because the ball needs to travel further than the flat distance suggests.
+This adjustment applies to every sampled shot in the outcome table, every Monte Carlo trial, and every greedy recovery shot. Club selection also uses elevation-adjusted "plays like" distance — on an uphill approach, the optimizer selects a stronger club because the ball needs to travel further than the flat distance suggests.
 
-When the centerLine has no real elevation data (e.g., synthetic centerLines for doglegs), all elevations default to zero and the adjustment has no effect — identical to the previous flat-earth behavior.`}</P>
+When the centerLine has no real elevation data (e.g., synthetic centerLines for doglegs), all elevations default to zero and the adjustment has no effect.`}</P>
 
       <H4>Putting model</H4>
       <P>{String.raw`Once on the green, a log-curve model fitted to PGA strokes-gained data converts distance to expected putts:
@@ -190,7 +218,7 @@ Each shot also gets a carry note with hazard context, like "+20y past bunker" or
       <H3>Game Plan</H3>
 
       <H4>18-hole assembly</H4>
-      <P>{String.raw`The game plan runs the DP optimizer across all 18 holes, solving each hole in all three modes (Scoring, Safe, Aggressive). Results are parallelized across worker threads for speed.
+      <P>{String.raw`The game plan runs the DP optimizer across all 18 holes, solving each hole in all three modes (Scoring, Safe, Aggressive). Results are parallelized across worker threads for speed, with per-hole progress streamed to the UI in real time.
 
 Each hole gets a color code:
   Green — birdie probability > 15%
@@ -210,21 +238,25 @@ The top 4 holes by delta are flagged as KEY — these are the holes where playin
       <P>{`If the DP optimizer returns no results for a hole (e.g., missing polygon data), the system falls back to pre-defined templates: Par 3 (Pin Hunting / Center Green / Bail Out), Par 4 (Conservative / Aggressive / Layup), Par 5 (3-Shot / Go-For-It / Safe Layup). These use the same Monte Carlo simulation for scoring but with fixed club and aim selections instead of optimized ones.`}</P>
 
       <H3>Constants Reference</H3>
-      <P>{String.raw`  Zone interval — 20 yards
+      <P>{String.raw`  Anchor interval — 20 yards along center line
   Lateral offset — 20 yards from center line
   Bearing range — $\pm$30° from center line (16–31 bearings, adaptive)
   Samples per action — 100 (safe), 250 (bunkers), 350 (OB/water)
-  Rough lie multiplier — 1.15× standard deviation
+  Lie multipliers — fairway 1.0×, rough 1.15×, fairway bunker 1.25×, greenside bunker 1.20×, trees 1.40×, recovery 1.60×
   Carry ratio range — 50%–110% of remaining distance
   Green detection — polygon geofence, 10-yard fallback
+  Short-game threshold — 60 yards (bypass interpolation)
   Chip range — 30 yards (chip + putt)
   Max shots per hole — 8
   Monte Carlo trials — 2,000 per strategy
+  k-nearest neighbors — 6 anchors
+  Interpolation bandwidth — 25 yards (s-direction), 20 yards (u-direction)
   Tree canopy height — 15 yards (45 ft)
   Default ball apex — 28 yards (84 ft)
   Convergence threshold — max $\Delta V$ < 0.001 or 50 iterations
   Safe mode variance weight — $+1.0\sigma$
   Aggressive mode green bonus — $-0.6 \cdot P(\text{green})$
+  Hazard drop penalty — 0.3 strokes
   Rollout formula — $0.12 \cdot e^{-0.05 \cdot \text{loft}}$ (fallback when no measured total)
   Rollout surface — fairway 1.0×, green 0.65×, rough 0.3×, bunker 0×
   Rollout slope factor — 3.0 (rollout change per unit slope, clamped 0.5×–1.5×)
