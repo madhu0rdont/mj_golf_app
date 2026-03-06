@@ -227,9 +227,11 @@ export function discretizeHole(
   if (totalDist === 0) return { anchors: [], elevProfile: { samples: [], totalDist: 0 }, centerLine: [] };
 
   const fairwayPolygons = hole.fairway ?? [];
-  let centerLine: { lat: number; lng: number }[] = hole.centerLine ?? [];
+  let centerLine: { lat: number; lng: number; elevation: number }[] =
+    (hole.centerLine ?? []).map(p => ({ ...p, elevation: (p as { elevation?: number }).elevation ?? 0 }));
   if (centerLine.length < 2 && fairwayPolygons.length > 0) {
-    centerLine = synthesizeCenterLine(tee, pin, totalDist, fairwayPolygons, hole.hazards);
+    centerLine = synthesizeCenterLine(tee, pin, totalDist, fairwayPolygons, hole.hazards)
+      .map(p => ({ ...p, elevation: 0 }));
   }
   const greenPoly = hole.green ?? [];
   const anchors: AnchorState[] = [];
