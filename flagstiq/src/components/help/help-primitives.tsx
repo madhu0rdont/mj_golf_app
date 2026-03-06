@@ -55,7 +55,7 @@ export function H3({ children }: { children: string }) {
 }
 
 export function H4({ children }: { children: string }) {
-  return <h4 className="font-display text-sm font-bold text-text-dark mt-5 mb-2">{children}</h4>;
+  return <h4 className="font-display text-sm font-light text-text-dark mt-5 mb-2">{children}</h4>;
 }
 
 export function DiagramCaption({ children }: { children: string }) {
@@ -65,15 +65,15 @@ export function DiagramCaption({ children }: { children: string }) {
 /* ── SVG color constants ── */
 
 export const C = {
-  primary: '#2d5a27',
-  primaryLight: '#3d7a35',
-  gold: '#c9a84c',
-  coral: '#c0392b',
+  primary: '#2A5C40',
+  primaryLight: '#3A7A55',
+  gold: '#B8871E',
+  coral: '#B83228',
   blue: '#4361EE',
   purple: '#7209B7',
   orange: '#F4A261',
-  muted: '#c8b99a',
+  muted: '#9AAA9C',
   faint: '#d4c9b0',
-  bg: '#f4f0e8',
+  bg: '#F2EDE3',
   card: '#FFFFFF',
 };

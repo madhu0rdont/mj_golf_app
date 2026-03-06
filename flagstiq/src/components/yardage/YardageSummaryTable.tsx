@@ -118,91 +118,95 @@ export function YardageSummaryTable({ clubs, distributions }: YardageSummaryTabl
   }, [clubs]);
 
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] overflow-hidden">
+    <div className="overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-xs">
+        <table className="w-full min-w-[640px]">
           <thead>
-            <tr className="border-b border-border bg-surface">
-              <th className="sticky left-0 z-10 bg-surface px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-text-muted">
+            <tr className="border-b-2 border-card-border bg-bg2 sticky top-0 z-20">
+              <th className="sticky left-0 z-10 bg-bg2 px-4 py-2.5 text-left font-mono text-[9px] tracking-[0.2em] uppercase text-ink-faint">
                 Club
               </th>
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
-                  className="px-2 py-2 text-right text-[10px] font-medium uppercase tracking-wider text-text-muted"
+                  className="px-2 py-2.5 text-right font-mono text-[9px] tracking-[0.2em] uppercase text-ink-faint leading-tight"
                 >
                   {col.label}
                   <br />
-                  <span className="font-normal normal-case tracking-normal text-text-faint">
+                  <span className="font-normal normal-case tracking-normal">
                     ({col.unit})
                   </span>
                 </th>
               ))}
-              <th className="px-2 py-2 text-right text-[10px] font-medium uppercase tracking-wider text-text-muted">
+              <th className="px-2 py-2.5 text-right font-mono text-[9px] tracking-[0.2em] uppercase text-ink-faint leading-tight">
                 Offline
                 <br />
-                <span className="font-normal normal-case tracking-normal text-text-faint">
+                <span className="font-normal normal-case tracking-normal">
                   (yds)
                 </span>
               </th>
-              <th className="px-2 py-2 text-center text-[10px] font-medium uppercase tracking-wider text-text-muted">
+              <th className="px-2 py-2.5 text-center font-mono text-[9px] tracking-[0.2em] uppercase text-ink-faint">
                 Shape
               </th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, i) => (
-              <tr key={row.clubName} className={`${i % 2 === 1 ? 'bg-surface/30' : ''} ${row.imputed ? 'opacity-60' : ''}`}>
-                <td className="sticky left-0 z-5 bg-card px-3 py-0 align-top" style={i % 2 === 1 ? { background: 'rgba(243,240,235,0.3)' } : undefined}>
-                  <div className="flex items-center gap-1.5 pt-1.5">
+            {rows.map((row) => (
+              <tr
+                key={row.clubName}
+                className={`border-b border-card-border hover:bg-white/50 transition-colors cursor-pointer ${row.imputed ? 'opacity-50' : ''}`}
+              >
+                <td className="sticky left-0 z-5 bg-surface px-4 py-3 align-middle">
+                  <div className="flex items-center gap-2">
                     <span
-                      className={`inline-block h-2.5 w-2.5 flex-shrink-0 ${row.imputed ? 'rounded-full border border-current' : 'rounded-sm'}`}
-                      style={row.imputed ? { borderColor: row.color } : { backgroundColor: row.color }}
+                      className="inline-block h-2 w-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: row.color }}
                     />
-                    <span className={`font-medium ${row.imputed ? 'italic text-text-medium' : 'text-text-dark'}`}>{row.clubName}</span>
-                    {row.imputed && (
-                      <span className="rounded bg-border px-1 py-px text-[9px] font-medium text-text-muted">Est.</span>
-                    )}
-                  </div>
-                  <div className="pb-1.5 pl-4 text-[10px] text-text-muted">
-                    {row.imputed ? 'Estimated' : `${row.shotCount} shot${row.shotCount !== 1 ? 's' : ''}`}
+                    <div>
+                      <div className="font-display text-[17px] font-normal text-ink leading-none">
+                        {row.clubName}
+                      </div>
+                      <div className="font-mono text-[9px] text-ink-faint tracking-[0.1em]">
+                        {row.imputed ? 'Estimated' : `${row.shotCount} shots`}
+                      </div>
+                    </div>
                   </div>
                 </td>
                 {COLUMNS.map((col) => (
-                  <td key={col.key} className="px-2 py-1.5 text-right align-top">
-                    <div className={`font-mono ${row.imputed ? 'italic text-text-medium' : 'font-semibold text-text-dark'}`}>
+                  <td key={col.key} className="px-2 py-3 text-right align-middle">
+                    <div className="font-display text-xl font-normal text-ink leading-none">
                       {formatVal(row.avg[col.key], col.decimals)}
                     </div>
-                    {!row.imputed && (
-                      <div className="font-mono text-[10px] text-text-muted">
-                        {row.sd[col.key] != null ? `±${formatVal(row.sd[col.key], col.decimals)}` : ''}
+                    {!row.imputed && row.sd[col.key] != null && (
+                      <div className="font-mono text-[9px] text-ink-faint tracking-[0.05em] mt-0.5">
+                        ±{formatVal(row.sd[col.key], col.decimals)}
                       </div>
                     )}
                   </td>
                 ))}
-                <td className="px-2 py-1.5 text-right align-top">
-                  <div className={`font-mono ${row.imputed ? 'italic text-text-medium' : 'font-semibold text-text-dark'}`}>
+                <td className="px-2 py-3 text-right align-middle">
+                  <div className="font-display text-xl font-normal text-ink leading-none">
                     {row.avgOffline != null
                       ? `${row.avgOffline >= 0 ? '+' : ''}${Math.round(row.avgOffline)}`
                       : '\u2014'}
                   </div>
                   {row.sdOffline != null && (
-                    <div className="font-mono text-[10px] text-text-muted">
+                    <div className="font-mono text-[9px] text-ink-faint tracking-[0.05em] mt-0.5">
                       ±{Math.round(row.sdOffline)}
                     </div>
                   )}
                 </td>
-                <td className="px-2 py-1.5 text-center align-top">
+                <td className="px-2 py-3 text-center align-middle">
                   {row.dominantShape ? (
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex items-center gap-1 font-mono text-[10px] text-ink-mid tracking-[0.05em]">
                       <span
-                        className="inline-block h-2 w-2 rounded-full"
+                        className="inline-block h-1.5 w-1.5 rounded-full"
                         style={{ backgroundColor: THEME.shotShape[row.dominantShape] }}
                       />
-                      <span className="text-text-medium">{SHAPE_LABEL[row.dominantShape]}</span>
+                      {SHAPE_LABEL[row.dominantShape]}
                     </span>
                   ) : (
-                    <span className="text-text-faint">{'\u2014'}</span>
+                    <span className="text-ink-faint">{'\u2014'}</span>
                   )}
                 </td>
               </tr>

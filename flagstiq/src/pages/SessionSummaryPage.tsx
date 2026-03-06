@@ -108,7 +108,7 @@ export function SessionSummaryPage() {
           <div className="mb-2 flex justify-end">
             <button
               onClick={() => setDeleteOpen(true)}
-              className="rounded-lg p-1.5 text-text-muted hover:bg-surface hover:text-coral"
+              className="rounded-sm p-1.5 text-text-muted hover:bg-surface hover:text-coral"
               aria-label="Delete session"
             >
               <Trash2 size={18} />
@@ -139,7 +139,7 @@ export function SessionSummaryPage() {
           <div className="mb-2 flex justify-end">
             <button
               onClick={() => setDeleteOpen(true)}
-              className="rounded-lg p-1.5 text-text-muted hover:bg-surface hover:text-coral"
+              className="rounded-sm p-1.5 text-text-muted hover:bg-surface hover:text-coral"
               aria-label="Delete session"
             >
               <Trash2 size={18} />
@@ -179,7 +179,7 @@ export function SessionSummaryPage() {
         {/* Header */}
         <div className="mb-4 flex items-start justify-between">
           <div>
-            <h2 className="font-display text-2xl font-bold text-forest">{club.name}</h2>
+            <h2 className="font-display text-2xl font-light text-ink">{club.name}</h2>
             <p className="text-sm text-text-medium">
               {dateStr} &middot; {summary.shotCount} shots
               {session.location && ` at ${session.location}`}
@@ -188,14 +188,14 @@ export function SessionSummaryPage() {
           <div className="flex items-center gap-1">
             <button
               onClick={openEditModal}
-              className="mt-1 rounded-lg p-1.5 text-text-muted hover:bg-surface hover:text-text-dark"
+              className="mt-1 rounded-sm p-1.5 text-text-muted hover:bg-surface hover:text-text-dark"
               aria-label="Edit session"
             >
               <Pencil size={18} />
             </button>
             <button
               onClick={() => setDeleteOpen(true)}
-              className="mt-1 rounded-lg p-1.5 text-text-muted hover:bg-surface hover:text-coral"
+              className="mt-1 rounded-sm p-1.5 text-text-muted hover:bg-surface hover:text-coral"
               aria-label="Delete session"
             >
               <Trash2 size={18} />
@@ -261,7 +261,7 @@ export function SessionSummaryPage() {
         {/* Flight Visualization */}
         {hasTrajectoryData && (
           <div className="mt-4 flex flex-col sm:flex-row gap-2">
-            <div className="flex-1 rounded-2xl border border-border overflow-hidden shadow-[var(--shadow-card)]">
+            <div className="flex-1 rounded-sm border border-border overflow-hidden shadow-[var(--shadow-card)]">
               <TrajectoryChart
                 shots={flightShots}
                 highlightedShotId={highlightedShotId}
@@ -270,7 +270,7 @@ export function SessionSummaryPage() {
                 animated={animated}
               />
             </div>
-            <div className="flex-1 rounded-2xl border border-border overflow-hidden shadow-[var(--shadow-card)]">
+            <div className="flex-1 rounded-sm border border-border overflow-hidden shadow-[var(--shadow-card)]">
               <DispersionChart
                 shots={flightShots}
                 highlightedShotId={highlightedShotId}

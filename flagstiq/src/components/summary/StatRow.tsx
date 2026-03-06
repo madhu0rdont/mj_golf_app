@@ -10,7 +10,7 @@ interface StatRowProps {
 
 export function StatRow({ items }: StatRowProps) {
   return (
-    <div className="mt-2 flex rounded-2xl border border-border bg-card px-4 py-3 shadow-[var(--shadow-card)]">
+    <div className="mt-2 flex rounded-sm border border-border bg-card px-4 py-3 shadow-[var(--shadow-card)]">
       {items.map((item, i) => (
         <div
           key={item.label}

@@ -283,7 +283,7 @@ export function WedgePracticePage() {
                               onKeyDown={handleKeyDown}
                               onBlur={handleInputBlur}
                               placeholder={String(target)}
-                              className="w-16 rounded-lg border border-primary bg-surface px-2 py-1.5 text-center text-sm text-text-dark placeholder-text-faint focus:outline-none focus:ring-1 focus:ring-primary"
+                              className="w-16 rounded-sm border border-primary bg-surface px-2 py-1.5 text-center text-sm text-text-dark placeholder-text-faint focus:outline-none focus:ring-1 focus:ring-primary"
                             />
                             {hasShots && (
                               <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
@@ -299,7 +299,7 @@ export function WedgePracticePage() {
                         ) : (
                           <button
                             onClick={() => handleCellTap(club.id, pos.key)}
-                            className={`relative inline-block min-w-[3.5rem] rounded-lg px-2 py-1.5 transition ${
+                            className={`relative inline-block min-w-[3.5rem] rounded-sm px-2 py-1.5 transition ${
                               hasShots
                                 ? 'bg-primary/10 font-bold text-primary ring-1 ring-primary/30'
                                 : 'text-text-dark hover:bg-surface'
@@ -332,7 +332,7 @@ export function WedgePracticePage() {
 
         {/* Running session stats */}
         {totalShotCount > 0 && (
-          <div className="mt-4 flex items-center justify-between rounded-xl bg-surface px-4 py-2">
+          <div className="mt-4 flex items-center justify-between rounded-sm bg-surface px-4 py-2">
             <span className="text-sm text-text-medium">
               {totalShotCount} shot{totalShotCount !== 1 ? 's' : ''}
             </span>

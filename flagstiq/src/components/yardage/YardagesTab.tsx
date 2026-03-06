@@ -165,7 +165,7 @@ export function YardagesTab() {
           <h3 className="mb-1.5 text-xs font-medium text-text-muted uppercase tracking-wide">
             {group.label}
           </h3>
-          <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border-light">
+          <div className="rounded-sm border border-border bg-card overflow-hidden divide-y divide-border-light">
             {group.items.map(({ club, entry }) => (
               <YardageRow key={club.id} club={club} entry={entry} />
             ))}

@@ -5,7 +5,7 @@ import { Button } from '../components/ui/Button';
 type View = 'login' | 'register' | 'forgot' | 'forgot-sent' | 'register-done' | 'setup';
 
 const inputClass =
-  'w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-text-dark outline-none focus:border-fairway focus:ring-1 focus:ring-fairway';
+  'w-full rounded-sm border border-border bg-surface px-3 py-2.5 text-sm text-text-dark outline-none focus:border-fairway focus:ring-1 focus:ring-fairway';
 
 export function LoginPage() {
   const { login, needsSetup, setup, forgotPassword, register } = useAuth();
@@ -116,11 +116,11 @@ export function LoginPage() {
       <div className="flex min-h-screen items-center justify-center bg-surface px-4">
         <div className="w-full max-w-sm">
           <div className="mb-6 text-center">
-            <h1 className="font-display text-3xl font-bold text-forest">Flagst<span className="text-fairway">IQ</span></h1>
+            <h1 className="font-display text-3xl font-light text-forest">Flagst<em className="italic text-gold-light">IQ</em></h1>
             <p className="mt-1 font-mono text-xs tracking-wider text-sand uppercase">First-time setup</p>
           </div>
 
-          <form onSubmit={handleSetup} className="rounded-[20px] bg-card p-6 shadow-[var(--shadow-card)] space-y-4">
+          <form onSubmit={handleSetup} className="rounded-sm bg-card p-6 shadow-[var(--shadow-card)] space-y-4">
             <p className="text-xs text-text-muted">Create an admin account (for managing courses and users) and your player account.</p>
 
             <div>
@@ -154,7 +154,7 @@ export function LoginPage() {
                     key={h}
                     type="button"
                     onClick={() => setPlayerHandedness(h)}
-                    className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                    className={`flex-1 rounded-sm border px-3 py-2 text-sm font-medium transition ${
                       playerHandedness === h
                         ? 'border-fairway bg-fairway/10 text-fairway'
                         : 'border-border bg-surface text-text-muted'
@@ -182,16 +182,16 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="mb-8 text-center">
-          <h1 className="font-display text-3xl font-bold text-forest">Flagst<span className="text-fairway">IQ</span></h1>
+          <h1 className="font-display text-3xl font-light text-forest">Flagst<em className="italic text-gold-light">IQ</em></h1>
         </div>
 
-        <div className="rounded-[20px] bg-card p-6 shadow-[var(--shadow-card)]">
+        <div className="rounded-sm bg-card p-6 shadow-[var(--shadow-card)]">
 
           {/* ── Login View ── */}
           {view === 'login' && (
             <form onSubmit={handleLogin}>
               <p className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-sand mb-1">Welcome back</p>
-              <h2 className="font-display text-2xl font-bold text-forest mb-6">
+              <h2 className="font-display text-2xl font-light text-forest mb-6">
                 Sign <em className="not-italic text-fairway italic">in</em>
               </h2>
 
@@ -256,7 +256,7 @@ export function LoginPage() {
           {view === 'register' && (
             <form onSubmit={handleRegister}>
               <p className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-sand mb-1">Join the club</p>
-              <h2 className="font-display text-2xl font-bold text-forest mb-6">
+              <h2 className="font-display text-2xl font-light text-forest mb-6">
                 Create <em className="not-italic text-fairway italic">account</em>
               </h2>
 
@@ -306,7 +306,7 @@ export function LoginPage() {
           {view === 'forgot' && (
             <form onSubmit={handleForgot}>
               <p className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-sand mb-1">Reset password</p>
-              <h2 className="font-display text-2xl font-bold text-forest mb-2">
+              <h2 className="font-display text-2xl font-light text-forest mb-2">
                 Forgot <em className="not-italic text-fairway italic">password</em>?
               </h2>
               <p className="text-xs text-text-muted mb-6">Enter your email and we'll send you a link to reset your password.</p>
@@ -341,7 +341,7 @@ export function LoginPage() {
           {view === 'forgot-sent' && (
             <div className="text-center">
               <p className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-sand mb-1">Check your email</p>
-              <h2 className="font-display text-2xl font-bold text-forest mb-4">
+              <h2 className="font-display text-2xl font-light text-forest mb-4">
                 Link <em className="not-italic text-fairway italic">sent</em>
               </h2>
               <p className="text-sm text-text-medium mb-6">
@@ -362,7 +362,7 @@ export function LoginPage() {
           {view === 'register-done' && (
             <div className="text-center">
               <p className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-sand mb-1">Almost there</p>
-              <h2 className="font-display text-2xl font-bold text-forest mb-4">
+              <h2 className="font-display text-2xl font-light text-forest mb-4">
                 Account <em className="not-italic text-fairway italic">created</em>
               </h2>
               <p className="text-sm text-text-medium mb-6">

@@ -37,7 +37,7 @@ function CoursesTrackedRow({ courseCount, courseNames }: { courseCount: number; 
         </button>
       )}
       {open && courseNames.length > 0 && (
-        <div className="absolute left-0 top-full mt-1 z-20 rounded-lg border border-sand bg-white shadow-md px-3 py-2 min-w-[160px]">
+        <div className="absolute left-0 top-full mt-1 z-20 rounded-sm border border-sand bg-white shadow-md px-3 py-2 min-w-[160px]">
           <p className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-sand mb-1.5">Courses in calc</p>
           <ul className="flex flex-col gap-1">
             {courseNames.map((name) => (
@@ -71,25 +71,25 @@ export function HomePage() {
       <div className="relative z-[1]">
         {/* Hero */}
         <section className="px-8 pt-8 pb-0">
-          <h1 className="animate-fadeUp delay-2 font-display text-[clamp(2.8rem,6vw,5rem)] font-black leading-[0.95] text-forest mb-1.5">
-            {firstName}'s<br /><em className="italic text-fairway">Game</em>
+          <h1 className="animate-fadeUp delay-2 font-display text-[clamp(2.8rem,6vw,5rem)] font-light leading-[0.95] text-ink mb-1.5">
+            {firstName}'s<br /><em className="italic text-turf">Game.</em>
           </h1>
-          <p className="animate-fadeUp delay-3 text-[0.9rem] text-sage font-light tracking-wide">
+          <p className="animate-fadeUp delay-3 text-[13px] text-ink-light font-light tracking-[0.02em]">
             Powered by real data and statistics.
           </p>
 
           {/* Handicap strip */}
           {handicap !== null && (
             <div className="animate-fadeUp delay-4 mt-7 flex items-stretch">
-              <div className="bg-forest text-white px-7 py-4.5 rounded-l-2xl flex flex-col gap-0.5">
-                <div className="font-display text-5xl font-black leading-none text-gold">
+              <div className="bg-forest text-white px-7 py-4.5 rounded-l-sm flex flex-col gap-0.5">
+                <div className="font-display text-5xl font-light leading-none text-gold">
                   {handicap}
                 </div>
                 <div className="font-mono text-[0.6rem] tracking-[0.15em] uppercase text-sage">
                   Est. Handicap
                 </div>
               </div>
-              <div className="bg-parchment border border-sand px-6 py-4.5 rounded-r-2xl flex flex-col justify-center gap-2 flex-1">
+              <div className="bg-parchment border border-sand px-6 py-4.5 rounded-r-sm flex flex-col justify-center gap-2 flex-1">
                 <CoursesTrackedRow courseCount={courseCount} courseNames={courseNames} />
                 {homeCourse && (
                   <div className="flex items-center gap-2">
@@ -119,59 +119,59 @@ export function HomePage() {
         </p>
 
         {/* Action cards */}
-        <div className="animate-fadeUp delay-6 px-8 pb-8 grid grid-cols-3 gap-3">
+        <div className="animate-fadeUp delay-6 px-8 pb-8 grid grid-cols-1 md:grid-cols-3 gap-[2px]">
           {/* Play */}
           <Link
             to="/play"
-            className="shimmer-hover rounded-[20px] bg-forest text-white p-5 pt-7 pb-5 flex flex-col gap-3 transition-all duration-250 hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)] no-underline"
+            className="relative shimmer-hover rounded-sm bg-forest text-white p-5 pt-7 pb-5 flex flex-col gap-3 transition-all duration-250 hover:brightness-[1.06] no-underline overflow-hidden"
           >
-            <div className="absolute bottom-[-10px] right-2 font-display text-[5.5rem] font-black leading-none opacity-[0.06] pointer-events-none select-none">01</div>
-            <div className="w-10 h-10 rounded-[12px] bg-white/10 flex items-center justify-center">
+            <div className="absolute bottom-[-10px] right-2 font-display text-[5.5rem] font-light leading-none opacity-[0.06] pointer-events-none select-none">01</div>
+            <div className="w-10 h-10 rounded-sm bg-white/10 flex items-center justify-center">
               <MapPin size={20} />
             </div>
             <div className="relative z-[1]">
-              <div className="font-display text-[1.35rem] font-bold leading-tight mb-1">Play</div>
+              <div className="font-display text-[1.35rem] font-light leading-tight mb-1">Play</div>
               <div className="text-[0.72rem] font-light opacity-70 leading-snug">
                 Start a round with GPS yardages & strategy
               </div>
             </div>
-            <div className="mt-auto text-lg opacity-50 transition-all group-hover:opacity-100 group-hover:translate-x-1">→</div>
+            <div className="mt-auto font-mono text-[11px] tracking-[0.1em] text-white/30">→ Start round</div>
           </Link>
 
           {/* Practice */}
           <Link
             to="/practice"
-            className="shimmer-hover rounded-[20px] bg-turf text-white p-5 pt-7 pb-5 flex flex-col gap-3 transition-all duration-250 hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)] no-underline"
+            className="relative shimmer-hover rounded-sm bg-turf text-white p-5 pt-7 pb-5 flex flex-col gap-3 transition-all duration-250 hover:brightness-[1.06] no-underline overflow-hidden"
           >
-            <div className="absolute bottom-[-10px] right-2 font-display text-[5.5rem] font-black leading-none opacity-[0.06] pointer-events-none select-none">02</div>
-            <div className="w-10 h-10 rounded-[12px] bg-white/10 flex items-center justify-center">
+            <div className="absolute bottom-[-10px] right-2 font-display text-[5.5rem] font-light leading-none opacity-[0.06] pointer-events-none select-none">02</div>
+            <div className="w-10 h-10 rounded-sm bg-white/10 flex items-center justify-center">
               <Plus size={20} />
             </div>
             <div className="relative z-[1]">
-              <div className="font-display text-[1.35rem] font-bold leading-tight mb-1">Practice</div>
+              <div className="font-display text-[1.35rem] font-light leading-tight mb-1">Practice</div>
               <div className="text-[0.72rem] font-light opacity-70 leading-snug">
                 Log GC4 data, putting & drill sessions
               </div>
             </div>
-            <div className="mt-auto text-lg opacity-50">→</div>
+            <div className="mt-auto font-mono text-[11px] tracking-[0.1em] text-white/30">→ Log session</div>
           </Link>
 
           {/* Bag */}
           <Link
             to="/bag"
-            className="shimmer-hover rounded-[20px] bg-parchment border-[1.5px] border-sand text-forest p-5 pt-7 pb-5 flex flex-col gap-3 transition-all duration-250 hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)] no-underline"
+            className="relative shimmer-hover rounded-sm bg-bg3 border border-card-border text-ink p-5 pt-7 pb-5 flex flex-col gap-3 transition-all duration-250 hover:brightness-[1.06] no-underline overflow-hidden"
           >
-            <div className="absolute bottom-[-10px] right-2 font-display text-[5.5rem] font-black leading-none opacity-[0.06] pointer-events-none select-none text-forest">03</div>
-            <div className="w-10 h-10 rounded-[12px] bg-turf/10 flex items-center justify-center">
+            <div className="absolute bottom-[-10px] right-2 font-display text-[5.5rem] font-light leading-none opacity-[0.06] pointer-events-none select-none text-forest">03</div>
+            <div className="w-10 h-10 rounded-sm bg-turf/10 flex items-center justify-center">
               <Briefcase size={20} className="text-turf" />
             </div>
             <div className="relative z-[1]">
-              <div className="font-display text-[1.35rem] font-bold leading-tight mb-1">Bag</div>
+              <div className="font-display text-[1.35rem] font-light leading-tight mb-1">Bag</div>
               <div className="text-[0.72rem] font-light opacity-70 leading-snug">
                 Clubs, distances & equipment setup
               </div>
             </div>
-            <div className="mt-auto text-lg opacity-50 text-forest">→</div>
+            <div className="mt-auto font-mono text-[11px] tracking-[0.1em] text-ink-faint">→ View bag</div>
           </Link>
         </div>
 
@@ -182,7 +182,7 @@ export function HomePage() {
               <span className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-sand">
                 Recent sessions
               </span>
-              <Link to="/sessions" className="text-[0.72rem] text-fairway font-medium no-underline">
+              <Link to="/sessions" className="font-mono text-[10px] tracking-[0.15em] text-gold no-underline flex items-center gap-1">
                 View all →
               </Link>
             </div>
@@ -191,7 +191,7 @@ export function HomePage() {
                 <Link
                   key={session.id}
                   to={`/session/${session.id}`}
-                  className="flex items-center justify-between bg-white border border-parchment rounded-[12px] px-4.5 py-3.5 transition-colors hover:border-sage no-underline"
+                  className="flex items-center justify-between bg-card backdrop-blur-[8px] border border-card-border rounded-sm px-4.5 py-3.5 transition-colors hover:bg-white/40 no-underline"
                 >
                   <div>
                     <div className="text-[0.85rem] font-medium text-forest">

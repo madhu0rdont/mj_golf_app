@@ -39,7 +39,7 @@ export function SessionFlightView({
   const xScale = useMemo(() => computeXScale(shots), [shots]);
 
   return (
-    <div className="mb-4 rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] overflow-hidden">
+    <div className="mb-4 rounded-sm border border-border bg-card shadow-[var(--shadow-card)] overflow-hidden">
       {/* Metrics Bar */}
       <div
         className={`transition-opacity duration-500 ${animated ? 'opacity-100' : 'opacity-0'}`}

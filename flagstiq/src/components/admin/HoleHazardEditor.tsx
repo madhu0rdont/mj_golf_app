@@ -507,13 +507,13 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3">
+    <div className="flex flex-col gap-3 rounded-sm border border-border bg-card p-3">
       <h3 className="text-sm font-semibold text-text-dark">
         Hole {holeNumber} — Par {hole?.par}
       </h3>
 
       {error && (
-        <div className="rounded-lg border border-coral/30 bg-coral/10 px-3 py-2 text-sm text-coral">
+        <div className="rounded-sm border border-coral/30 bg-coral/10 px-3 py-2 text-sm text-coral">
           {error}
         </div>
       )}
@@ -527,7 +527,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
             <select
               value={par}
               onChange={(e) => setPar(parseInt(e.target.value))}
-              className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-sm border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value={3}>3</option>
               <option value={4}>4</option>
@@ -542,7 +542,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
               max={18}
               value={handicap ?? ''}
               onChange={(e) => setHandicap(e.target.value ? parseInt(e.target.value) : null)}
-              className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-sm border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               placeholder="#"
             />
           </div>
@@ -558,7 +558,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
                     [tee]: e.target.value ? parseInt(e.target.value) : 0,
                   }))
                 }
-                className="w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-sm border border-border bg-card px-2 py-1.5 text-xs text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="yds"
               />
             </div>
@@ -571,7 +571,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Tips, e.g. 'favor left side'"
             rows={2}
-            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-text-dark placeholder-text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+            className="w-full rounded-sm border border-border bg-card px-3 py-2 text-sm text-text-dark placeholder-text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none"
           />
         </div>
       </div>
@@ -579,7 +579,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
       {/* Map */}
       <div
         ref={mapRef}
-        className="h-[400px] w-full rounded-xl overflow-hidden border border-border"
+        className="h-[400px] w-full rounded-sm overflow-hidden border border-border"
       />
 
       {/* Action buttons */}
@@ -635,7 +635,7 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
             <div
               key={idx}
               onClick={() => setSelectedHazardIdx((prev) => prev === idx ? null : idx)}
-              className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 cursor-pointer transition-colors ${
+              className={`flex items-center gap-2 rounded-sm border px-2 py-1.5 cursor-pointer transition-colors ${
                 selectedHazardIdx === idx
                   ? 'border-primary bg-primary/10 ring-1 ring-primary'
                   : 'border-border bg-surface hover:bg-surface/80'

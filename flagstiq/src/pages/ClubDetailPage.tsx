@@ -25,7 +25,7 @@ export function ClubDetailPage() {
       <TopBar title={club.name} showBack />
       <div className="px-4 py-4">
         {/* Header */}
-        <div className="mb-4 rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] p-4">
+        <div className="mb-4 rounded-sm border border-border bg-card shadow-[var(--shadow-card)] p-4">
           <div className="flex items-center justify-between mb-2">
             <div>
               <h2 className="text-xl font-bold">{club.name}</h2>
@@ -77,7 +77,7 @@ export function ClubDetailPage() {
         {history.length > 0 && (
           <div className="mb-6">
             <h3 className="mb-2 text-sm font-medium text-text-medium uppercase">Carry Over Time</h3>
-            <div className="rounded-2xl border border-border bg-card shadow-sm p-3">
+            <div className="rounded-sm border border-border bg-card shadow-sm p-3">
               <CarryOverTimeChart data={history} bookCarry={entry?.bookCarry} />
             </div>
           </div>
@@ -94,7 +94,7 @@ export function ClubDetailPage() {
                 <button
                   key={h.sessionId}
                   onClick={() => navigate(`/session/${h.sessionId}`)}
-                  className="flex items-center justify-between rounded-2xl border border-border bg-card shadow-sm p-3 text-left transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
+                  className="flex items-center justify-between rounded-sm border border-border bg-card shadow-sm p-3 text-left transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
                 >
                   <div>
                     <div className="text-sm font-medium text-text-dark">

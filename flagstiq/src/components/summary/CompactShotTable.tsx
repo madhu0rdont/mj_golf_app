@@ -60,7 +60,7 @@ function formatCell(key: string, value: number | string | undefined): string {
 
 export function CompactShotTable({ shots }: CompactShotTableProps) {
   return (
-    <div className="mt-2 rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] overflow-hidden">
+    <div className="mt-2 rounded-sm border border-border bg-card shadow-[var(--shadow-card)] overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[540px] text-xs">
           <thead>

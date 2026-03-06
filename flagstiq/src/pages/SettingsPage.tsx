@@ -198,7 +198,7 @@ export function SettingsPage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder={user?.username}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-fairway focus:ring-1 focus:ring-fairway"
+                className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-fairway focus:ring-1 focus:ring-fairway"
               />
             </div>
             <div>
@@ -208,7 +208,7 @@ export function SettingsPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Optional"
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-fairway focus:ring-1 focus:ring-fairway"
+                className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-fairway focus:ring-1 focus:ring-fairway"
               />
             </div>
             <div>
@@ -226,7 +226,7 @@ export function SettingsPage() {
                 <select
                   value={homeCourseId}
                   onChange={(e) => setHomeCourseId(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-fairway focus:ring-1 focus:ring-fairway"
+                  className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-fairway focus:ring-1 focus:ring-fairway"
                 >
                   <option value="">None</option>
                   {courses?.map((c) => (
@@ -263,7 +263,7 @@ export function SettingsPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setHandedness('left')}
-              className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+              className={`flex-1 rounded-sm border px-3 py-2 text-sm font-medium transition ${
                 handedness === 'left'
                   ? 'border-turf bg-parchment text-turf'
                   : 'border-border bg-card text-text-muted'
@@ -273,7 +273,7 @@ export function SettingsPage() {
             </button>
             <button
               onClick={() => setHandedness('right')}
-              className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+              className={`flex-1 rounded-sm border px-3 py-2 text-sm font-medium transition ${
                 handedness === 'right'
                   ? 'border-turf bg-parchment text-turf'
                   : 'border-border bg-card text-text-muted'
@@ -322,7 +322,7 @@ export function SettingsPage() {
 
         {/* About */}
         <section className="flex flex-col items-center justify-center gap-1">
-          <span className="text-xs text-text-muted">FlagstIQ v{__APP_VERSION__}</span>
+          <span className="font-display text-sm font-light text-ink-faint">FlagstIQ v{__APP_VERSION__}</span>
           <span className="text-xs text-text-muted">&copy; 2026 FlagstIQ - All rights reserved.</span>
         </section>
       </div>

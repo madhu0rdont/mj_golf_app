@@ -2,57 +2,75 @@
 
 @theme {
   /* Typography */
-  --font-sans: 'DM Sans', sans-serif;
+  --font-sans: 'Outfit', sans-serif;
   --font-mono: 'DM Mono', monospace;
-  --font-display: 'Playfair Display', serif;
+  --font-display: 'Cormorant Garamond', serif;
 
-  /* Named palette */
-  --color-forest: #1a2e1e;
-  --color-turf: #2d5a27;
-  --color-fairway: #3d7a35;
-  --color-sage: #6b9e63;
-  --color-linen: #f4f0e8;
-  --color-parchment: #e8e2d4;
-  --color-sand: #c8b99a;
-  --color-ink: #0e1a10;
+  /* Named palette — aligned to mockup */
+  --color-forest: #1A3D2C;
+  --color-turf: #2A5C40;
+  --color-fairway: #3A7A55;
+  --color-sage: #5C6E60;
+  --color-linen: #F2EDE3;
+  --color-parchment: #EBE5D8;
+  --color-sand: #9AAA9C;
+  --color-ink: #0E1A12;
+
+  /* Extended ink hierarchy */
+  --color-ink-mid: #2A3D30;
+  --color-ink-light: #5C6E60;
+  --color-ink-faint: #9AAA9C;
+
+  /* Background tiers */
+  --color-bg2: #EBE5D8;
+  --color-bg3: #E3DCCC;
 
   /* Semantic mapping */
-  --color-primary: #2d5a27;
-  --color-primary-light: #3d7a35;
+  --color-primary: #2A5C40;
+  --color-primary-light: #3A7A55;
   --color-primary-pale: #e8f5e4;
 
   /* Background colors */
-  --color-surface: #f4f0e8;
-  --color-card: #ffffff;
+  --color-surface: #F2EDE3;
+  --color-card: rgba(255,255,255,0.55);
+  --color-card-solid: #ffffff;
 
   /* Gold palette */
-  --color-gold: #c9a84c;
+  --color-gold: #B8871E;
+  --color-gold-light: #D4A030;
   --color-gold-dark: #8A6D2B;
+  --color-gold-dim: rgba(184,135,30,0.12);
+
+  /* Green utility */
+  --color-green-dim: rgba(26,61,44,0.08);
 
   /* Coral/warning */
-  --color-coral: #c0392b;
+  --color-coral: #B83228;
 
   /* Soft blue */
   --color-soft-blue: #7EB8DA;
 
+  /* Card glass border */
+  --color-card-border: rgba(14,26,18,0.09);
+
   /* Text hierarchy */
-  --color-text-dark: #0e1a10;
-  --color-text-medium: #1a2e1e;
-  --color-text-muted: #c8b99a;
-  --color-text-faint: #d4c9b0;
+  --color-text-dark: #0E1A12;
+  --color-text-medium: #2A3D30;
+  --color-text-muted: #9AAA9C;
+  --color-text-faint: #5C6E60;
 
   /* Borders */
-  --color-border: #e8e2d4;
-  --color-border-light: #f0ebe0;
+  --color-border: #EBE5D8;
+  --color-border-light: #F0EBE0;
 
   /* Shadows */
   --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
   --shadow-card-hover: 0 20px 40px rgba(0,0,0,0.15);
 
-  /* Radii */
-  --radius-card: 20px;
-  --radius-chip: 6px;
-  --radius-icon: 12px;
+  /* Radii — angular editorial look */
+  --radius-card: 2px;
+  --radius-chip: 2px;
+  --radius-icon: 2px;
 }
 
 body {

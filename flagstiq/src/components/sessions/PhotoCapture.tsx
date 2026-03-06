@@ -41,7 +41,7 @@ export function PhotoCapture({ onCapture }: PhotoCaptureProps) {
           </p>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-8 text-text-muted transition-colors hover:border-primary hover:text-primary"
+            className="flex flex-col items-center gap-2 rounded-sm border border-dashed border-border p-8 text-text-muted transition-colors hover:border-primary hover:text-primary"
           >
             <Upload size={28} />
             <span className="text-sm">Upload Image</span>
@@ -53,7 +53,7 @@ export function PhotoCapture({ onCapture }: PhotoCaptureProps) {
             <img
               src={preview}
               alt="GC4 session screenshot"
-              className="w-full rounded-xl border border-border"
+              className="w-full rounded-sm border border-border"
             />
             <button
               onClick={clear}

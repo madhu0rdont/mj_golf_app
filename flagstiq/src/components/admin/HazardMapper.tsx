@@ -166,7 +166,7 @@ function ScorecardEditor({ courseId, holes }: { courseId: string; holes: CourseH
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3">
+    <div className="flex flex-col gap-3 rounded-sm border border-border bg-card p-3">
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-semibold text-text-medium uppercase">Scorecard</h4>
         {isDirty && (
@@ -177,7 +177,7 @@ function ScorecardEditor({ courseId, holes }: { courseId: string; holes: CourseH
         )}
       </div>
       {error && (
-        <div className="rounded-lg border border-coral/30 bg-coral/10 px-3 py-2 text-xs text-coral">{error}</div>
+        <div className="rounded-sm border border-coral/30 bg-coral/10 px-3 py-2 text-xs text-coral">{error}</div>
       )}
       {front.length > 0 && renderNine(front, 'Front')}
       {back.length > 0 && renderNine(back, 'Back')}
@@ -209,7 +209,7 @@ export function HazardMapper({ courseId, selectedHole, onSelectHole }: HazardMap
                   onClick={() =>
                     onSelectHole(isSelected ? null : hole.holeNumber)
                   }
-                  className={`flex flex-col items-center rounded-lg border p-1.5 text-xs transition-all ${
+                  className={`flex flex-col items-center rounded-sm border p-1.5 text-xs transition-all ${
                     STATUS_COLORS[status]
                   } ${isSelected ? 'ring-2 ring-primary ring-offset-1' : ''}`}
                 >

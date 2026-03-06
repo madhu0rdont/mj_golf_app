@@ -114,7 +114,7 @@ export function PenaltyEditor() {
           return (
             <div
               key={ht.type}
-              className="flex items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2.5"
+              className="flex items-center gap-3 rounded-sm border border-border bg-surface px-3 py-2.5"
             >
               <span
                 className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${

@@ -27,14 +27,14 @@ export function PracticePage() {
           <div className="grid grid-cols-2 gap-2">
             <Link
               to="/session/new"
-              className="shimmer-hover flex flex-col items-center gap-1.5 rounded-[20px] bg-forest p-3 text-center text-sm font-medium text-white transition-all hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)]"
+              className="shimmer-hover flex flex-col items-center gap-1.5 rounded-sm bg-forest p-3 text-center text-sm font-medium text-white transition-all hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)]"
             >
               <Plus size={20} />
               <span>Start Practice</span>
             </Link>
             <Link
               to="/sessions"
-              className="shimmer-hover flex flex-col items-center gap-1.5 rounded-[20px] bg-parchment border border-sand p-3 text-center text-sm font-medium text-forest transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-1"
+              className="shimmer-hover flex flex-col items-center gap-1.5 rounded-sm bg-parchment border border-sand p-3 text-center text-sm font-medium text-forest transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-1"
             >
               <ClipboardList size={20} />
               <span>Sessions</span>
@@ -44,7 +44,7 @@ export function PracticePage() {
 
         {/* Stale Clubs Warning */}
         {staleClubs.length > 0 && (
-          <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-3">
+          <div className="mb-6 rounded-sm border border-amber-300 bg-amber-50 p-3">
             <div className="flex items-center gap-2 text-sm font-medium text-amber-700">
               <AlertTriangle size={16} />
               {staleClubs.length} club{staleClubs.length !== 1 ? 's' : ''} need fresh data
@@ -58,16 +58,16 @@ export function PracticePage() {
         {/* Quick Stats */}
         {yardageBook && yardageBook.length > 0 && (
           <div className="mb-6 grid grid-cols-3 gap-2">
-            <div className="rounded-[20px] border border-border bg-card shadow-[var(--shadow-card)] p-3 text-center">
-              <div className="font-display text-xl font-bold text-gold">{clubs?.length ?? 0}</div>
+            <div className="rounded-sm bg-card backdrop-blur-[8px] border border-card-border shadow-[var(--shadow-card)] p-3 text-center">
+              <div className="font-display text-xl font-light text-gold">{clubs?.length ?? 0}</div>
               <div className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-sand">Clubs</div>
             </div>
-            <div className="rounded-[20px] border border-border bg-card shadow-[var(--shadow-card)] p-3 text-center">
-              <div className="font-display text-xl font-bold text-gold">{yardageBook.length}</div>
+            <div className="rounded-sm bg-card backdrop-blur-[8px] border border-card-border shadow-[var(--shadow-card)] p-3 text-center">
+              <div className="font-display text-xl font-light text-gold">{yardageBook.length}</div>
               <div className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-sand">With Data</div>
             </div>
-            <div className="rounded-[20px] border border-border bg-card shadow-[var(--shadow-card)] p-3 text-center">
-              <div className="font-display text-xl font-bold text-gold">{totalSessions}</div>
+            <div className="rounded-sm bg-card backdrop-blur-[8px] border border-card-border shadow-[var(--shadow-card)] p-3 text-center">
+              <div className="font-display text-xl font-light text-gold">{totalSessions}</div>
               <div className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-sand">Sessions</div>
             </div>
           </div>
@@ -84,7 +84,7 @@ export function PracticePage() {
             )}
           </div>
           {!recentSessions || recentSessions.length === 0 ? (
-            <div className="rounded-2xl border border-border p-8 text-center text-sm text-text-muted">
+            <div className="rounded-sm border border-border p-8 text-center text-sm text-text-muted">
               No sessions yet. Tap "Start Practice" to get started.
             </div>
           ) : (
@@ -93,7 +93,7 @@ export function PracticePage() {
                 <button
                   key={session.id}
                   onClick={() => navigate(`/session/${session.id}`)}
-                  className="flex items-center justify-between bg-white border border-parchment rounded-[12px] p-3 text-left transition-colors hover:border-sage"
+                  className="flex items-center justify-between bg-card backdrop-blur-[8px] border border-card-border rounded-sm p-3 text-left transition-colors hover:border-sage"
                 >
                   <div>
                     <div className="text-sm font-medium text-text-dark">

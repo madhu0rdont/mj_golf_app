@@ -59,7 +59,7 @@ export function ElevationRefresh({ courseId }: ElevationRefreshProps) {
           <p className="text-xs font-medium text-text-medium">
             Before / After ({teeBox} tees)
           </p>
-          <div className="rounded-lg border border-border overflow-hidden">
+          <div className="rounded-sm border border-border overflow-hidden">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-surface text-text-muted">

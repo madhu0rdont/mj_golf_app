@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
 import { MultiClubTrajectoryChart } from './MultiClubTrajectoryChart';
 import { MultiClubDispersionChart } from './MultiClubDispersionChart';
 import { YardageSummaryTable } from './YardageSummaryTable';
@@ -59,7 +58,6 @@ export function DetailsTab() {
 
   const realClubCount = filteredClubs.filter((c) => !c.imputed).length;
   const imputedClubCount = filteredClubs.filter((c) => c.imputed).length;
-  const [chartsOpen, setChartsOpen] = useState(false);
 
   if (!clubs || clubs.length === 0) {
     return (
@@ -71,9 +69,10 @@ export function DetailsTab() {
 
   return (
     <>
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-xs text-text-muted">
-          {realClubCount} club{realClubCount !== 1 ? 's' : ''} &middot; {realShotCount} shots
+      {/* Filter meta + mishit toggle */}
+      <div className="md:px-8 mb-3 flex items-center justify-between flex-wrap gap-2">
+        <p className="font-mono text-[10px] tracking-[0.1em] text-ink-faint">
+          {realClubCount} club{realClubCount !== 1 ? 's' : ''} · {realShotCount} shots
           {imputedClubCount > 0 && ` · ${imputedClubCount} estimated`}
         </p>
 
@@ -86,32 +85,26 @@ export function DetailsTab() {
         )}
       </div>
 
-      {/* Collapsible flight charts */}
-      <div className="mb-4 rounded-xl border border-border overflow-hidden">
-        <button
-          onClick={() => setChartsOpen(!chartsOpen)}
-          className="flex w-full items-center justify-between px-3 py-2.5 text-sm font-medium text-text-medium hover:bg-surface transition"
-        >
-          Flight Visuals
-          <ChevronDown
-            size={16}
-            className={`text-text-muted transition-transform ${chartsOpen ? 'rotate-180' : ''}`}
-          />
-        </button>
-        {chartsOpen && (
-          <div className="flex flex-col gap-2 px-3 pb-3">
-            <div className="w-full rounded-xl border border-border overflow-hidden shadow-[var(--shadow-card)]">
-              <MultiClubTrajectoryChart clubs={filteredClubs} xScale={xScale} />
-            </div>
-            <div className="w-full rounded-xl border border-border overflow-hidden shadow-[var(--shadow-card)]">
-              <MultiClubDispersionChart clubs={filteredClubs} xScale={xScale} imputedDistributions={imputedDistributions} />
-            </div>
+      {/* Viz hero — dark green, full-width, side-by-side charts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 bg-forest border-b-[3px] border-gold">
+        <div className="relative overflow-hidden">
+          <div className="absolute top-3.5 left-5 z-10 font-mono text-[9px] tracking-[0.3em] uppercase text-white/30">
+            Flight Profile · Side View
           </div>
-        )}
+          <MultiClubTrajectoryChart clubs={filteredClubs} xScale={xScale} />
+        </div>
+        <div className="relative overflow-hidden border-t md:border-t-0 md:border-l border-white/[0.06]">
+          <div className="absolute top-3.5 left-5 z-10 font-mono text-[9px] tracking-[0.3em] uppercase text-white/30">
+            Dispersion · Top View
+          </div>
+          <MultiClubDispersionChart clubs={filteredClubs} xScale={xScale} imputedDistributions={imputedDistributions} />
+        </div>
       </div>
 
       {/* Summary table */}
-      <YardageSummaryTable clubs={filteredClubs} distributions={distributions} />
+      <div className="md:px-8 mt-0">
+        <YardageSummaryTable clubs={filteredClubs} distributions={distributions} />
+      </div>
     </>
   );
 }

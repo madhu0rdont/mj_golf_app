@@ -75,11 +75,11 @@ export function InterleavedSummary({ session, shots }: InterleavedSummaryProps) 
 
       {/* Hero stats */}
       <div className="grid grid-cols-4 gap-2 mb-4">
-        <div className="rounded-xl border border-border bg-card px-2 py-3 text-center">
+        <div className="rounded-sm border border-border bg-card px-2 py-3 text-center">
           <p className="text-[10px] text-text-muted uppercase">Score</p>
           <p className="text-lg font-bold text-text-dark">{totalScore}</p>
         </div>
-        <div className="rounded-xl border border-border bg-card px-2 py-3 text-center">
+        <div className="rounded-sm border border-border bg-card px-2 py-3 text-center">
           <p className="text-[10px] text-text-muted uppercase">vs Par {totalPar}</p>
           <p className={`text-lg font-bold ${
             totalToPar < 0 ? 'text-primary' : totalToPar === 0 ? 'text-text-dark' : 'text-coral'
@@ -87,7 +87,7 @@ export function InterleavedSummary({ session, shots }: InterleavedSummaryProps) 
             {totalToPar === 0 ? 'E' : totalToPar > 0 ? `+${totalToPar}` : totalToPar}
           </p>
         </div>
-        <div className="rounded-xl border border-border bg-card px-2 py-3 text-center">
+        <div className="rounded-sm border border-border bg-card px-2 py-3 text-center">
           <p className="text-[10px] text-text-muted uppercase">Zone</p>
           <p className={`text-lg font-bold ${
             szTotal < 0 ? 'text-primary' : szTotal === 0 ? 'text-text-dark' : 'text-coral'
@@ -95,14 +95,14 @@ export function InterleavedSummary({ session, shots }: InterleavedSummaryProps) 
             {szApplicable.length === 0 ? '—' : szTotal === 0 ? 'E' : szTotal > 0 ? `+${szTotal}` : szTotal}
           </p>
         </div>
-        <div className="rounded-xl border border-border bg-card px-2 py-3 text-center">
+        <div className="rounded-sm border border-border bg-card px-2 py-3 text-center">
           <p className="text-[10px] text-text-muted uppercase">Avg Strk</p>
           <p className="text-lg font-bold text-text-dark">{avgStrokes}</p>
         </div>
       </div>
 
       {/* Scorecard */}
-      <div className="rounded-xl border border-border bg-card p-3 mb-4">
+      <div className="rounded-sm border border-border bg-card p-3 mb-4">
         <Scorecard holes={holes} scores={scores} />
       </div>
 
@@ -114,7 +114,7 @@ export function InterleavedSummary({ session, shots }: InterleavedSummaryProps) 
           const isExpanded = expandedHole === hole.number;
 
           return (
-            <div key={hole.number} className="rounded-xl border border-border bg-card overflow-hidden">
+            <div key={hole.number} className="rounded-sm border border-border bg-card overflow-hidden">
               <button
                 onClick={() => setExpandedHole(isExpanded ? null : hole.number)}
                 className="w-full flex items-center justify-between px-3 py-2.5 text-left"

@@ -12,7 +12,7 @@ const SECTIONS = [
 ];
 
 function Card({ children, id }: { children: React.ReactNode; id?: string }) {
-  return <div id={id} className="rounded-xl border border-border bg-card p-4 mb-4 scroll-mt-14">{children}</div>;
+  return <div id={id} className="rounded-sm border border-border bg-card p-4 mb-4 scroll-mt-14">{children}</div>;
 }
 
 export function HowItWorksPage() {

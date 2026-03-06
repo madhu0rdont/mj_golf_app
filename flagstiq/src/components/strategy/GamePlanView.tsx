@@ -88,7 +88,7 @@ function SatelliteThumbnail({ lat, lng, zoom }: { lat: number; lng: number; zoom
     <img
       src={url}
       alt="Hole satellite"
-      className="rounded-lg flex-shrink-0"
+      className="rounded-sm flex-shrink-0"
       width={48}
       height={48}
       loading="lazy"
@@ -102,7 +102,7 @@ function HoleCard({ hole, isKeyHole }: { hole: HolePlan; isKeyHole?: boolean }) 
 
   return (
     <div
-      className="rounded-xl bg-card border border-border overflow-hidden"
+      className="rounded-sm bg-card border border-border overflow-hidden"
       style={{ borderLeftWidth: 4, borderLeftColor: BORDER_COLORS[hole.colorCode] }}
     >
       <div className="flex items-start gap-3 p-3">
@@ -242,7 +242,7 @@ function PlanGenerationLoader({ current, total }: { current: number; total: numb
       {/* Animated golf ball */}
       <div className="relative h-10 w-10">
         <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
-        <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-forest text-white font-display text-sm font-bold">
+        <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-forest text-white font-display text-sm font-light">
           {current}/{total}
         </div>
       </div>
@@ -335,7 +335,7 @@ export function GamePlanView({ gamePlan, progress, isGenerating, onGenerate, dis
         <>
           {/* Stale banner */}
           {isStale && (
-            <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2">
+            <div className="rounded-sm border border-amber-300 bg-amber-50 px-3 py-2">
               <div className="flex items-center gap-2">
                 <RefreshCw size={16} className="text-amber-600 flex-shrink-0 animate-spin" />
                 <p className="text-xs text-amber-800 flex-1">
@@ -346,7 +346,7 @@ export function GamePlanView({ gamePlan, progress, isGenerating, onGenerate, dis
                 <button
                   onClick={onGenerate}
                   disabled={isGenerating}
-                  className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-amber-700 transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-sm bg-amber-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-amber-700 transition-colors disabled:opacity-50"
                 >
                   <RefreshCw size={12} />
                   Refresh Now
@@ -364,7 +364,7 @@ export function GamePlanView({ gamePlan, progress, isGenerating, onGenerate, dis
           )}
 
           {/* Header card */}
-          <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="rounded-sm border border-border bg-card p-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-text-dark">{gamePlan.courseName}</h3>
@@ -379,7 +379,7 @@ export function GamePlanView({ gamePlan, progress, isGenerating, onGenerate, dis
           </div>
 
           {/* Summary card */}
-          <div className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-2">
+          <div className="rounded-sm border border-border bg-card p-4 flex flex-col gap-2">
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold text-primary">
                 {gamePlan.totalExpected.toFixed(1)}

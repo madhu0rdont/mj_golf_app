@@ -25,10 +25,10 @@ type RGB = [number, number, number];
 
 const C = {
   // App brand palette
-  forest: [26, 46, 30] as RGB, // #1a2e1e
-  turf: [45, 90, 39] as RGB, // #2d5a27
-  fairway: [61, 122, 53] as RGB, // #3d7a35
-  sage: [107, 158, 99] as RGB, // #6b9e63
+  forest: [26, 61, 44] as RGB, // #1A3D2C
+  turf: [42, 92, 64] as RGB, // #2A5C40
+  fairway: [58, 122, 85] as RGB, // #3A7A55
+  sage: [92, 110, 96] as RGB, // #5C6E60
 
   // Accent colors (match GamePlanView BORDER_COLORS / SCORE_PILLS)
   green: [64, 145, 108] as RGB, // #40916C — birdie / good holes
@@ -40,15 +40,15 @@ const C = {
   bogey: [155, 155, 155] as RGB, // #9B9B9B
 
   // Text — darkened from website values for print legibility
-  textDark: [14, 26, 16] as RGB, // #0e1a10
-  textMedium: [60, 70, 58] as RGB, // #3c463a
+  textDark: [14, 26, 18] as RGB, // #0E1A12
+  textMedium: [42, 61, 48] as RGB, // #2A3D30
   textMuted: [120, 110, 90] as RGB, // #786e5a — readable on white
   textFaint: [160, 150, 130] as RGB, // #a09682
 
   // Surface
-  surface: [244, 240, 232] as RGB, // #f4f0e8 — linen
+  surface: [242, 237, 227] as RGB, // #F2EDE3 — linen
   card: [255, 255, 255] as RGB,
-  border: [232, 226, 212] as RGB, // #e8e2d4 — parchment
+  border: [235, 229, 216] as RGB, // #EBE5D8 — parchment
 
   white: [255, 255, 255] as RGB,
 };

@@ -36,7 +36,7 @@ function UserAvatar({ user }: { user: UserRecord }) {
   );
 }
 
-const inputClass = 'w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-primary focus:ring-1 focus:ring-primary';
+const inputClass = 'w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-text-dark outline-none focus:border-primary focus:ring-1 focus:ring-primary';
 
 export function UserManager() {
   const { data: users, mutate } = useSWR<UserRecord[]>('/api/users', fetcher);
@@ -216,7 +216,7 @@ export function UserManager() {
       {error && <p className="text-sm text-coral">{error}</p>}
 
       {showForm && (
-        <form onSubmit={handleCreate} className="rounded-xl border border-border bg-card p-4 space-y-3">
+        <form onSubmit={handleCreate} className="rounded-sm border border-border bg-card p-4 space-y-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-text-medium">Username</label>
             <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className={inputClass} />
@@ -256,7 +256,7 @@ export function UserManager() {
         <div className="space-y-2">
           <p className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-sand">Pending Approval</p>
           {pendingUsers.map((u) => (
-            <div key={u.id} className="flex items-center justify-between rounded-xl border border-gold/40 bg-gold/5 px-4 py-3">
+            <div key={u.id} className="flex items-center justify-between rounded-sm border border-gold/40 bg-gold/5 px-4 py-3">
               <div className="flex items-center gap-3">
                 <UserAvatar user={u} />
                 <div>
@@ -273,13 +273,13 @@ export function UserManager() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleStatusChange(u.id, 'active')}
-                  className="rounded-lg bg-turf px-3 py-1.5 text-xs font-medium text-white hover:bg-fairway transition-colors"
+                  className="rounded-sm bg-turf px-3 py-1.5 text-xs font-medium text-white hover:bg-fairway transition-colors"
                 >
                   Approve
                 </button>
                 <button
                   onClick={() => handleStatusChange(u.id, 'rejected')}
-                  className="rounded-lg border border-coral/40 px-3 py-1.5 text-xs font-medium text-coral hover:bg-coral/10 transition-colors"
+                  className="rounded-sm border border-coral/40 px-3 py-1.5 text-xs font-medium text-coral hover:bg-coral/10 transition-colors"
                 >
                   Reject
                 </button>
@@ -292,7 +292,7 @@ export function UserManager() {
       {/* Active Users */}
       <div className="space-y-2">
         {activeUsers.map((u) => (
-          <div key={u.id} className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+          <div key={u.id} className="flex items-center justify-between rounded-sm border border-border bg-card px-4 py-3">
             <div className="flex items-center gap-3">
               <UserAvatar user={u} />
               <div>

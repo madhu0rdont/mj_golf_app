@@ -488,7 +488,7 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-[50vh] min-h-[280px] sm:h-[55vh] rounded-2xl border border-border bg-surface">
+      <div className="flex items-center justify-center h-[50vh] min-h-[280px] sm:h-[55vh] rounded-sm border border-border bg-surface">
         <p className="text-sm text-coral">{error}</p>
       </div>
     );
@@ -498,10 +498,10 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
     <div className="relative">
       <div
         ref={mapRef}
-        className="h-[50vh] min-h-[280px] sm:h-[55vh] w-full rounded-2xl overflow-hidden border border-border"
+        className="h-[50vh] min-h-[280px] sm:h-[55vh] w-full rounded-sm overflow-hidden border border-border"
       />
       {!mapReady && (
-        <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-surface">
+        <div className="absolute inset-0 flex items-center justify-center rounded-sm bg-surface">
           <Loader2 size={28} className="animate-spin text-primary" />
         </div>
       )}

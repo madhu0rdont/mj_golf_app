@@ -1,182 +1,76 @@
-import { useState, useRef, useEffect } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router';
-import { ArrowLeft, Settings, Menu, X, Home, Briefcase, MapPin, HelpCircle, Plus, LogOut } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
+import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-
-const PRIMARY_LINKS = [
-  { to: '/', icon: Home, label: 'Home' },
-  { to: '/practice', icon: Plus, label: 'Practice' },
-  { to: '/play', icon: MapPin, label: 'Play' },
-  { to: '/bag', icon: Briefcase, label: 'Bag' },
-];
-
-const UTILITY_LINKS = [
-  { to: '/faq', icon: HelpCircle, label: 'How It Works' },
-];
+import { MobileDrawer } from './MobileDrawer';
 
 interface TopBarProps {
   title: string;
   showBack?: boolean;
   rightAction?: React.ReactNode;
+  dark?: boolean;
 }
 
-export function TopBar({ title, showBack, rightAction }: TopBarProps) {
+export function TopBar({ title: _title, showBack, rightAction, dark }: TopBarProps) {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
-  const { user, logout } = useAuth();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [avatarOpen, setAvatarOpen] = useState(false);
-  const avatarRef = useRef<HTMLDivElement>(null);
-
-  // Close avatar dropdown on outside click
-  useEffect(() => {
-    if (!avatarOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (avatarRef.current && !avatarRef.current.contains(e.target as Node)) {
-        setAvatarOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [avatarOpen]);
+  const { user } = useAuth();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const initials = (user?.displayName || user?.username || '?').slice(0, 2).toUpperCase();
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-14 items-center border-b border-border bg-card/95 px-4 backdrop-blur-sm">
-        <div className="flex w-10 justify-start">
+      {/* Mobile-only header */}
+      <header
+        className={`md:hidden sticky top-0 z-40 flex h-[52px] items-center justify-between px-5 ${
+          dark
+            ? 'bg-forest border-b border-white/[0.07]'
+            : 'border-b border-card-border'
+        }`}
+      >
+        {/* Left */}
+        <div className="w-9">
           {showBack ? (
             <button
               onClick={() => navigate(-1)}
-              className="rounded-lg p-1.5 text-text-muted hover:text-text-dark"
+              className={`p-1 ${dark ? 'text-linen/70' : 'text-text-muted hover:text-text-dark'}`}
               aria-label="Go back"
             >
               <ArrowLeft size={20} />
             </button>
-          ) : user?.role !== 'admin' ? (
+          ) : (
             <button
-              onClick={() => setMenuOpen(true)}
-              className="rounded-lg p-1.5 text-text-muted hover:text-text-dark"
+              onClick={() => setDrawerOpen(true)}
+              className="flex flex-col justify-center gap-[5px] p-1 cursor-pointer"
               aria-label="Open menu"
             >
-              <Menu size={20} />
+              <span className={`block h-[1.5px] w-5 rounded-sm ${dark ? 'bg-linen/70' : 'bg-ink'}`} />
+              <span className={`block h-[1.5px] w-3.5 rounded-sm ${dark ? 'bg-linen/70' : 'bg-ink'}`} />
+              <span className={`block h-[1.5px] w-5 rounded-sm ${dark ? 'bg-linen/70' : 'bg-ink'}`} />
             </button>
-          ) : null}
+          )}
         </div>
-        <h1 className="flex-1 text-center font-display text-lg font-bold tracking-wide text-text-dark">{title}</h1>
-        <div className="flex items-center gap-1 justify-end">
+
+        {/* Center — Logo */}
+        <span className={`font-display text-xl font-light tracking-[0.06em] ${dark ? 'text-linen' : 'text-ink'}`}>
+          Flagst<em className={`italic ${dark ? 'text-gold-light' : 'text-turf'}`}>IQ</em>
+        </span>
+
+        {/* Right */}
+        <div className="flex items-center gap-1">
           {rightAction}
-          <div className="relative" ref={avatarRef}>
-            <button
-              onClick={() => setAvatarOpen(!avatarOpen)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-forest font-mono text-xs font-medium tracking-wide text-white overflow-hidden"
-              aria-label="User menu"
-            >
-              {user?.profilePicture ? (
-                <img src={user.profilePicture} alt="" className="h-full w-full object-cover" />
-              ) : (
-                initials
-              )}
-            </button>
-            {avatarOpen && (
-              <div className="absolute right-0 top-10 w-44 rounded-xl border border-border bg-card shadow-lg overflow-hidden">
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
-                  {user?.profilePicture ? (
-                    <img src={user.profilePicture} alt="" className="h-9 w-9 rounded-full object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-forest font-mono text-xs font-medium tracking-wide text-white flex-shrink-0">
-                      {initials}
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-text-dark truncate">{user?.displayName || user?.username}</p>
-                    <p className="text-xs text-text-muted">{user?.role}</p>
-                  </div>
-                </div>
-                {user?.role !== 'admin' && (
-                  <Link
-                    to="/settings"
-                    onClick={() => setAvatarOpen(false)}
-                    className="flex w-full items-center gap-2 px-4 py-3 text-sm text-text-medium hover:bg-surface transition-colors"
-                  >
-                    <Settings size={16} />
-                    Settings
-                  </Link>
-                )}
-                <button
-                  onClick={() => { setAvatarOpen(false); logout(); }}
-                  className="flex w-full items-center gap-2 px-4 py-3 text-sm text-coral hover:bg-surface transition-colors"
-                >
-                  <LogOut size={16} />
-                  Log Out
-                </button>
-              </div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-turf text-[11px] font-medium text-linen tracking-[0.05em] overflow-hidden">
+            {user?.profilePicture ? (
+              <img src={user.profilePicture} alt="" className="h-full w-full object-cover" />
+            ) : (
+              initials
             )}
           </div>
         </div>
       </header>
 
-      {/* Menu drawer */}
-      {menuOpen && (
-        <div className="fixed inset-0 z-50 flex">
-          <div
-            className="absolute inset-0 bg-black/30"
-            onClick={() => setMenuOpen(false)}
-          />
-          <nav className="relative z-10 flex w-64 flex-col bg-card shadow-lg">
-            <div className="flex h-14 items-center justify-between border-b border-border px-4">
-              <span className="font-display text-lg font-bold tracking-wider text-forest">MJ <span className="text-fairway">Golf</span></span>
-              <button
-                onClick={() => setMenuOpen(false)}
-                className="rounded-lg p-1.5 text-text-muted hover:text-text-dark"
-                aria-label="Close menu"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="flex flex-col py-2">
-              {PRIMARY_LINKS.map(({ to, icon: Icon, label }) => {
-                const isActive = to === '/' ? pathname === '/' : pathname.startsWith(to);
-                return (
-                  <Link
-                    key={to}
-                    to={to}
-                    onClick={() => setMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
-                      isActive
-                        ? 'bg-primary-pale text-turf font-semibold'
-                        : 'text-text-medium hover:bg-surface'
-                    }`}
-                  >
-                    <Icon size={18} />
-                    {label}
-                  </Link>
-                );
-              })}
-              <div className="h-px bg-border mx-4 my-1" />
-              {UTILITY_LINKS.map(({ to, icon: Icon, label }) => {
-                const isActive = pathname.startsWith(to);
-                return (
-                  <Link
-                    key={to}
-                    to={to}
-                    onClick={() => setMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
-                      isActive
-                        ? 'bg-primary-pale text-turf font-semibold'
-                        : 'text-text-medium hover:bg-surface'
-                    }`}
-                  >
-                    <Icon size={18} />
-                    {label}
-                  </Link>
-                );
-              })}
-            </div>
-          </nav>
-        </div>
-      )}
+      {/* Mobile drawer */}
+      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </>
   );
 }

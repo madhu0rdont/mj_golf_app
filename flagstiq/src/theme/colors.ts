@@ -2,31 +2,44 @@
 // Mirrors CSS custom properties defined in index.css @theme
 
 export const THEME = {
-  primary: '#2D6A4F',
-  primaryLight: '#40916C',
-  primaryPale: '#D8F3DC',
-  gold: '#D4A843',
+  primary: '#2A5C40',
+  primaryLight: '#3A7A55',
+  primaryPale: '#e8f5e4',
+  gold: '#B8871E',
+  goldLight: '#D4A030',
   goldDark: '#8A6D2B',
-  coral: '#E76F51',
+  coral: '#B83228',
   softBlue: '#7EB8DA',
-  textDark: '#1A1A2E',
-  textMedium: '#4A4A5A',
-  textMuted: '#9B9B9B',
-  textFaint: '#C5C5C5',
-  surface: '#F3F0EB',
-  card: '#FFFFFF',
-  border: '#E8E4DF',
-  borderLight: '#F0EDE8',
+  textDark: '#0E1A12',
+  textMedium: '#2A3D30',
+  textMuted: '#9AAA9C',
+  textFaint: '#5C6E60',
+  surface: '#F2EDE3',
+  card: 'rgba(255,255,255,0.55)',
+  cardSolid: '#FFFFFF',
+  border: '#EBE5D8',
+  borderLight: '#F0EBE0',
+
+  // Named palette
+  forest: '#1A3D2C',
+  turf: '#2A5C40',
+  fairway: '#3A7A55',
+  ink: '#0E1A12',
+  inkMid: '#2A3D30',
+  inkLight: '#5C6E60',
+  inkFaint: '#9AAA9C',
+  linen: '#F2EDE3',
+  parchment: '#EBE5D8',
 
   // Flight visualizer (fairway green)
-  sky: '#1B4332',
-  skyGrid: '#2D6A4F',
-  skyGround: '#40916C',
-  skyLabel: '#95D5B2',
-  grass: '#1B4332',
-  grassGrid: '#2D6A4F',
-  grassCenter: '#40916C',
-  grassLabel: '#95D5B2',
+  sky: '#1A3D2C',
+  skyGrid: '#2A5C40',
+  skyGround: '#3A7A55',
+  skyLabel: '#9AAA9C',
+  grass: '#1A3D2C',
+  grassGrid: '#2A5C40',
+  grassCenter: '#3A7A55',
+  grassLabel: '#9AAA9C',
 
   // Category colors (for GappingChart and ClubCard)
   category: {
@@ -40,7 +53,7 @@ export const THEME = {
 
   // Shot shape colors (for ShotShapePie)
   shotShape: {
-    straight: '#2D6A4F',
+    straight: '#2A5C40',
     draw: '#2563EB',
     fade: '#9333EA',
     hook: '#DC2626',
@@ -50,9 +63,9 @@ export const THEME = {
   } as Record<string, string>,
 
   // Recharts axis/tooltip
-  axisText: '#9B9B9B',
+  axisText: '#9AAA9C',
   tooltipBg: '#FFFFFF',
-  tooltipBorder: '#E8E4DF',
+  tooltipBorder: '#EBE5D8',
 } as const;
 
 /** Distinct colors for multi-club charts. Clubs assigned by sort-order index. */

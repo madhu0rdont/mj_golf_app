@@ -184,7 +184,7 @@ export function SessionPhotoPage() {
         )}
 
         {saveError && (
-          <div className="mt-3 flex items-start gap-2 rounded-xl border border-coral/30 bg-coral/5 px-3 py-2">
+          <div className="mt-3 flex items-start gap-2 rounded-sm border border-coral/30 bg-coral/5 px-3 py-2">
             <AlertCircle size={16} className="mt-0.5 flex-shrink-0 text-coral" />
             <p className="text-xs text-coral">{saveError}</p>
           </div>
@@ -192,7 +192,7 @@ export function SessionPhotoPage() {
 
         {saving && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="flex items-center gap-3 rounded-xl bg-card px-6 py-4">
+            <div className="flex items-center gap-3 rounded-sm bg-card px-6 py-4">
               <Loader2 size={20} className="animate-spin text-primary" />
               <span>Saving session...</span>
             </div>

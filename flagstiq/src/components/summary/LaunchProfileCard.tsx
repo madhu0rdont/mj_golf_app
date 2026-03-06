@@ -35,7 +35,7 @@ export function LaunchProfileCard({
   if (rows.length === 0) return null;
 
   return (
-    <div className="mt-2 rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+    <div className="mt-2 rounded-sm border border-border bg-card p-4 shadow-[var(--shadow-card)]">
       <div className="flex flex-col gap-3">
         {rows.map((row) => {
           const pct = Math.min(100, Math.max(0, ((row.value! - row.min) / (row.max - row.min)) * 100));

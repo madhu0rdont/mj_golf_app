@@ -118,7 +118,7 @@ export function ShotEntrySheet({
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="w-full max-w-lg rounded-t-2xl border border-border bg-card p-0 text-text-dark shadow-[var(--shadow-card)] backdrop:bg-black/30 fixed bottom-0 m-0 mx-auto"
+      className="w-full max-w-lg rounded-t-sm border border-border bg-card p-0 text-text-dark shadow-[var(--shadow-card)] backdrop:bg-black/30 fixed bottom-0 m-0 mx-auto"
       style={{ maxHeight: '80vh' }}
     >
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -128,7 +128,7 @@ export function ShotEntrySheet({
           </h2>
           <p className="text-xs text-text-muted">Target: {targetYards} yds</p>
         </div>
-        <button onClick={onClose} className="rounded-lg p-1 text-text-muted hover:text-text-dark">
+        <button onClick={onClose} className="rounded-sm p-1 text-text-muted hover:text-text-dark">
           <X size={20} />
         </button>
       </div>
@@ -152,7 +152,7 @@ export function ShotEntrySheet({
                     }
                   }}
                   placeholder="Carry yds"
-                  className="flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-text-dark placeholder-text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="flex-1 rounded-sm border border-border bg-surface px-3 py-2 text-text-dark placeholder-text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
                 <span className="text-xs text-text-muted">yds</span>
                 <button
@@ -203,7 +203,7 @@ export function ShotEntrySheet({
         </div>
 
         {avg != null && (
-          <div className="mt-3 rounded-lg bg-surface px-3 py-2 text-center">
+          <div className="mt-3 rounded-sm bg-surface px-3 py-2 text-center">
             <span className="text-xs text-text-muted">Avg: </span>
             <span className="text-sm font-bold text-primary">
               {Math.round(avg * 10) / 10}

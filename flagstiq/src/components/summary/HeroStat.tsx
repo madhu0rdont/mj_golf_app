@@ -11,22 +11,22 @@ interface HeroStatProps {
 }
 
 const ACCENT_COLORS = {
-  primary: 'text-primary',
+  primary: 'text-ink',
   gold: 'text-gold',
   coral: 'text-coral',
 } as const;
 
 export function HeroStat({ label, value, unit, delta, accent, compact }: HeroStatProps) {
-  const valueColor = accent ? ACCENT_COLORS[accent] : 'text-text-dark';
+  const valueColor = accent ? ACCENT_COLORS[accent] : 'text-ink';
 
   return (
-    <div className={`flex-1 rounded-[20px] border border-border bg-card shadow-[var(--shadow-card)] ${compact ? 'p-3' : 'p-4'}`}>
+    <div className={`flex-1 rounded-sm border border-card-border bg-card backdrop-blur-[8px] shadow-[var(--shadow-card)] ${compact ? 'p-3' : 'p-4'}`}>
       <div className={`font-mono uppercase tracking-[0.2em] text-sand ${compact ? 'text-[9px]' : 'text-[0.6rem]'}`}>
         {label}
       </div>
       <div className="mt-1 flex items-baseline gap-1">
-        <span className={`font-bold font-display ${valueColor} ${compact ? 'text-2xl' : 'text-3xl'}`}>{value}</span>
-        {unit && <span className={`text-text-muted ${compact ? 'text-xs' : 'text-sm'}`}>{unit}</span>}
+        <span className={`font-light font-display ${valueColor} ${compact ? 'text-2xl' : 'text-3xl'}`}>{value}</span>
+        {unit && <span className={`text-ink-faint ${compact ? 'text-xs' : 'text-sm'}`}>{unit}</span>}
       </div>
       {delta && delta.direction !== 'neutral' && (
         <div

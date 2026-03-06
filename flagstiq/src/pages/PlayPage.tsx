@@ -12,14 +12,14 @@ export function PlayPage() {
           <div className="grid grid-cols-2 gap-2">
             <Link
               to="/strategy"
-              className="shimmer-hover flex flex-col items-center gap-1.5 rounded-[20px] bg-forest p-3 text-center text-sm font-medium text-white transition-all hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)]"
+              className="shimmer-hover flex flex-col items-center gap-1.5 rounded-sm bg-forest p-3 text-center text-sm font-medium text-white transition-all hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)]"
             >
               <MapPin size={20} />
               <span>Course Mgmt</span>
             </Link>
             <Link
               to="/yardage"
-              className="shimmer-hover flex flex-col items-center gap-1.5 rounded-[20px] bg-parchment border border-sand p-3 text-center text-sm font-medium text-forest transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-1"
+              className="shimmer-hover flex flex-col items-center gap-1.5 rounded-sm bg-parchment border border-sand p-3 text-center text-sm font-medium text-forest transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-1"
             >
               <BookOpen size={20} />
               <span>Yardage Book</span>

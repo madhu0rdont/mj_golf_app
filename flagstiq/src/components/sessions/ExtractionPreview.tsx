@@ -31,7 +31,7 @@ export function ExtractionPreview({
       </div>
 
       {warnings.length > 0 && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+        <div className="rounded-sm border border-amber-300 bg-amber-50 p-3">
           <div className="mb-1 flex items-center gap-2 text-sm font-medium text-amber-700">
             <AlertTriangle size={14} />
             {warnings.length} warning{warnings.length !== 1 ? 's' : ''}

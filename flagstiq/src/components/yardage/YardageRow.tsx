@@ -13,7 +13,7 @@ export function YardageRow({ entry }: { entry: YardageBookEntry }) {
   return (
     <button
       onClick={() => navigate(`/yardage/${entry.clubId}`)}
-      className="flex w-full items-center gap-3 bg-white border border-parchment rounded-[12px] p-3 text-left transition-colors hover:border-sage"
+      className="flex w-full items-center gap-3 bg-white border border-parchment rounded-sm p-3 text-left transition-colors hover:border-sage"
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -29,7 +29,7 @@ export function YardageRow({ entry }: { entry: YardageBookEntry }) {
 
       <div className="flex items-center gap-4">
         <div className="text-right">
-          <div className="font-display text-lg font-bold text-gold">{entry.bookCarry}</div>
+          <div className="font-display text-lg font-light text-gold">{entry.bookCarry}</div>
           <div className="text-[10px] text-text-muted">carry</div>
         </div>
         {entry.bookTotal && (

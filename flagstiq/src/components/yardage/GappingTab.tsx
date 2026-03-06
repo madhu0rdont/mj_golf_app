@@ -68,7 +68,7 @@ export function GappingTab() {
           />
         )}
       </div>
-      <div className="rounded-2xl border border-border bg-card shadow-sm p-3">
+      <div className="rounded-sm border border-border bg-card shadow-sm p-3">
         <GappingChart entries={mergedEntries} />
       </div>
     </>

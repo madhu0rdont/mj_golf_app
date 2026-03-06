@@ -20,7 +20,7 @@ export function ClubBagPage() {
       <TopBar
         title="My Bag"
         rightAction={
-          <Link to="/bag/new" className="rounded-lg p-1.5 text-primary hover:text-primary-light" aria-label="Add club">
+          <Link to="/bag/new" className="rounded-sm p-1.5 text-primary hover:text-primary-light" aria-label="Add club">
             <Plus size={20} />
           </Link>
         }

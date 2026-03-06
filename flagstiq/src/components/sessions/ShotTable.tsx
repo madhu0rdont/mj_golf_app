@@ -106,7 +106,7 @@ function ShotRowCard({
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] p-3">
+    <div className="rounded-sm border border-border bg-card shadow-[var(--shadow-card)] p-3">
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-medium text-text-medium">Shot {shot.shotNumber}</span>
         <div className="flex items-center gap-1">

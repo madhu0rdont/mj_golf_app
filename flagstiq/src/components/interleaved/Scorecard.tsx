@@ -81,7 +81,7 @@ export function Scorecard({ holes, scores }: ScorecardProps) {
       </table>
       {/* Grand total for full round */}
       {back9.length > 0 && (
-        <div className="mt-2 flex items-center justify-between px-2 py-2 rounded-lg bg-surface">
+        <div className="mt-2 flex items-center justify-between px-2 py-2 rounded-sm bg-surface">
           <span className="text-xs font-medium text-text-muted uppercase">Total</span>
           <span className={`text-sm font-bold ${
             scores.reduce((s, h) => s + h.toPar, 0) < 0 ? 'text-primary'

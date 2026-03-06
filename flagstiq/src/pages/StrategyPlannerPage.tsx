@@ -5,6 +5,7 @@ import { HelpSheet } from '../components/help/HelpSheet';
 
 const CourseManagementHelpContent = lazy(() => import('../components/help/CourseManagementHelpContent'));
 import { TopBar } from '../components/layout/TopBar';
+import { PageHeader } from '../components/layout/PageHeader';
 import { LoadingPage } from '../components/ui/LoadingPage';
 import { HoleSelector } from '../components/strategy/HoleSelector';
 import { HoleViewer } from '../components/strategy/HoleViewer';
@@ -54,18 +55,18 @@ function CourseCard({ course, onSelect }: { course: Course; onSelect: (id: strin
   return (
     <button
       onClick={() => onSelect(course.id)}
-      className="shimmer-hover flex flex-col items-center gap-2 rounded-[20px] border border-border bg-card p-4 text-center hover:border-fairway hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-1 transition-all"
+      className="shimmer-hover flex flex-col items-center gap-2 rounded-sm bg-card backdrop-blur-[8px] border border-card-border p-4 text-center hover:bg-white/40 transition-all cursor-pointer"
     >
       {logoUrl ? (
         <img src={logoUrl} alt={course.name} className="h-12 w-12 object-contain rounded" />
       ) : (
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-turf/10">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-dim">
           <MapPin size={20} className="text-turf" />
         </div>
       )}
-      <p className="font-display text-sm font-bold text-text-dark leading-tight">{course.name}</p>
+      <p className="font-display text-base font-normal text-ink leading-tight">{course.name}</p>
       {details.length > 0 && (
-        <p className="text-[10px] text-text-muted">{details.join(' · ')}</p>
+        <p className="font-mono text-[9px] tracking-[0.1em] text-ink-faint">{details.join(' · ')}</p>
       )}
     </button>
   );
@@ -149,7 +150,7 @@ export function StrategyPlannerPage() {
   if (!courses?.length) {
     return (
       <>
-        <TopBar title="Course Management" rightAction={<button onClick={() => setHelpOpen(true)} className="rounded-lg p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works"><HelpCircle size={20} /></button>} />
+        <TopBar title="Course Management" rightAction={<button onClick={() => setHelpOpen(true)} className="rounded-sm p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works"><HelpCircle size={20} /></button>} />
         <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center">
           <p className="text-sm text-text-muted">
             No courses available yet. Ask an admin to import one.
@@ -168,9 +169,10 @@ export function StrategyPlannerPage() {
   if (!courseId) {
     return (
       <>
-        <TopBar title="Course Management" rightAction={<button onClick={() => setHelpOpen(true)} className="rounded-lg p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works"><HelpCircle size={20} /></button>} />
-        <div className="px-4 py-3 pb-6">
-          <div className="grid grid-cols-2 gap-3">
+        <TopBar title="Strategy" rightAction={<button onClick={() => setHelpOpen(true)} className="rounded-sm p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works"><HelpCircle size={20} /></button>} />
+        <PageHeader eyebrow="Course · Strategy" title="Course" titleEmphasis="Strategy" />
+        <div className="px-4 md:px-8 py-3 pb-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {courses.map((c) => (
               <CourseCard key={c.id} course={c} onSelect={setCourseId} />
             ))}
@@ -187,12 +189,17 @@ export function StrategyPlannerPage() {
 
   return (
     <>
-      <TopBar title="Course Management" rightAction={<button onClick={() => setHelpOpen(true)} className="rounded-lg p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works"><HelpCircle size={20} /></button>} />
-      <div className="flex flex-col gap-3 px-4 py-3 pb-6">
-        {/* Course header with back button */}
+      <TopBar title="Strategy" rightAction={<button onClick={() => setHelpOpen(true)} className="rounded-sm p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works"><HelpCircle size={20} /></button>} />
+      <PageHeader
+        eyebrow="Course · Strategy"
+        title={course?.name ?? 'Course'}
+        titleEmphasis="Strategy"
+      />
+      <div className="flex flex-col gap-3 px-4 md:px-8 py-3 pb-6">
+        {/* Course header with back button — mobile only since desktop has PageHeader */}
         <button
           onClick={() => { setCourseId(undefined); setHoleNumber(1); }}
-          className="flex items-center gap-1.5 text-sm text-text-muted hover:text-text-dark transition-colors self-start -ml-1"
+          className="md:hidden flex items-center gap-1.5 text-sm text-ink-faint hover:text-ink transition-colors self-start -ml-1"
         >
           <ChevronLeft size={18} />
           <span className="font-medium">{course?.name ?? 'All Courses'}</span>
@@ -205,10 +212,10 @@ export function StrategyPlannerPage() {
             <button
               key={t.key}
               onClick={() => setTeeBox(t.key)}
-              className={`inline-flex items-center gap-1.5 rounded-[6px] px-3 py-1 text-xs font-medium transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] tracking-[0.15em] transition-colors ${
                 teeBox === t.key
-                  ? 'bg-turf text-white'
-                  : 'bg-surface text-text-medium hover:bg-border'
+                  ? 'bg-forest text-linen'
+                  : 'border border-card-border text-ink-light hover:border-ink-mid hover:text-ink'
               }`}
             >
               <span
@@ -222,15 +229,15 @@ export function StrategyPlannerPage() {
         </div>
 
         {/* View mode segmented control */}
-        <div className="flex rounded-lg bg-surface border border-border overflow-hidden">
+        <div className="flex rounded-sm bg-surface border border-border overflow-hidden">
           {(['hole', 'gameplan'] as const).map((vm) => (
             <button
               key={vm}
               onClick={() => setViewMode(vm)}
               className={`flex-1 py-1.5 text-xs font-medium transition-colors ${
                 viewMode === vm
-                  ? 'bg-primary text-white'
-                  : 'text-text-medium hover:bg-border'
+                  ? 'bg-forest text-linen'
+                  : 'text-ink-light hover:bg-border'
               }`}
             >
               {vm === 'hole' ? 'Hole View' : 'Game Plan'}
@@ -251,7 +258,7 @@ export function StrategyPlannerPage() {
 
             {/* Map */}
             {courseLoading ? (
-              <div className="flex items-center justify-center h-[55vh] rounded-2xl border border-border bg-surface">
+              <div className="flex items-center justify-center h-[55vh] rounded-sm border border-border bg-surface">
                 <div className="animate-spin rounded-full h-7 w-7 border-2 border-primary border-t-transparent" />
               </div>
             ) : hole ? (
@@ -263,7 +270,7 @@ export function StrategyPlannerPage() {
                   <button
                     onClick={() => shotCount > 0 && setShowSim((s) => !s)}
                     disabled={shotCount === 0}
-                    className={`rounded-lg px-5 py-2 text-sm font-bold tracking-wide transition-all ${
+                    className={`rounded-sm px-5 py-2 text-sm font-bold tracking-wide transition-all ${
                       showSim
                         ? 'text-black shadow-md'
                         : shotCount === 0
@@ -282,7 +289,7 @@ export function StrategyPlannerPage() {
                         setIsRegenerating(false);
                       }}
                       disabled={isRegenerating}
-                      className="rounded-lg px-3 py-2 text-sm font-medium bg-surface text-text-dark border border-border hover:border-primary hover:text-primary transition-all disabled:opacity-50"
+                      className="rounded-sm px-3 py-2 text-sm font-medium bg-surface text-text-dark border border-border hover:border-primary hover:text-primary transition-all disabled:opacity-50"
                     >
                       {isRegenerating ? (
                         <span className="flex items-center gap-1.5">
@@ -307,7 +314,7 @@ export function StrategyPlannerPage() {
                 <HoleViewer hole={hole} teeBox={teeBox} landingZones={showSim ? landingZones : undefined} aimPoints={showSim ? aimPoints : undefined} />
               </>
             ) : (
-              <div className="flex items-center justify-center h-[55vh] rounded-2xl border border-border bg-surface">
+              <div className="flex items-center justify-center h-[55vh] rounded-sm border border-border bg-surface">
                 <p className="text-sm text-text-muted">Hole not found</p>
               </div>
             )}
@@ -328,7 +335,7 @@ export function StrategyPlannerPage() {
               courseHoles={course?.holes}
             />
           ) : (
-            <div className="flex items-center justify-center h-[55vh] rounded-2xl border border-border bg-surface">
+            <div className="flex items-center justify-center h-[55vh] rounded-sm border border-border bg-surface">
               <div className="animate-spin rounded-full h-7 w-7 border-2 border-primary border-t-transparent" />
             </div>
           )

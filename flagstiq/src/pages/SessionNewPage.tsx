@@ -64,7 +64,7 @@ export function SessionNewPage() {
             <button
               key={key}
               onClick={() => setSessionType(key)}
-              className={`flex-1 flex flex-col items-center gap-1.5 rounded-xl border p-3 transition ${
+              className={`flex-1 flex flex-col items-center gap-1.5 rounded-sm border p-3 transition ${
                 sessionType === key
                   ? 'border-primary bg-primary/5 text-primary'
                   : 'border-border bg-card text-text-muted hover:border-primary/30'
@@ -80,9 +80,9 @@ export function SessionNewPage() {
         {sessionType === 'wedge-distance' ? (
           <button
             onClick={() => navigate('/session/new/wedge-practice')}
-            className="w-full flex items-center gap-4 rounded-2xl border border-border bg-card shadow-sm p-4 text-left transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
+            className="w-full flex items-center gap-4 rounded-sm border border-border bg-card shadow-sm p-4 text-left transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
           >
-            <div className="rounded-lg bg-primary-pale p-2.5">
+            <div className="rounded-sm bg-primary-pale p-2.5">
               <Target size={20} className="text-primary" />
             </div>
             <div>
@@ -93,9 +93,9 @@ export function SessionNewPage() {
         ) : sessionType === 'interleaved' ? (
           <button
             onClick={() => navigate('/session/new/interleaved')}
-            className="w-full flex items-center gap-4 rounded-2xl border border-border bg-card shadow-sm p-4 text-left transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
+            className="w-full flex items-center gap-4 rounded-sm border border-border bg-card shadow-sm p-4 text-left transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px"
           >
-            <div className="rounded-lg bg-primary-pale p-2.5">
+            <div className="rounded-sm bg-primary-pale p-2.5">
               <Shuffle size={20} className="text-primary" />
             </div>
             <div>
@@ -134,9 +134,9 @@ export function SessionNewPage() {
                   key={path}
                   onClick={() => navigate(path, { state: buildState() })}
                   disabled={!selectedClub}
-                  className="flex items-center gap-4 rounded-2xl border border-border bg-card shadow-sm p-4 text-left transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px disabled:opacity-40"
+                  className="flex items-center gap-4 rounded-sm border border-border bg-card shadow-sm p-4 text-left transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px disabled:opacity-40"
                 >
-                  <div className="rounded-lg bg-primary-pale p-2.5">
+                  <div className="rounded-sm bg-primary-pale p-2.5">
                     <Icon size={20} className="text-primary" />
                   </div>
                   <div>

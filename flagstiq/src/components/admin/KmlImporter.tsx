@@ -162,7 +162,7 @@ export function KmlImporter({ onComplete }: KmlImporterProps) {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-coral/30 bg-coral/10 px-3 py-2 text-sm text-coral">
+        <div className="rounded-sm border border-coral/30 bg-coral/10 px-3 py-2 text-sm text-coral">
           {error}
         </div>
       )}
@@ -177,7 +177,7 @@ export function KmlImporter({ onComplete }: KmlImporterProps) {
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed p-10 text-center transition-colors ${
+          className={`flex cursor-pointer flex-col items-center gap-3 rounded-sm border-2 border-dashed p-10 text-center transition-colors ${
             dragOver
               ? 'border-primary bg-primary-pale'
               : 'border-border hover:border-primary/50'
@@ -210,7 +210,7 @@ export function KmlImporter({ onComplete }: KmlImporterProps) {
           <h3 className="text-sm font-semibold text-text-dark">
             KML Preview — {parsedData.holes.length} Holes
           </h3>
-          <div className="overflow-x-auto rounded-xl border border-border">
+          <div className="overflow-x-auto rounded-sm border border-border">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border bg-surface text-left text-text-muted">
@@ -306,7 +306,7 @@ export function KmlImporter({ onComplete }: KmlImporterProps) {
           </div>
 
           <h3 className="text-sm font-semibold text-text-dark">Scorecard Yardages</h3>
-          <div className="overflow-x-auto rounded-xl border border-border">
+          <div className="overflow-x-auto rounded-sm border border-border">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border bg-surface text-left text-text-muted">
@@ -397,7 +397,7 @@ export function KmlImporter({ onComplete }: KmlImporterProps) {
             </h3>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-border">
+          <div className="overflow-x-auto rounded-sm border border-border">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border bg-surface text-left text-text-muted">

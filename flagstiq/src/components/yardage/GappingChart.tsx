@@ -108,7 +108,7 @@ export function GappingChart({ entries }: GappingChartProps) {
           {gaps.map((g, i) => (
             <div
               key={i}
-              className={`flex justify-between rounded-lg px-3 py-1.5 text-xs ${
+              className={`flex justify-between rounded-sm px-3 py-1.5 text-xs ${
                 g.isLarge ? 'bg-amber-50 text-amber-700' : 'text-text-medium'
               }`}
             >

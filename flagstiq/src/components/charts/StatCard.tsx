@@ -10,7 +10,7 @@ interface StatCardProps {
 
 export function StatCard({ label, value, unit, delta }: StatCardProps) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+    <div className="rounded-sm border border-border bg-card p-4 shadow-[var(--shadow-card)]">
       <div className="text-[10px] font-medium uppercase tracking-wider text-text-muted">{label}</div>
       <div className="mt-1 flex items-baseline gap-1">
         <span className="text-2xl font-bold font-mono text-text-dark">{value}</span>

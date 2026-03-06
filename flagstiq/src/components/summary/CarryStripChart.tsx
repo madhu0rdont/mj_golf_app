@@ -33,7 +33,7 @@ export function CarryStripChart({ carries, avgCarry, medianCarry, stdDevCarry }:
 
   if (carries.length < 3) {
     return (
-      <div className="mt-2 rounded-2xl border border-border bg-card px-4 py-3 shadow-[var(--shadow-card)]">
+      <div className="mt-2 rounded-sm border border-border bg-card px-4 py-3 shadow-[var(--shadow-card)]">
         <div className="flex justify-between text-xs text-text-muted">
           <span>Min: <strong className="text-text-dark">{Math.round(Math.min(...carries))}</strong></span>
           <span>Median: <strong className="text-text-dark">{Math.round(medianCarry)}</strong></span>
@@ -47,7 +47,7 @@ export function CarryStripChart({ carries, avgCarry, medianCarry, stdDevCarry }:
   const sigmaRight = sx(avgCarry + stdDevCarry);
 
   return (
-    <div className="mt-2 rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] overflow-hidden">
+    <div className="mt-2 rounded-sm border border-border bg-card shadow-[var(--shadow-card)] overflow-hidden">
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full" style={{ height: '56px' }}>
         {/* 1σ band */}
         <rect

@@ -57,12 +57,12 @@ export function ShotInputSheet({ open, onClose, clubs, suggestedClubId, defaultF
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="w-full max-w-lg rounded-t-2xl border border-border bg-card p-0 text-text-dark shadow-[var(--shadow-card)] backdrop:bg-black/30 fixed bottom-0 m-0 mx-auto"
+      className="w-full max-w-lg rounded-t-sm border border-border bg-card p-0 text-text-dark shadow-[var(--shadow-card)] backdrop:bg-black/30 fixed bottom-0 m-0 mx-auto"
       style={{ maxHeight: '60vh' }}
     >
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <h2 className="text-base font-semibold text-text-dark">Hit Shot</h2>
-        <button onClick={onClose} className="rounded-lg p-1 text-text-muted hover:text-text-dark">
+        <button onClick={onClose} className="rounded-sm p-1 text-text-muted hover:text-text-dark">
           <X size={20} />
         </button>
       </div>
@@ -78,7 +78,7 @@ export function ShotInputSheet({ open, onClose, clubs, suggestedClubId, defaultF
           <select
             value={clubId}
             onChange={(e) => setClubId(e.target.value)}
-            className={`w-full rounded-lg border bg-surface px-3 py-2.5 text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${
+            className={`w-full rounded-sm border bg-surface px-3 py-2.5 text-text-dark focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${
               isSuggested ? 'border-primary/40' : 'border-border'
             }`}
           >
@@ -101,7 +101,7 @@ export function ShotInputSheet({ open, onClose, clubs, suggestedClubId, defaultF
               onChange={(e) => setCarry(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
               placeholder="250"
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-text-dark placeholder-text-faint focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-sm border border-border bg-surface px-3 py-2.5 text-text-dark placeholder-text-faint focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
           <div className="flex-1">
@@ -113,7 +113,7 @@ export function ShotInputSheet({ open, onClose, clubs, suggestedClubId, defaultF
               onChange={(e) => setOffline(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
               placeholder="0"
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-text-dark placeholder-text-faint focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-sm border border-border bg-surface px-3 py-2.5 text-text-dark placeholder-text-faint focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <p className="mt-1 text-[10px] text-text-faint">+ right, - left</p>
           </div>

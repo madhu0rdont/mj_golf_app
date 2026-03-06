@@ -14,7 +14,7 @@ export function ResetPasswordPage() {
   const token = params.get('token');
 
   const inputClass =
-    'w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-text-dark outline-none focus:border-fairway focus:ring-1 focus:ring-fairway';
+    'w-full rounded-sm border border-border bg-surface px-3 py-2.5 text-sm text-text-dark outline-none focus:border-fairway focus:ring-1 focus:ring-fairway';
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -49,14 +49,14 @@ export function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="font-display text-3xl font-bold text-forest">MJ <span className="text-fairway">Golf</span></h1>
+          <h1 className="font-display text-3xl font-light text-forest">MJ <span className="text-fairway">Golf</span></h1>
         </div>
 
-        <div className="rounded-[20px] bg-card p-6 shadow-[var(--shadow-card)]">
+        <div className="rounded-sm bg-card p-6 shadow-[var(--shadow-card)]">
           {!token ? (
             <div className="text-center">
               <p className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-sand mb-1">Invalid link</p>
-              <h2 className="font-display text-2xl font-bold text-forest mb-4">
+              <h2 className="font-display text-2xl font-light text-forest mb-4">
                 Missing <em className="not-italic text-fairway italic">token</em>
               </h2>
               <p className="text-sm text-text-medium mb-6">
@@ -69,7 +69,7 @@ export function ResetPasswordPage() {
           ) : done ? (
             <div className="text-center">
               <p className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-sand mb-1">All set</p>
-              <h2 className="font-display text-2xl font-bold text-forest mb-4">
+              <h2 className="font-display text-2xl font-light text-forest mb-4">
                 Password <em className="not-italic text-fairway italic">updated</em>
               </h2>
               <p className="text-sm text-text-medium mb-6">
@@ -82,7 +82,7 @@ export function ResetPasswordPage() {
           ) : (
             <form onSubmit={handleSubmit}>
               <p className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-sand mb-1">Reset password</p>
-              <h2 className="font-display text-2xl font-bold text-forest mb-6">
+              <h2 className="font-display text-2xl font-light text-forest mb-6">
                 New <em className="not-italic text-fairway italic">password</em>
               </h2>
 

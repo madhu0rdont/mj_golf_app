@@ -55,7 +55,7 @@ export function SessionsListPage() {
       <TopBar title="All Practice Rounds" showBack />
       <div className="px-4 py-4">
         {!sessions || sessions.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-border p-8 text-center">
+          <div className="flex flex-col items-center gap-3 rounded-sm border border-border p-8 text-center">
             <p className="text-sm text-text-muted">No sessions yet.</p>
             <Button onClick={() => navigate('/')} size="sm">
               Start a Practice Session
@@ -67,7 +67,7 @@ export function SessionsListPage() {
               <button
                 key={session.id}
                 onClick={() => navigate(`/session/${session.id}`)}
-                className="flex items-center justify-between bg-white border border-parchment rounded-[12px] p-3 text-left transition-colors hover:border-sage"
+                className="flex items-center justify-between bg-card backdrop-blur-[8px] border border-card-border rounded-sm p-3 text-left transition-colors hover:border-sage"
               >
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium text-text-dark">
@@ -89,7 +89,7 @@ export function SessionsListPage() {
                   </div>
                   <button
                     onClick={(e) => openEdit(session, e)}
-                    className="rounded-lg p-1.5 text-text-muted hover:bg-surface hover:text-text-dark"
+                    className="rounded-sm p-1.5 text-text-muted hover:bg-surface hover:text-text-dark"
                     aria-label="Edit session"
                   >
                     <Pencil size={16} />
@@ -99,7 +99,7 @@ export function SessionsListPage() {
                       e.stopPropagation();
                       setDeleteTarget(session);
                     }}
-                    className="rounded-lg p-1.5 text-text-muted hover:bg-surface hover:text-coral"
+                    className="rounded-sm p-1.5 text-text-muted hover:bg-surface hover:text-coral"
                     aria-label="Delete session"
                   >
                     <Trash2 size={16} />

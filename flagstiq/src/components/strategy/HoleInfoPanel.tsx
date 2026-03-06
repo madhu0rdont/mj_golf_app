@@ -318,25 +318,44 @@ export function HoleInfoPanel({ hole, teeBox, allHoles, isKeyHole }: HoleInfoPan
   );
 
   return (
-    <div className="rounded-xl border border-border bg-card px-3 py-2 flex flex-col gap-1">
-      {/* Row 1: Hole info + yardage */}
-      <div className="flex items-baseline justify-between">
-        <div className="flex items-baseline gap-2">
-          <span className="text-sm font-bold text-text-dark">
-            Hole {hole.holeNumber}
+    <div className="flex flex-col gap-2">
+      {/* Hero title */}
+      <div className="relative">
+        <h2 className="font-display text-[44px] font-light text-ink leading-none mb-2">
+          Hole <em className="italic text-turf">{hole.holeNumber}.</em>
+        </h2>
+        {/* Meta chips */}
+        <div className="flex gap-4 items-center flex-wrap">
+          <span className="font-mono text-[10px] tracking-[0.2em] text-ink-light">
+            Par <strong className="text-ink font-medium">{hole.par}</strong>
           </span>
-          <span className="text-xs font-medium text-text-medium">
-            Par {hole.par}
+          <span className="font-mono text-[10px] text-ink-light">·</span>
+          <span className="font-mono text-[10px] tracking-[0.2em] text-ink-light">
+            <strong className="text-ink font-medium">{yardage}</strong> yards
           </span>
           {hole.handicap != null && (
-            <span className="text-xs font-medium text-text-muted">
-              HCP {hole.handicap}
-            </span>
+            <>
+              <span className="font-mono text-[10px] text-ink-light">·</span>
+              <span className="font-mono text-[10px] tracking-[0.2em] text-ink-light">
+                Hdcp <strong className="text-ink font-medium">{hole.handicap}</strong>
+              </span>
+            </>
+          )}
+          {playsLike && playsLike !== yardage && (
+            <>
+              <span className="font-mono text-[10px] text-ink-light">·</span>
+              <span className={`font-mono text-[10px] tracking-[0.2em] ${isUphill ? 'text-coral' : 'text-primary'}`}>
+                Plays <strong>{playsLike}</strong>
+              </span>
+            </>
           )}
           {elevDeltaFeet !== 0 && (
-            <span className={`text-xs font-medium ${isUphill ? 'text-coral' : 'text-primary'}`}>
-              {isUphill ? '+' : ''}{elevDeltaFeet}ft {isUphill ? '↑' : '↓'}
-            </span>
+            <>
+              <span className="font-mono text-[10px] text-ink-light">·</span>
+              <span className={`font-mono text-[10px] tracking-[0.2em] ${isUphill ? 'text-coral' : 'text-primary'}`}>
+                {isUphill ? '+' : ''}{elevDeltaFeet}ft {isUphill ? '↑' : '↓'}
+              </span>
+            </>
           )}
           {isKeyHole && (
             <span
@@ -348,27 +367,18 @@ export function HoleInfoPanel({ hole, teeBox, allHoles, isKeyHole }: HoleInfoPan
             </span>
           )}
         </div>
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-lg font-bold text-text-dark">{yardage}</span>
-          <span className="text-[10px] text-text-muted">yds</span>
-          {playsLike && playsLike !== yardage && (
-            <span className={`text-xs font-medium ${isUphill ? 'text-coral' : 'text-primary'}`}>
-              plays {playsLike}
-            </span>
-          )}
-        </div>
       </div>
 
-      {/* Row 2: Prose description */}
+      {/* Prose description */}
       {description && (
-        <p className="text-[11px] text-text-medium italic leading-snug">
+        <p className="text-[12px] text-ink-light font-light leading-relaxed">
           {description}
         </p>
       )}
 
       {/* Notes */}
       {hole.notes && (
-        <p className="text-[10px] text-text-muted italic truncate">
+        <p className="text-[11px] text-ink-faint italic truncate">
           {hole.notes}
         </p>
       )}

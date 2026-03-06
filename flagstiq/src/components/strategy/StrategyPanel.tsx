@@ -15,11 +15,11 @@ function isOptimized(s: ApproachStrategy): s is OptimizedStrategy {
 }
 
 const SCORE_COLORS: { key: keyof ScoreDistribution; color: string }[] = [
-  { key: 'eagle', color: '#c9a84c' },
-  { key: 'birdie', color: '#3d7a35' },
-  { key: 'par', color: '#2d5a27' },
-  { key: 'bogey', color: '#c8b99a' },
-  { key: 'double', color: '#c0392b' },
+  { key: 'eagle', color: '#D4A030' },
+  { key: 'birdie', color: '#3A7A55' },
+  { key: 'par', color: '#2A5C40' },
+  { key: 'bogey', color: '#9AAA9C' },
+  { key: 'double', color: '#B83228' },
   { key: 'worse', color: '#DC2626' },
 ];
 
@@ -55,10 +55,10 @@ function BlowupBadge({ risk }: { risk: number }) {
 export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount, isLoading }: StrategyPanelProps) {
   if (isLoading || (strategies.length === 0 && shotCount > 0)) {
     return (
-      <div className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-2">
+      <div className="rounded-sm border border-border bg-card p-4 flex flex-col gap-2">
         <Skeleton className="h-4 w-40" />
         {[0, 1, 2].map((i) => (
-          <div key={i} className="rounded-xl bg-surface px-3 py-2.5 flex flex-col gap-2">
+          <div key={i} className="rounded-sm bg-surface px-3 py-2.5 flex flex-col gap-2">
             <div className="flex items-start gap-2.5">
               <Skeleton className="h-5 w-5 rounded-full" />
               <div className="flex-1 flex flex-col gap-1.5">
@@ -76,7 +76,7 @@ export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount, is
 
   if (strategies.length === 0) {
     return (
-      <div className="rounded-2xl border border-border bg-card p-4 text-center">
+      <div className="rounded-sm border border-border bg-card p-4 text-center">
         <p className="text-sm text-text-muted">
           Record some practice sessions to see strategy recommendations
         </p>
@@ -85,7 +85,7 @@ export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount, is
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-2">
+    <div className="rounded-sm border border-border bg-card p-4 flex flex-col gap-2">
       <h3 className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-sand">Approach Strategies</h3>
 
       {strategies.map((s, idx) => {
@@ -95,7 +95,7 @@ export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount, is
           <button
             key={idx}
             onClick={() => onSelect(idx)}
-            className={`flex flex-col rounded-xl px-3 py-2.5 text-left transition-colors ${
+            className={`flex flex-col rounded-sm px-3 py-2.5 text-left transition-colors ${
               isSelected
                 ? 'bg-primary/10 border border-primary/40'
                 : 'bg-surface border border-transparent hover:bg-border/50'

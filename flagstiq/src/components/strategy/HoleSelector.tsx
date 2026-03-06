@@ -15,7 +15,7 @@ export function HoleSelector({ totalHoles, current, onChange, keyHoles }: HoleSe
     <div className="flex items-center gap-2">
       <button
         onClick={() => onChange(prev)}
-        className="rounded-lg p-1.5 text-text-muted hover:text-text-dark hover:bg-surface"
+        className="rounded-sm p-1.5 text-text-muted hover:text-text-dark hover:bg-surface"
         aria-label="Previous hole"
       >
         <ChevronLeft size={20} />
@@ -26,17 +26,17 @@ export function HoleSelector({ totalHoles, current, onChange, keyHoles }: HoleSe
           <button
             key={n}
             onClick={() => onChange(n)}
-            className={`relative rounded-md min-h-[32px] py-1.5 text-xs font-medium transition-colors ${
+            className={`relative rounded-sm min-h-[32px] py-1.5 text-xs font-medium transition-colors ${
               n === current
-                ? 'bg-primary text-white'
-                : 'bg-surface text-text-medium hover:bg-border'
+                ? 'bg-forest text-linen'
+                : 'bg-surface text-ink-light hover:bg-border'
             }`}
           >
             {n}
             {keyHoles?.has(n) && (
               <span
                 className="absolute bottom-0.5 left-1/2 -translate-x-1/2 h-1.5 w-1.5 rounded-full"
-                style={{ backgroundColor: n === current ? 'white' : '#c9a84c' }}
+                style={{ backgroundColor: n === current ? 'white' : '#D4A030' }}
               />
             )}
           </button>
@@ -45,7 +45,7 @@ export function HoleSelector({ totalHoles, current, onChange, keyHoles }: HoleSe
 
       <button
         onClick={() => onChange(next)}
-        className="rounded-lg p-1.5 text-text-muted hover:text-text-dark hover:bg-surface"
+        className="rounded-sm p-1.5 text-text-muted hover:text-text-dark hover:bg-surface"
         aria-label="Next hole"
       >
         <ChevronRight size={20} />

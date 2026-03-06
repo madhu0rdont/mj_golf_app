@@ -311,7 +311,7 @@ export function InterleavedPracticePage() {
           title="Interleaved Practice"
           showBack
           rightAction={
-            <button onClick={() => setHelpOpen(true)} className="rounded-lg p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works">
+            <button onClick={() => setHelpOpen(true)} className="rounded-sm p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works">
               <HelpCircle size={20} />
             </button>
           }
@@ -332,7 +332,7 @@ export function InterleavedPracticePage() {
               <button
                 key={n}
                 onClick={() => setRoundSize(n)}
-                className={`rounded-xl border-2 py-6 text-center transition ${
+                className={`rounded-sm border-2 py-6 text-center transition ${
                   roundSize === n
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-border bg-card text-text-muted hover:border-primary/40'
@@ -360,13 +360,13 @@ export function InterleavedPracticePage() {
         showBack
         rightAction={
           <div className="flex items-center gap-1">
-            <button onClick={() => setHelpOpen(true)} className="rounded-lg p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works">
+            <button onClick={() => setHelpOpen(true)} className="rounded-sm p-1.5 text-text-muted hover:text-text-dark" aria-label="How it works">
               <HelpCircle size={20} />
             </button>
             {completedScores.length > 0 && (
               <button
                 onClick={() => setScorecardOpen(true)}
-                className="rounded-lg p-1.5 text-primary hover:text-primary-light"
+                className="rounded-sm p-1.5 text-primary hover:text-primary-light"
                 aria-label="Scorecard"
               >
                 <ClipboardList size={20} />
@@ -409,19 +409,19 @@ export function InterleavedPracticePage() {
 
         {/* Current hole card */}
         {currentHole && (
-          <div className="rounded-2xl border border-border bg-card p-4 mb-4">
+          <div className="rounded-sm border border-border bg-card p-4 mb-4">
             <div className="text-center mb-4">
               <p className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-sand">
                 Hole {currentHole.number} of {holes.length}
               </p>
-              <p className="font-display text-2xl font-bold text-forest mt-1">
+              <p className="font-display text-2xl font-light text-forest mt-1">
                 Par {currentHole.par} — {currentHole.distanceYards} yds
               </p>
             </div>
 
             {/* Remaining distance */}
             {currentShots.length > 0 && !holeComplete && (
-              <div className="rounded-xl bg-surface p-3 mb-4 text-center">
+              <div className="rounded-sm bg-surface p-3 mb-4 text-center">
                 <div className="text-lg font-bold text-primary">
                   {Math.round(remaining.trueRemaining)} yds to hole
                 </div>
@@ -458,7 +458,7 @@ export function InterleavedPracticePage() {
 
             {/* Hole complete */}
             {holeComplete && (
-              <div className="rounded-xl bg-surface p-4 text-center mb-4">
+              <div className="rounded-sm bg-surface p-4 text-center mb-4">
                 <p className="text-xs text-text-muted uppercase mb-1">Hole Complete</p>
                 <p className="text-xl font-bold">
                   {(() => {
@@ -479,7 +479,7 @@ export function InterleavedPracticePage() {
 
             {/* Monte Carlo strategy card — shown until within wedge range */}
             {showMonteCarlo && bestApproaches.length > 0 && (
-              <div className="mb-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-3">
+              <div className="mb-3 rounded-sm bg-primary/5 border border-primary/20 px-3 py-3">
                 <p className="text-[10px] text-text-muted uppercase tracking-wide mb-2">
                   Best Approaches <span className="normal-case">({Math.round(mcDistance)} yds · 2k sims)</span>
                 </p>
@@ -491,7 +491,7 @@ export function InterleavedPracticePage() {
                       <button
                         key={i}
                         onClick={() => setSelectedStrategyClubId(firstClubId)}
-                        className={`flex w-full items-start justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition ${
+                        className={`flex w-full items-start justify-between gap-2 rounded-sm px-2 py-1.5 text-sm transition ${
                           isSelected
                             ? 'bg-primary/10 ring-1 ring-primary/30'
                             : 'hover:bg-primary/5'
@@ -517,7 +517,7 @@ export function InterleavedPracticePage() {
 
             {/* Greedy suggestion — within wedge range or no MC data */}
             {!holeComplete && !showMonteCarlo && suggestion && (
-              <div className="mb-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 text-center">
+              <div className="mb-3 rounded-sm bg-primary/5 border border-primary/20 px-3 py-2 text-center">
                 <span className="text-xs text-text-muted">Suggested: </span>
                 <span className="text-sm font-semibold text-primary">
                   {suggestion.clubName}
@@ -535,7 +535,7 @@ export function InterleavedPracticePage() {
 
             {/* Fallback greedy when MC has data but finds no viable combos */}
             {showMonteCarlo && bestApproaches.length === 0 && suggestion && (
-              <div className="mb-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 text-center">
+              <div className="mb-3 rounded-sm bg-primary/5 border border-primary/20 px-3 py-2 text-center">
                 <span className="text-xs text-text-muted">Suggested: </span>
                 <span className="text-sm font-semibold text-primary">
                   {suggestion.clubName}
@@ -643,7 +643,7 @@ export function InterleavedPracticePage() {
           const szTotal = szApplicable.reduce((s, h) => s + h.scoringZone.delta, 0);
           if (szApplicable.length === 0) return null;
           return (
-            <div className="mt-4 rounded-xl bg-surface px-3 py-2 flex items-center justify-between">
+            <div className="mt-4 rounded-sm bg-surface px-3 py-2 flex items-center justify-between">
               <span className="text-xs text-text-muted uppercase">Scoring Zone</span>
               <span className={`text-sm font-bold ${
                 szTotal < 0 ? 'text-primary' : szTotal === 0 ? 'text-text-dark' : 'text-coral'

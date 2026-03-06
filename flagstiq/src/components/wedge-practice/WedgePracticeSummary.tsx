@@ -169,7 +169,7 @@ export function WedgePracticeSummary({ session, shots }: WedgePracticeSummaryPro
             if (!cell) return null;
 
             return (
-              <div key={key} className="rounded-xl border border-border bg-card p-3">
+              <div key={key} className="rounded-sm border border-border bg-card p-3">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-text-dark">
                     {clubMap.get(clubId)} — {pos.label}
@@ -184,7 +184,7 @@ export function WedgePracticeSummary({ session, shots }: WedgePracticeSummaryPro
                     return (
                       <div
                         key={i}
-                        className="rounded-lg bg-surface px-2.5 py-1 text-center"
+                        className="rounded-sm bg-surface px-2.5 py-1 text-center"
                       >
                         <div className="text-sm font-medium text-text-dark">
                           {Math.round(shot.carryYards)}

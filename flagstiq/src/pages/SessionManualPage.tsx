@@ -129,7 +129,7 @@ export function SessionManualPage() {
         </Button>
 
         {saveError && (
-          <div className="mt-3 flex items-start gap-2 rounded-xl border border-coral/30 bg-coral/5 px-3 py-2">
+          <div className="mt-3 flex items-start gap-2 rounded-sm border border-coral/30 bg-coral/5 px-3 py-2">
             <AlertCircle size={16} className="mt-0.5 flex-shrink-0 text-coral" />
             <p className="text-xs text-coral">{saveError}</p>
           </div>

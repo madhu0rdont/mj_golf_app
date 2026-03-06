@@ -83,7 +83,7 @@ export function TrackmanTable({ shots, excludeMishits = false }: TrackmanTablePr
   }, [shots]);
 
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] overflow-hidden">
+    <div className="rounded-sm border border-border bg-card shadow-[var(--shadow-card)] overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] text-xs">
           <thead>

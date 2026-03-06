@@ -138,7 +138,7 @@ export function SessionCsvPage() {
             </p>
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex w-full flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border p-8 text-text-muted transition-colors hover:border-primary hover:text-primary"
+              className="flex w-full flex-col items-center gap-3 rounded-sm border-2 border-dashed border-border p-8 text-text-muted transition-colors hover:border-primary hover:text-primary"
             >
               <Upload size={32} />
               <span className="font-medium">Select CSV File</span>
@@ -152,7 +152,7 @@ export function SessionCsvPage() {
               className="hidden"
             />
             {error && (
-              <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+              <div className="mt-4 flex items-center gap-2 rounded-sm border border-red-300 bg-red-50 p-3 text-sm text-red-700">
                 <AlertTriangle size={16} />
                 {error}
               </div>
@@ -160,7 +160,7 @@ export function SessionCsvPage() {
           </>
         ) : (
           <>
-            <div className="mb-4 rounded-lg border border-border bg-card shadow-sm p-3">
+            <div className="mb-4 rounded-sm border border-border bg-card shadow-sm p-3">
               <div className="flex items-center gap-2 text-sm font-medium text-text-dark">
                 <FileSpreadsheet size={16} className="text-primary" />
                 {fileName}
@@ -181,7 +181,7 @@ export function SessionCsvPage() {
             <ShotTable shots={shots} onChange={handleChange} onDelete={handleDelete} />
 
             {saveError && (
-              <div className="mt-3 flex items-start gap-2 rounded-xl border border-coral/30 bg-coral/5 px-3 py-2">
+              <div className="mt-3 flex items-start gap-2 rounded-sm border border-coral/30 bg-coral/5 px-3 py-2">
                 <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-coral" />
                 <p className="text-xs text-coral">{saveError}</p>
               </div>
