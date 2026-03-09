@@ -113,7 +113,8 @@ export function assembleGamePlan(
   deltas.sort((a, b) => b.delta - a.delta);
   const keyHoles = deltas.slice(0, 4).map((d) => d.holeNumber).sort((a, b) => a - b);
 
-  const totalExpected = holes.reduce((sum, h) => sum + h.strategy.expectedStrokes, 0);
+  const rawTotal = holes.reduce((sum, h) => sum + h.strategy.expectedStrokes, 0);
+  const totalExpected = Number.isFinite(rawTotal) ? rawTotal : holes.reduce((sum, h) => sum + h.par, 0);
   const totalPlaysLike = holes.reduce((sum, h) => sum + (h.playsLikeYardage ?? h.yardage), 0);
 
   return {

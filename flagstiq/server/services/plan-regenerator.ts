@@ -20,9 +20,10 @@ export async function regenerateStalePlans() {
   const startTime = Date.now();
 
   try {
-    // 1. Query stale plans (including user_id)
+    // 1. Query stale plans (including user_id), skip recently regenerated to avoid loops
     const { rows: stalePlans } = await query(
-      `SELECT user_id, course_id, tee_box, mode, stale_reason FROM game_plan_cache WHERE stale = TRUE`,
+      `SELECT user_id, course_id, tee_box, mode, stale_reason FROM game_plan_cache WHERE stale = TRUE AND (updated_at IS NULL OR updated_at < $1)`,
+      [Date.now() - 120_000],
     );
     if (stalePlans.length === 0) return;
 

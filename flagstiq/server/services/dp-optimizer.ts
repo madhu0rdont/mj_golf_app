@@ -1246,9 +1246,13 @@ function simulateWithPolicy(
     }
   }
 
-  // Compute statistics
-  const xS = trialScores.reduce((a, b) => a + b, 0) / trialScores.length;
-  const variance = trialScores.reduce((sum, s) => sum + (s - xS) ** 2, 0) / trialScores.length;
+  // Compute statistics (filter NaN scores from edge cases)
+  const validScores = trialScores.filter((s) => Number.isFinite(s));
+  const scoreCount = validScores.length || 1;
+  const xS = validScores.length > 0
+    ? validScores.reduce((a, b) => a + b, 0) / scoreCount
+    : hole.par + 1; // pessimistic fallback
+  const variance = validScores.reduce((sum, s) => sum + (s - xS) ** 2, 0) / scoreCount;
   const stdStrokes = Math.sqrt(variance);
   const scoreDist = computeScoreDistribution(trialScores, hole.par);
   const blowupRisk = scoreDist.double + scoreDist.worse;
