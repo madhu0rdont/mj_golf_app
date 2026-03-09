@@ -51,20 +51,43 @@ app.use(csrfCheck);
 // Health checks (unauthenticated)
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-// Temporary debug endpoint — remove after fixing marker crash
-app.get('/debug/holes/:courseId', async (req, res) => {
+// Temporary fix endpoint — remove after elevation data is restored
+app.post('/debug/fix-elevations/:courseId', async (req, res) => {
   try {
+    const { fetchElevations } = await import('./services/elevation.js');
+    const courseId = req.params.courseId;
     const { rows } = await pool.query(
-      'SELECT hole_number, tee, pin FROM course_holes WHERE course_id = $1 ORDER BY hole_number',
-      [req.params.courseId],
+      'SELECT id, hole_number, tee, pin FROM course_holes WHERE course_id = $1 ORDER BY hole_number',
+      [courseId],
     );
-    res.json(rows.map(r => ({
-      hole: r.hole_number,
-      tee: r.tee,
-      pin: r.pin,
-      teeLat: typeof r.tee?.lat,
-      pinLat: typeof r.pin?.lat,
-    })));
+    const coords: { lat: number; lng: number }[] = [];
+    const holeMap: { holeId: string; field: string; idx: number }[] = [];
+    for (const row of rows) {
+      const tee = row.tee as { lat: number; lng: number; elevation?: number };
+      const pin = row.pin as { lat: number; lng: number; elevation?: number };
+      if (tee.elevation == null) {
+        holeMap.push({ holeId: row.id, field: 'tee', idx: coords.length });
+        coords.push({ lat: Number(tee.lat), lng: Number(tee.lng) });
+      }
+      if (pin.elevation == null) {
+        holeMap.push({ holeId: row.id, field: 'pin', idx: coords.length });
+        coords.push({ lat: Number(pin.lat), lng: Number(pin.lng) });
+      }
+    }
+    if (coords.length === 0) return res.json({ fixed: 0 });
+    const elevResults = await fetchElevations(coords);
+    for (const entry of holeMap) {
+      await pool.query(
+        `UPDATE course_holes SET ${entry.field} = jsonb_set(${entry.field}::jsonb, '{elevation}', $1::jsonb) WHERE id = $2`,
+        [JSON.stringify(elevResults[entry.idx].elevation), entry.holeId],
+      );
+    }
+    // Mark plans stale so they regenerate with correct elevation
+    await pool.query(
+      `UPDATE game_plan_cache SET stale = TRUE, stale_reason = 'Elevation data fixed' WHERE course_id = $1`,
+      [courseId],
+    );
+    res.json({ fixed: coords.length });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
