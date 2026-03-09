@@ -36,6 +36,11 @@ const GREEN_COLOR = '#00C853';
 
 let mapsInitialized = false;
 
+/** Ensure lat/lng are numeric (DB may return strings from JSONB) */
+function numPos(pos: { lat: unknown; lng: unknown }): { lat: number; lng: number } {
+  return { lat: Number(pos.lat), lng: Number(pos.lng) };
+}
+
 export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -76,9 +81,11 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
 
       if (cancelled || !mapRef.current) return;
 
+      const tee = numPos(hole.tee);
+      const pin = numPos(hole.pin);
       const center = {
-        lat: (hole.tee.lat + hole.pin.lat) / 2,
-        lng: (hole.tee.lng + hole.pin.lng) / 2,
+        lat: (tee.lat + pin.lat) / 2,
+        lng: (tee.lng + pin.lng) / 2,
       };
 
       const map = new Map(mapRef.current, {
@@ -86,7 +93,7 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
         zoom: 17,
         mapTypeId: 'satellite',
         mapId: 'strategy-viewer',
-        heading: bearingBetween(hole.tee, hole.pin),
+        heading: bearingBetween(tee, pin),
         tilt: 0,
         disableDefaultUI: true,
         zoomControl: true,
@@ -210,8 +217,8 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
     // Per-shot dual lines: aim line (dashed white) + ball flight (solid cyan, curved)
     for (let i = 0; i < aimPositions.length; i++) {
       const from = i === 0
-        ? { lat: hole.tee.lat, lng: hole.tee.lng }
-        : landingZones![i - 1]?.center ?? { lat: hole.tee.lat, lng: hole.tee.lng };
+        ? numPos(hole.tee)
+        : landingZones![i - 1]?.center ?? numPos(hole.tee);
       const aimTo = aimPositions[i];
       const landTo = landingZones![i]?.center ?? aimTo;
 
@@ -274,9 +281,11 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
     clearMeasure();
 
     // Fit bounds, then orient tee-to-pin upward
+    const tee = numPos(hole.tee);
+    const pin = numPos(hole.pin);
     const bounds = new google.maps.LatLngBounds();
-    bounds.extend({ lat: hole.tee.lat, lng: hole.tee.lng });
-    bounds.extend({ lat: hole.pin.lat, lng: hole.pin.lng });
+    bounds.extend(tee);
+    bounds.extend(pin);
     if (landingZones) {
       for (const z of landingZones) bounds.extend(z.center);
     }
@@ -287,7 +296,7 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
 
     // Apply heading after fitBounds settles — fitBounds resets heading to 0.
     // Use moveCamera to atomically set heading with the computed center/zoom.
-    const heading = bearingBetween(hole.tee, hole.pin);
+    const heading = bearingBetween(tee, pin);
     google.maps.event.addListenerOnce(map, 'idle', () => {
       try {
         map.moveCamera({
@@ -399,7 +408,7 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
     teeEl.textContent = 'T';
     const teeMarker = new google.maps.marker.AdvancedMarkerElement({
       map,
-      position: { lat: hole.tee.lat, lng: hole.tee.lng },
+      position: tee,
       content: teeEl,
       title: 'Tee',
     });
@@ -411,7 +420,7 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
     pinEl.textContent = 'P';
     const pinMarker = new google.maps.marker.AdvancedMarkerElement({
       map,
-      position: { lat: hole.pin.lat, lng: hole.pin.lng },
+      position: pin,
       content: pinEl,
       title: 'Pin',
     });
@@ -433,8 +442,8 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
     const listener = map.addListener('click', (e: google.maps.MapMouseEvent) => {
       if (!e.latLng) return;
       const point = { lat: e.latLng.lat(), lng: e.latLng.lng() };
-      const fromTee = haversineYards({ lat: hole.tee.lat, lng: hole.tee.lng }, point);
-      const toPin = haversineYards(point, { lat: hole.pin.lat, lng: hole.pin.lng });
+      const fromTee = haversineYards(numPos(hole.tee), point);
+      const toPin = haversineYards(point, numPos(hole.pin));
 
       // Clear previous measure marker
       if (measureRef.current.marker) {
