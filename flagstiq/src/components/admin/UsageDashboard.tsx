@@ -16,6 +16,7 @@ interface DailyEntry {
   claude: number;
   google_elevation: number;
   resend: number;
+  railway?: number;
 }
 
 interface RecentEntry {
@@ -68,12 +69,14 @@ const SERVICE_COLORS: Record<string, string> = {
   claude: '#8B5CF6',
   google_elevation: '#3B82F6',
   resend: '#10B981',
+  railway: '#64748B',
 };
 
 const SERVICE_LABELS: Record<string, string> = {
   claude: 'Claude Vision',
   google_elevation: 'Google Elevation',
   resend: 'Resend Email',
+  railway: 'Railway',
 };
 
 function DailyChart({ data }: { data: DailyEntry[] }) {
@@ -85,7 +88,7 @@ function DailyChart({ data }: { data: DailyEntry[] }) {
     );
   }
 
-  const maxCost = Math.max(...data.map(d => d.claude + d.google_elevation + d.resend), 0.001);
+  const maxCost = Math.max(...data.map(d => d.claude + d.google_elevation + d.resend + (d.railway ?? 0)), 0.001);
   const barWidth = Math.max(4, Math.min(20, Math.floor(280 / data.length) - 2));
   const chartWidth = data.length * (barWidth + 2) + 40;
   const chartHeight = 120;
@@ -107,6 +110,7 @@ function DailyChart({ data }: { data: DailyEntry[] }) {
           let y = chartHeight - bottomPad;
 
           const segments = [
+            { key: 'railway', val: d.railway ?? 0 },
             { key: 'resend', val: d.resend },
             { key: 'google_elevation', val: d.google_elevation },
             { key: 'claude', val: d.claude },
@@ -180,13 +184,26 @@ export function UsageDashboard() {
   const claude = data?.summary?.claude as ServiceSummary | undefined;
   const google = data?.summary?.google_elevation as ServiceSummary | undefined;
   const resend = data?.summary?.resend as ServiceSummary | undefined;
-  const totalCost = data?.summary?.totalCost ?? 0;
+  const apiCost = data?.summary?.totalCost ?? 0;
+  const railwayCost = railway?.estimatedCost ?? 0;
+
+  // Monthly estimate: extrapolate API costs to 30 days + Railway billing cycle estimate
+  const apiMonthly = days > 0 ? (apiCost / days) * 30 : 0;
+  const monthlyEstimate = apiMonthly + railwayCost;
+
+  // Add Railway as flat daily rate to chart data
+  const dailyRailway = railwayCost / 30;
+  const chartData = useMemo(() =>
+    (data?.daily ?? []).map(d => ({ ...d, railway: dailyRailway })),
+    [data?.daily, dailyRailway],
+  );
 
   // Legend items
   const legend = useMemo(() => [
     { color: SERVICE_COLORS.claude, label: 'Claude' },
     { color: SERVICE_COLORS.google_elevation, label: 'Google' },
     { color: SERVICE_COLORS.resend, label: 'Resend' },
+    { color: SERVICE_COLORS.railway, label: 'Railway' },
   ], []);
 
   return (
@@ -217,10 +234,20 @@ export function UsageDashboard() {
         </div>
       ) : (
         <>
-          {/* Total cost banner */}
-          <div className="rounded-sm border border-border bg-card p-3 text-center">
-            <p className="text-xs text-text-muted mb-0.5">Total Estimated Spend ({days}d)</p>
-            <p className="text-2xl font-display font-light text-text-dark">{formatCost(totalCost)}</p>
+          {/* Cost banner */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-sm border border-border bg-card p-3 text-center">
+              <p className="text-xs text-text-muted mb-0.5">API Spend ({days}d)</p>
+              <p className="text-2xl font-display font-light text-text-dark">{formatCost(apiCost)}</p>
+            </div>
+            <div className="rounded-sm border border-primary/20 bg-primary/5 p-3 text-center">
+              <p className="text-xs text-text-muted mb-0.5">Est. Monthly Total</p>
+              <p className="text-2xl font-display font-light text-text-dark">~{formatCost(monthlyEstimate)}</p>
+              <div className="flex justify-center gap-3 mt-1 text-[9px] text-text-muted">
+                <span>API ~{formatCost(apiMonthly)}</span>
+                <span>Railway ~{formatCost(railwayCost)}</span>
+              </div>
+            </div>
           </div>
 
           {/* Summary cards */}
@@ -339,7 +366,7 @@ export function UsageDashboard() {
                 ))}
               </div>
             </div>
-            <DailyChart data={data?.daily ?? []} />
+            <DailyChart data={chartData} />
           </div>
 
           {/* Recent activity */}
