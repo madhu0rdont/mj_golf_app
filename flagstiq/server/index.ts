@@ -52,7 +52,8 @@ app.use(csrfCheck);
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 // Temporary fix endpoint — remove after elevation data is restored
-app.post('/debug/fix-elevations/:courseId', async (req, res) => {
+app.get('/debug/fix-elevations/:courseId', async (_req, res) => {
+  const req = _req;
   try {
     const { fetchElevations } = await import('./services/elevation.js');
     const courseId = req.params.courseId;
