@@ -51,6 +51,25 @@ app.use(csrfCheck);
 // Health checks (unauthenticated)
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
+// Temporary debug endpoint — remove after fixing marker crash
+app.get('/debug/holes/:courseId', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT hole_number, tee, pin FROM course_holes WHERE course_id = $1 ORDER BY hole_number',
+      [req.params.courseId],
+    );
+    res.json(rows.map(r => ({
+      hole: r.hole_number,
+      tee: r.tee,
+      pin: r.pin,
+      teeLat: typeof r.tee?.lat,
+      pinLat: typeof r.pin?.lat,
+    })));
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 app.get('/ready', async (_req, res) => {
   try {
     await pool.query('SELECT 1');
