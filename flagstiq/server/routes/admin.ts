@@ -510,6 +510,38 @@ router.patch('/:id/holes/:number', async (req, res) => {
   const ALLOWED_FIELDS = ['hazards', 'fairway', 'green', 'notes', 'targets', 'plays_like_yards', 'yardages', 'handicap', 'par', 'tee', 'pin', 'heading', 'center_line'];
   const updates = toSnake(req.body);
 
+  // If tee or pin are being updated, merge with existing data to preserve elevation
+  if (updates.tee || updates.pin) {
+    const { rows: existingRows } = await query(
+      'SELECT tee, pin FROM course_holes WHERE course_id = $1 AND hole_number = $2',
+      [req.params.id, parseInt(req.params.number)],
+    );
+    if (existingRows.length > 0) {
+      const existing = existingRows[0];
+      if (updates.tee && existing.tee) {
+        updates.tee = { ...existing.tee, ...updates.tee };
+      }
+      if (updates.pin && existing.pin) {
+        updates.pin = { ...existing.pin, ...updates.pin };
+      }
+    }
+
+    // Re-fetch elevation for changed tee/pin positions
+    try {
+      const teeObj = updates.tee as Record<string, unknown> | undefined;
+      const pinObj = updates.pin as Record<string, unknown> | undefined;
+      const coords: { lat: number; lng: number }[] = [];
+      if (teeObj) coords.push({ lat: Number(teeObj.lat), lng: Number(teeObj.lng) });
+      if (pinObj) coords.push({ lat: Number(pinObj.lat), lng: Number(pinObj.lng) });
+      const elevResults = await fetchElevations(coords);
+      let idx = 0;
+      if (teeObj) { teeObj.elevation = elevResults[idx++].elevation; }
+      if (pinObj) { pinObj.elevation = elevResults[idx].elevation; }
+    } catch (err) {
+      logger.error('Failed to fetch elevation for tee/pin update', { error: String(err) });
+    }
+  }
+
   const setClauses: string[] = [];
   const values: unknown[] = [];
 
@@ -542,6 +574,53 @@ router.patch('/:id/holes/:number', async (req, res) => {
   );
   await markPlansStale('Hole data edited', req.params.id);
   res.json(toCamel(rows[0]));
+});
+
+// POST /api/admin/courses/:id/fix-elevations — re-fetch missing elevations for all holes
+router.post('/courses/:id/fix-elevations', async (req, res) => {
+  try {
+    const courseId = req.params.id;
+    const { rows } = await query(
+      'SELECT id, hole_number, tee, pin FROM course_holes WHERE course_id = $1 ORDER BY hole_number',
+      [courseId],
+    );
+
+    const coords: { lat: number; lng: number }[] = [];
+    const holeMap: { holeId: string; field: 'tee' | 'pin'; idx: number }[] = [];
+
+    for (const row of rows) {
+      const tee = row.tee as { lat: number; lng: number; elevation?: number };
+      const pin = row.pin as { lat: number; lng: number; elevation?: number };
+      if (tee.elevation == null) {
+        holeMap.push({ holeId: row.id, field: 'tee', idx: coords.length });
+        coords.push({ lat: Number(tee.lat), lng: Number(tee.lng) });
+      }
+      if (pin.elevation == null) {
+        holeMap.push({ holeId: row.id, field: 'pin', idx: coords.length });
+        coords.push({ lat: Number(pin.lat), lng: Number(pin.lng) });
+      }
+    }
+
+    if (coords.length === 0) {
+      return res.json({ fixed: 0, message: 'All holes already have elevation data' });
+    }
+
+    const elevResults = await fetchElevations(coords);
+
+    for (const entry of holeMap) {
+      const elev = elevResults[entry.idx].elevation;
+      await query(
+        `UPDATE course_holes SET ${entry.field} = jsonb_set(${entry.field}::jsonb, '{elevation}', $1::jsonb) WHERE id = $2`,
+        [JSON.stringify(elev), entry.holeId],
+      );
+    }
+
+    await markPlansStale('Elevation data fixed', courseId);
+    res.json({ fixed: coords.length, message: `Fixed elevation for ${coords.length} coordinates` });
+  } catch (err) {
+    logger.error('Failed to fix elevations', { error: String(err) });
+    res.status(500).json({ error: 'Failed to fix elevations' });
+  }
 });
 
 // PUT /api/admin/courses/:id/logo — upload or clear course logo
