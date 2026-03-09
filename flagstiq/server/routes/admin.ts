@@ -681,4 +681,69 @@ router.get('/usage', async (req, res) => {
   }
 });
 
+// GET /api/admin/railway-usage — estimated Railway spend for current billing cycle
+const RAILWAY_PROJECT_ID = '7fd20f07-7e08-43d4-aa1e-065a955a91d6';
+const RAILWAY_GQL = 'https://backboard.railway.com/graphql/v2';
+// Per-unit rates from Railway pricing (https://docs.railway.com/pricing)
+const RAILWAY_RATES: Record<string, number> = {
+  CPU_USAGE: 20 / 43200,        // $20/vCPU-month, usage in vCPU-minutes
+  MEMORY_USAGE_GB: 10 / 43200,  // $10/GB-month, usage in GB-minutes
+  DISK_USAGE_GB: 0.15 / 720,    // $0.15/GB-month, usage in GB-hours
+  NETWORK_TX_GB: 0.05,          // $0.05/GB
+};
+
+let railwayCache: { data: unknown; ts: number } | null = null;
+const RAILWAY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+router.get('/railway-usage', async (_req, res) => {
+  const token = process.env.RAILWAY_API_TOKEN;
+  if (!token) {
+    return res.json({ estimatedCost: null });
+  }
+
+  // Return cached result if fresh
+  if (railwayCache && Date.now() - railwayCache.ts < RAILWAY_CACHE_TTL) {
+    return res.json(railwayCache.data);
+  }
+
+  try {
+    const measurements = Object.keys(RAILWAY_RATES);
+    const resp = await fetch(RAILWAY_GQL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        query: `{ estimatedUsage(projectId: "${RAILWAY_PROJECT_ID}", measurements: [${measurements.join(', ')}]) { measurement estimatedValue } }`,
+      }),
+    });
+
+    const json = await resp.json() as { data?: { estimatedUsage: { measurement: string; estimatedValue: number }[] }; errors?: unknown[] };
+    if (json.errors || !json.data) {
+      logger.error('Railway API error', { errors: json.errors });
+      return res.json({ estimatedCost: null });
+    }
+
+    const breakdown: Record<string, number> = {};
+    let estimatedCost = 0;
+    for (const entry of json.data.estimatedUsage) {
+      const rate = RAILWAY_RATES[entry.measurement];
+      if (rate != null) {
+        const cost = entry.estimatedValue * rate;
+        const key = entry.measurement.replace(/_USAGE|_GB/g, '').toLowerCase();
+        breakdown[key] = (breakdown[key] ?? 0) + cost;
+        estimatedCost += cost;
+      }
+    }
+
+    const result = { estimatedCost, breakdown };
+    railwayCache = { data: result, ts: Date.now() };
+    res.json(result);
+  } catch (err) {
+    logger.error('Failed to fetch Railway usage', { error: String(err) });
+    res.json({ estimatedCost: null });
+  }
+});
+
 export default router;

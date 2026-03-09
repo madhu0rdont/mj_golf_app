@@ -152,10 +152,16 @@ function DailyChart({ data }: { data: DailyEntry[] }) {
   );
 }
 
+interface RailwayUsage {
+  estimatedCost: number | null;
+  breakdown?: Record<string, number>;
+}
+
 export function UsageDashboard() {
   const [days, setDays] = useState(30);
   const [data, setData] = useState<UsageData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [railway, setRailway] = useState<RailwayUsage | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -164,6 +170,12 @@ export function UsageDashboard() {
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, [days]);
+
+  useEffect(() => {
+    api.get<RailwayUsage>('/admin/railway-usage')
+      .then(setRailway)
+      .catch(() => setRailway(null));
+  }, []);
 
   const claude = data?.summary?.claude as ServiceSummary | undefined;
   const google = data?.summary?.google_elevation as ServiceSummary | undefined;
@@ -262,24 +274,36 @@ export function UsageDashboard() {
             </div>
 
             {/* Railway */}
-            <a
-              href="https://railway.com/project/flagstiq"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-sm border border-border bg-card p-3 hover:border-fairway transition-colors"
-            >
+            <div className="rounded-sm border border-border bg-card p-3">
               <div className="flex items-center gap-2 mb-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded bg-slate-500/10">
                   <Server size={14} className="text-slate-400" />
                 </div>
                 <p className="text-xs font-medium text-text-dark">Railway</p>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-primary">
+              {railway?.estimatedCost != null ? (
+                <>
+                  <p className="text-lg font-display font-light text-text-dark">{formatCost(railway.estimatedCost)}</p>
+                  <div className="text-[10px] text-text-muted mt-1 space-y-0.5">
+                    {railway.breakdown && Object.entries(railway.breakdown).map(([key, cost]) => (
+                      <p key={key}>{key.charAt(0).toUpperCase() + key.slice(1)}: {formatCost(cost)}</p>
+                    ))}
+                    <p className="text-[9px] opacity-60">Est. billing cycle total</p>
+                  </div>
+                </>
+              ) : (
+                <p className="text-[10px] text-text-muted">Hosting & compute costs</p>
+              )}
+              <a
+                href="https://railway.com/project/flagstiq"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs text-primary mt-2 hover:underline"
+              >
                 <ExternalLink size={12} />
                 <span>View Dashboard</span>
-              </div>
-              <p className="text-[10px] text-text-muted mt-1">Hosting & compute costs</p>
-            </a>
+              </a>
+            </div>
 
             {/* Google Cloud */}
             <a
