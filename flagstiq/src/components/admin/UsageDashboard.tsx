@@ -295,7 +295,7 @@ export function UsageDashboard() {
                 <p className="text-[10px] text-text-muted">Hosting & compute costs</p>
               )}
               <a
-                href="https://railway.com/project/flagstiq"
+                href="https://railway.com/project/7fd20f07-7e08-43d4-aa1e-065a955a91d6/observability?environmentId=1ab35e5b-0f25-4498-8855-94863acdf360"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-xs text-primary mt-2 hover:underline"
