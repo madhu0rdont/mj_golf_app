@@ -276,6 +276,7 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
     const map = mapInstanceRef.current;
     if (!map) return;
 
+    try {
     clearOverlays();
     clearSimOverlays();
     clearMeasure();
@@ -403,30 +404,43 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
     }
 
     // 4. Tee marker (blue)
-    const teeEl = document.createElement('div');
-    teeEl.style.cssText = 'width:24px;height:24px;border-radius:50%;background:#3B82F6;border:2px solid white;display:flex;align-items:center;justify-content:center;font:bold 11px sans-serif;color:white;box-shadow:0 2px 6px rgba(0,0,0,0.4);';
-    teeEl.textContent = 'T';
-    const teeMarker = new google.maps.marker.AdvancedMarkerElement({
-      map,
-      position: tee,
-      content: teeEl,
-      title: 'Tee',
-    });
-    overlaysRef.current.push(teeMarker);
+    try {
+      const teeEl = document.createElement('div');
+      teeEl.style.cssText = 'width:24px;height:24px;border-radius:50%;background:#3B82F6;border:2px solid white;display:flex;align-items:center;justify-content:center;font:bold 11px sans-serif;color:white;box-shadow:0 2px 6px rgba(0,0,0,0.4);';
+      teeEl.textContent = 'T';
+      const teePos = new google.maps.LatLng(tee.lat, tee.lng);
+      const teeMarker = new google.maps.marker.AdvancedMarkerElement({
+        map,
+        position: teePos,
+        content: teeEl,
+        title: 'Tee',
+      });
+      overlaysRef.current.push(teeMarker);
+    } catch (e) {
+      console.error('Tee marker failed:', tee, e);
+    }
 
     // 6. Pin marker (red)
-    const pinEl = document.createElement('div');
-    pinEl.style.cssText = 'width:24px;height:24px;border-radius:50%;background:#EF4444;border:2px solid white;display:flex;align-items:center;justify-content:center;font:bold 11px sans-serif;color:white;box-shadow:0 2px 6px rgba(0,0,0,0.4);';
-    pinEl.textContent = 'P';
-    const pinMarker = new google.maps.marker.AdvancedMarkerElement({
-      map,
-      position: pin,
-      content: pinEl,
-      title: 'Pin',
-    });
-    overlaysRef.current.push(pinMarker);
+    try {
+      const pinEl = document.createElement('div');
+      pinEl.style.cssText = 'width:24px;height:24px;border-radius:50%;background:#EF4444;border:2px solid white;display:flex;align-items:center;justify-content:center;font:bold 11px sans-serif;color:white;box-shadow:0 2px 6px rgba(0,0,0,0.4);';
+      pinEl.textContent = 'P';
+      const pinPos = new google.maps.LatLng(pin.lat, pin.lng);
+      const pinMarker = new google.maps.marker.AdvancedMarkerElement({
+        map,
+        position: pinPos,
+        content: pinEl,
+        title: 'Pin',
+      });
+      overlaysRef.current.push(pinMarker);
+    } catch (e) {
+      console.error('Pin marker failed:', pin, e);
+    }
 
     currentHoleRef.current = hole.id;
+    } catch (e) {
+      console.error('renderOverlays failed:', e);
+    }
   }, [hole, landingZones, clearOverlays, clearSimOverlays, clearMeasure]);
 
   // Set up tap-to-measure click listener
