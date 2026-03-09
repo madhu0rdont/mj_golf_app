@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { query, toCamel } from '../db.js';
 import { logger } from '../logger.js';
 import { getRoughPenalty } from './strategy-optimizer.js';
-import { generatePlanParallel } from './plan-worker-pool.js';
+import { generatePlanParallel, isPlanGenerationActive } from './plan-worker-pool.js';
 import type { ScoringMode } from './dp-optimizer.js';
 import type { Club, Shot, CourseWithHoles, CourseHole } from '../models/types.js';
 
@@ -13,6 +13,9 @@ const REGEN_LOCK_ID = 1337;
 const WORKER_CONCURRENCY = 1;
 
 export async function regenerateStalePlans() {
+  // Skip if a user-initiated plan generation is already running (avoid OOM)
+  if (isPlanGenerationActive()) return;
+
   // Acquire advisory lock (non-blocking). Returns false if another instance holds it.
   const { rows: lockRows } = await query('SELECT pg_try_advisory_lock($1) AS acquired', [REGEN_LOCK_ID]);
   if (!lockRows[0].acquired) return;

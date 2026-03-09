@@ -95,6 +95,11 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
 
       mapInstanceRef.current = map;
       setMapReady(true);
+      fetch('/api/track/map-impression', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'maps_js', endpoint: 'hole_viewer' }),
+      }).catch(() => {});
     }
 
     init();

@@ -15,6 +15,7 @@ interface DailyEntry {
   date: string;
   claude: number;
   google_elevation: number;
+  google_maps: number;
   resend: number;
   railway?: number;
 }
@@ -68,6 +69,7 @@ function formatNumber(n: number): string {
 const SERVICE_COLORS: Record<string, string> = {
   claude: '#8B5CF6',
   google_elevation: '#3B82F6',
+  google_maps: '#F59E0B',
   resend: '#10B981',
   railway: '#64748B',
 };
@@ -75,6 +77,7 @@ const SERVICE_COLORS: Record<string, string> = {
 const SERVICE_LABELS: Record<string, string> = {
   claude: 'Claude Vision',
   google_elevation: 'Google Elevation',
+  google_maps: 'Google Maps',
   resend: 'Resend Email',
   railway: 'Railway',
 };
@@ -88,7 +91,7 @@ function DailyChart({ data }: { data: DailyEntry[] }) {
     );
   }
 
-  const maxCost = Math.max(...data.map(d => d.claude + d.google_elevation + d.resend + (d.railway ?? 0)), 0.001);
+  const maxCost = Math.max(...data.map(d => d.claude + d.google_elevation + d.google_maps + d.resend + (d.railway ?? 0)), 0.001);
   const barWidth = Math.max(4, Math.min(20, Math.floor(280 / data.length) - 2));
   const chartWidth = data.length * (barWidth + 2) + 40;
   const chartHeight = 120;
@@ -112,6 +115,7 @@ function DailyChart({ data }: { data: DailyEntry[] }) {
           const segments = [
             { key: 'railway', val: d.railway ?? 0 },
             { key: 'resend', val: d.resend },
+            { key: 'google_maps', val: d.google_maps },
             { key: 'google_elevation', val: d.google_elevation },
             { key: 'claude', val: d.claude },
           ];
@@ -183,6 +187,7 @@ export function UsageDashboard() {
 
   const claude = data?.summary?.claude as ServiceSummary | undefined;
   const google = data?.summary?.google_elevation as ServiceSummary | undefined;
+  const googleMaps = data?.summary?.google_maps as ServiceSummary | undefined;
   const resend = data?.summary?.resend as ServiceSummary | undefined;
   const apiCost = data?.summary?.totalCost ?? 0;
   const railwayCost = railway?.estimatedCost ?? 0;
@@ -201,7 +206,8 @@ export function UsageDashboard() {
   // Legend items
   const legend = useMemo(() => [
     { color: SERVICE_COLORS.claude, label: 'Claude' },
-    { color: SERVICE_COLORS.google_elevation, label: 'Google' },
+    { color: SERVICE_COLORS.google_elevation, label: 'Elevation' },
+    { color: SERVICE_COLORS.google_maps, label: 'Maps' },
     { color: SERVICE_COLORS.resend, label: 'Resend' },
     { color: SERVICE_COLORS.railway, label: 'Railway' },
   ], []);
@@ -332,25 +338,32 @@ export function UsageDashboard() {
               </a>
             </div>
 
-            {/* Google Cloud */}
-            <a
-              href="https://console.cloud.google.com/billing"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-sm border border-border bg-card p-3 hover:border-fairway transition-colors"
-            >
+            {/* Google Maps */}
+            <div className="rounded-sm border border-border bg-card p-3">
               <div className="flex items-center gap-2 mb-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded bg-blue-500/10">
-                  <Map size={14} className="text-blue-500" />
+                <div className="flex h-7 w-7 items-center justify-center rounded bg-amber-500/10">
+                  <Map size={14} className="text-amber-500" />
                 </div>
-                <p className="text-xs font-medium text-text-dark">Google Cloud</p>
+                <p className="text-xs font-medium text-text-dark">Google Maps</p>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-primary">
-                <ExternalLink size={12} />
+              {googleMaps ? (
+                <>
+                  <p className="text-lg font-display font-light text-text-dark">{formatCost(googleMaps.totalCost)}</p>
+                  <p className="text-[10px] text-text-muted mt-0.5">{googleMaps.totalApiCalls} loads</p>
+                </>
+              ) : (
+                <p className="text-[10px] text-text-muted">No impressions tracked yet</p>
+              )}
+              <a
+                href="https://console.cloud.google.com/billing"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[10px] text-primary mt-1.5"
+              >
+                <ExternalLink size={10} />
                 <span>View Console</span>
-              </div>
-              <p className="text-[10px] text-text-muted mt-1">Maps JS & Static Maps API</p>
-            </a>
+              </a>
+            </div>
           </div>
 
           {/* Daily chart */}

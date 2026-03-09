@@ -24,8 +24,12 @@ const WORKER_SCRIPT = join(__dirname, 'generate-plan-worker.js');
 const HOLES_WORKER_SCRIPT = join(__dirname, 'generate-holes-worker.js');
 
 /** Max parallel workers for hole-level parallelism */
-const MAX_WORKERS = 4;
+const MAX_WORKERS = 2;
 const WORKER_COUNT = Math.min(availableParallelism(), MAX_WORKERS);
+
+/** Semaphore: only one plan generation at a time to avoid OOM */
+let planGenerationActive = false;
+export function isPlanGenerationActive() { return planGenerationActive; }
 
 // ---------------------------------------------------------------------------
 // Single-worker path (legacy — used by generate-plan-worker for sequential)
@@ -110,6 +114,23 @@ function runHolesWorker(
  * Computes club distributions once, then fans out hole batches in parallel.
  */
 export async function generatePlanParallel(
+  input: PlanWorkerInput,
+  onProgress?: (completed: number, total: number) => void,
+): Promise<GamePlan> {
+  // Wait for any running plan generation to finish (prevents OOM from concurrent workers)
+  while (planGenerationActive) {
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  planGenerationActive = true;
+
+  try {
+    return await _generatePlanParallelInner(input, onProgress);
+  } finally {
+    planGenerationActive = false;
+  }
+}
+
+async function _generatePlanParallelInner(
   input: PlanWorkerInput,
   onProgress?: (completed: number, total: number) => void,
 ): Promise<GamePlan> {

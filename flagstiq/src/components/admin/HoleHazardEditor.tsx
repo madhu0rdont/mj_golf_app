@@ -147,6 +147,11 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
       });
 
       mapInstanceRef.current = map;
+      fetch('/api/track/map-impression', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'maps_js', endpoint: 'hazard_editor' }),
+      }).catch(() => {});
 
       // Drawing manager (hidden by default)
       const dm = new DrawingManager({

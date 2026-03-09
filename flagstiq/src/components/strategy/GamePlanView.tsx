@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FileDown, Copy, Play, Flag, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { exportGamePlanPDF } from '../../services/game-plan-pdf';
@@ -296,6 +296,26 @@ function copySummary(plan: GamePlan) {
 }
 
 export function GamePlanView({ gamePlan, progress, isGenerating, onGenerate, distributions, isStale, staleReason, isFetching, cacheAge, courseHoles }: GamePlanViewProps) {
+  const trackedPlanRef = useRef<string | null>(null);
+
+  // Track static-maps impressions once per game plan render
+  useEffect(() => {
+    if (!gamePlan) return;
+    const planKey = `${gamePlan.courseName}_${gamePlan.teeBox}`;
+    if (trackedPlanRef.current === planKey) return;
+    trackedPlanRef.current = planKey;
+    const count = gamePlan.holes.filter(
+      (h) => (h.strategy.aimPoints[0]?.position.lat ?? 0) !== 0,
+    ).length;
+    if (count > 0) {
+      fetch('/api/track/map-impression', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'static_maps', endpoint: 'game_plan_thumbnail', count }),
+      }).catch(() => {});
+    }
+  }, [gamePlan]);
+
   // Loading cached plan from server
   if (isFetching && !gamePlan && !isGenerating) {
     return (

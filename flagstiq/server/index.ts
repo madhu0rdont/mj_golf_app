@@ -10,6 +10,7 @@ import { migrate } from './migrate.js';
 import { seed } from './seed.js';
 import { pool } from './db.js';
 import { logger } from './logger.js';
+import { logApiUsage } from './services/usage.js';
 import { requireAuth, requirePlayer } from './middleware/auth.js';
 import { csrfCheck } from './middleware/csrf.js';
 import authRouter from './routes/auth.js';
@@ -115,6 +116,25 @@ app.use('/api/backup', requirePlayer, backupRouter);
 app.use('/api/wedge-overrides', requirePlayer, wedgeOverridesRouter);
 app.use('/api/game-plans', requirePlayer, gamePlansRouter);
 app.use('/api/strategy', requirePlayer, strategyRouter);
+
+// Lightweight map-impression tracker (any authenticated user)
+const MAP_COSTS: Record<string, number> = { maps_js: 0.007, static_maps: 0.002 };
+app.post('/api/track/map-impression', (req, res) => {
+  const { type, count, endpoint } = req.body ?? {};
+  const cost = MAP_COSTS[type as string];
+  if (!cost) return res.status(400).json({ error: 'Invalid type' });
+  const n = Math.min(Math.max(Math.round(Number(count) || 1), 1), 50);
+  const userId = (req.session as { userId?: string }).userId;
+  logApiUsage({
+    service: 'google_maps',
+    endpoint: endpoint ?? type,
+    userId,
+    items: n,
+    apiCalls: n,
+    estimatedCost: cost * n,
+  });
+  res.json({ ok: true });
+});
 
 // Shared routes (any authenticated user)
 app.use('/api/courses', coursesRouter);
