@@ -1381,16 +1381,17 @@ export function dpOptimizeHole(
     }
   }
 
-  // 6. Diversity enforcement — ensure unique club sequences across strategies
+  // 6. Diversity enforcement — ensure unique full club sequences across strategies
+  //    Allow shared first clubs; only swap when the entire sequence is identical.
   const planClubKey = (p: NamedStrategyPlan) => p.shots.map((s) => s.clubDist.clubName).join('|');
   const usedKeys = new Set<string>();
   const usedFirstClubs = new Set<string>();
   for (let i = 0; i < plans.length; i++) {
     const key = planClubKey(plans[i]);
-    const firstClub = plans[i].shots[0]?.clubDist.clubName;
-    if (!firstClub) continue;
+    if (!plans[i].shots[0]) continue;
 
-    if (usedKeys.has(key) || usedFirstClubs.has(firstClub)) {
+    if (usedKeys.has(key)) {
+      // Full sequence is identical — try alternative tee club
       const alt = findAlternativeTeeAction(
         anchors, outcomeTable, allValues[i], modes[i], hole.par,
         usedFirstClubs, distributions, spatialIndex,
