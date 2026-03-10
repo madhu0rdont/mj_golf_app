@@ -420,19 +420,23 @@ export function ballHeightAtDistance(
   return 4 * BALL_APEX_YARDS * (d / carry) * (1 - d / carry);
 }
 
-/** Check if a ball's trajectory passes through any tree polygon below canopy height.
- *  Samples the flight path at 10y intervals near each tree polygon. */
+/** Check if a ball's trajectory passes through any tree or OB polygon below canopy height.
+ *  Samples the flight path at 10y intervals near each polygon.
+ *  Returns the closest collision — OB hits trigger stroke-and-distance. */
 export function checkTreeTrajectory(
   from: { lat: number; lng: number },
   bearing: number,
   carry: number,
   hazards: HazardFeature[],
   club?: ClubDistribution,
-): { hitTrees: boolean; hitDistance: number } {
-  for (const h of hazards) {
-    if (h.type !== 'trees' || h.polygon.length < MIN_HAZARD_POINTS) continue;
+): { hitTrees: boolean; hitOB: boolean; hitDistance: number } {
+  let closestHit: { type: 'trees' | 'ob'; distance: number } | null = null;
 
-    // Quick filter: skip tree polygons not along the shot direction
+  for (const h of hazards) {
+    if (h.type !== 'trees' && h.type !== 'ob') continue;
+    if (h.polygon.length < MIN_HAZARD_POINTS) continue;
+
+    // Quick filter: skip polygons not along the shot direction
     const centroid = polygonCentroid(h.polygon);
     const hazBearing = bearingBetween(from, centroid);
     let angleDiff = Math.abs(hazBearing - bearing);
@@ -442,7 +446,7 @@ export function checkTreeTrajectory(
     const centroidDist = haversineYards(from, centroid);
     if (centroidDist > carry + 20 || centroidDist < 10) continue;
 
-    // Sample flight path at 10y intervals through the tree area
+    // Sample flight path at 10y intervals through the hazard area
     const minDist = Math.max(20, centroidDist - 50);
     const maxDist = Math.min(carry - 5, centroidDist + 50);
 
@@ -451,11 +455,22 @@ export function checkTreeTrajectory(
       if (height >= TREE_HEIGHT_YARDS) continue; // Ball above canopy
       const pos = projectPoint(from, bearing, d);
       if (pointInPolygon(pos, h.polygon)) {
-        return { hitTrees: true, hitDistance: d };
+        if (!closestHit || d < closestHit.distance) {
+          closestHit = { type: h.type as 'trees' | 'ob', distance: d };
+        }
+        break; // Found hit in this polygon, check next hazard
       }
     }
   }
-  return { hitTrees: false, hitDistance: 0 };
+
+  if (closestHit) {
+    return {
+      hitTrees: closestHit.type === 'trees',
+      hitOB: closestHit.type === 'ob',
+      hitDistance: closestHit.distance,
+    };
+  }
+  return { hitTrees: false, hitOB: false, hitDistance: 0 };
 }
 
 // ---------------------------------------------------------------------------

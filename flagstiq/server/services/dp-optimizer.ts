@@ -593,9 +593,13 @@ function sampleOutcomes(
     let penalty = 0;
     let hitTree = false;
 
-    // Tree collision
+    // Tree / OB trajectory collision
     const treeHit = checkTreeTrajectory(anchor.position, bearing, carry, hole.hazards, club);
-    if (treeHit.hitTrees) {
+    if (treeHit.hitOB) {
+      // Stroke-and-distance: return to shot origin + 1 penalty stroke
+      landing = anchor.position;
+      penalty += 1;
+    } else if (treeHit.hitTrees) {
       landing = projectPoint(anchor.position, bearing, treeHit.hitDistance);
       penalty += 0.5;
       hitTree = true;
@@ -606,10 +610,12 @@ function sampleOutcomes(
       if (rollout > 0.5) landing = projectPoint(landing, bearing, rollout);
     }
 
-    // Hazard check
-    const hazDrop = resolveHazardDrop(anchor.position, landing, hole.hazards, hole.fairway, hole.green, HAZARD_DROP_PENALTY);
-    penalty += hazDrop.penalty;
-    landing = hazDrop.landing;
+    // Hazard check (skip if OB trajectory — ball never reached landing)
+    if (!treeHit.hitOB) {
+      const hazDrop = resolveHazardDrop(anchor.position, landing, hole.hazards, hole.fairway, hole.green, HAZARD_DROP_PENALTY);
+      penalty += hazDrop.penalty;
+      landing = hazDrop.landing;
+    }
 
     const distToPin = haversineYards(landing, hole.pin);
     const onGreen = isOnGreen(landing, hole.green, hole.pin);
@@ -1201,7 +1207,11 @@ function simulateWithPolicy(
       strokes++;
 
       const treeHit = checkTreeTrajectory(currentPos, shotBearing, carry, hole.hazards, club);
-      if (treeHit.hitTrees) {
+      if (treeHit.hitOB) {
+        // Stroke-and-distance: return to shot origin + 1 penalty stroke
+        landing = currentPos;
+        strokes += 1;
+      } else if (treeHit.hitTrees) {
         landing = projectPoint(currentPos, shotBearing, treeHit.hitDistance);
         strokes += 0.5;
       } else {
@@ -1210,12 +1220,14 @@ function simulateWithPolicy(
         if (rollout > 0.5) landing = projectPoint(landing, shotBearing, rollout);
       }
 
-      const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway, hole.green, HAZARD_DROP_PENALTY);
-      strokes += hazDrop.penalty;
-      landing = hazDrop.landing;
+      if (!treeHit.hitOB) {
+        const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway, hole.green, HAZARD_DROP_PENALTY);
+        strokes += hazDrop.penalty;
+        landing = hazDrop.landing;
 
-      if (shotIdx === 0 && hazDrop.penalty === 0) {
-        fairwayHits++;
+        if (shotIdx === 0 && hazDrop.penalty === 0) {
+          fairwayHits++;
+        }
       }
 
       currentPos = landing;
@@ -1250,7 +1262,11 @@ function simulateWithPolicy(
       strokes++;
 
       const greedyTreeHit = checkTreeTrajectory(currentPos, shotBearing, carry, hole.hazards, club);
-      if (greedyTreeHit.hitTrees) {
+      if (greedyTreeHit.hitOB) {
+        // Stroke-and-distance: return to shot origin + 1 penalty stroke
+        landing = currentPos;
+        strokes += 1;
+      } else if (greedyTreeHit.hitTrees) {
         landing = projectPoint(currentPos, shotBearing, greedyTreeHit.hitDistance);
         strokes += 0.5;
       } else {
@@ -1259,9 +1275,11 @@ function simulateWithPolicy(
         if (rollout > 0.5) landing = projectPoint(landing, shotBearing, rollout);
       }
 
-      const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway, hole.green, HAZARD_DROP_PENALTY);
-      strokes += hazDrop.penalty;
-      landing = hazDrop.landing;
+      if (!greedyTreeHit.hitOB) {
+        const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway, hole.green, HAZARD_DROP_PENALTY);
+        strokes += hazDrop.penalty;
+        landing = hazDrop.landing;
+      }
 
       currentPos = landing;
       distToPin = haversineYards(currentPos, pin);
