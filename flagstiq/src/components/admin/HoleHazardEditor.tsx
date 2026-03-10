@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
-import { Loader2, Pencil, Trash2, Check, Save } from 'lucide-react';
+import { Loader2, Pencil, Trash2, Check, Save, RotateCcw } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useHole } from '../../hooks/useCourses';
 import { bearingBetween } from '../../utils/geo';
@@ -620,12 +620,42 @@ export function HoleHazardEditor({ courseId, holeNumber, onSave }: HoleHazardEdi
         className="h-[400px] w-full rounded-sm overflow-hidden border border-border"
       />
 
-      {/* Tee/Pin moved indicator */}
+      {/* Tee/Pin moved indicator + reset buttons */}
       {hole && ((teePos && (teePos.lat !== hole.tee.lat || teePos.lng !== hole.tee.lng)) ||
         (pinPos && (pinPos.lat !== hole.pin.lat || pinPos.lng !== hole.pin.lng))) && (
-        <p className="text-xs text-amber-600">
-          Tee/Pin position changed — save to persist.
-        </p>
+        <div className="flex items-center gap-2 text-xs text-amber-600">
+          <span>Tee/Pin position changed — save to persist.</span>
+          {teePos && (teePos.lat !== hole.tee.lat || teePos.lng !== hole.tee.lng) && (
+            <button
+              onClick={() => {
+                const pos = { lat: hole.tee.lat, lng: hole.tee.lng };
+                setTeePos(pos);
+                if (markersRef.current[0]) {
+                  markersRef.current[0].position = new google.maps.LatLng(pos.lat, pos.lng);
+                }
+              }}
+              className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 hover:bg-blue-500/10"
+            >
+              <RotateCcw size={10} />
+              Reset Tee
+            </button>
+          )}
+          {pinPos && (pinPos.lat !== hole.pin.lat || pinPos.lng !== hole.pin.lng) && (
+            <button
+              onClick={() => {
+                const pos = { lat: hole.pin.lat, lng: hole.pin.lng };
+                setPinPos(pos);
+                if (markersRef.current[1]) {
+                  markersRef.current[1].position = new google.maps.LatLng(pos.lat, pos.lng);
+                }
+              }}
+              className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-red-600 hover:bg-red-500/10"
+            >
+              <RotateCcw size={10} />
+              Reset Pin
+            </button>
+          )}
+        </div>
       )}
 
       {/* Action buttons */}
