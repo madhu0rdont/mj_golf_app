@@ -309,10 +309,11 @@ export function StrategyPlannerPage() {
 
                 {showSim && (
                   <StrategyPanel
-                    strategies={strategies}
+                    strategies={isRegenerating ? [] : strategies}
                     selectedIdx={selectedStrategyIdx}
                     onSelect={setSelectedStrategyIdx}
                     shotCount={shotCount}
+                    isLoading={isRegenerating}
                   />
                 )}
                 <HoleViewer hole={hole} teeBox={teeBox} landingZones={showSim ? landingZones : undefined} aimPoints={showSim ? aimPoints : undefined} />
