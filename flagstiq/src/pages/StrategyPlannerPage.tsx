@@ -113,7 +113,7 @@ export function StrategyPlannerPage() {
   }, [shotGroups]);
 
   // Game plan (lifted so both views can access keyHoles)
-  const { gamePlan, isStale, staleReason, isFetching, isGenerating, progress, generate, cacheAge } = useGamePlanCache(
+  const { gamePlan, isStale, staleReason, isFetching, isGenerating, progress, generate, regenerateHole, cacheAge } = useGamePlanCache(
     course,
     teeBox,
   );
@@ -285,8 +285,12 @@ export function StrategyPlannerPage() {
                     <button
                       onClick={async () => {
                         setIsRegenerating(true);
-                        await regenerate();
-                        setIsRegenerating(false);
+                        try {
+                          await regenerateHole(holeNumber);
+                          await regenerate();
+                        } finally {
+                          setIsRegenerating(false);
+                        }
                       }}
                       disabled={isRegenerating}
                       className="rounded-sm px-3 py-2 text-sm font-medium bg-surface text-text-dark border border-border hover:border-primary hover:text-primary transition-all disabled:opacity-50"

@@ -300,6 +300,7 @@ const OB_DROP_OFFSET = 2;        // yards back from OB boundary
 const BINARY_SEARCH_STEPS = 8;   // ~1 yard precision on 250y shots
 const MAX_RETREAT_STEPS = 10;
 const RETREAT_STEP = 2;          // yards per retreat step
+const OB_PENALTY = 2;            // 2-stroke penalty (local rule E-5: drop near crossing + 2 strokes)
 
 /** Check if a point is in a "bad" hazard (OB, water, trees) — NOT bunker, which is playable. */
 function isInBadHazard(
@@ -400,10 +401,10 @@ export function resolveHazardDrop(
     return { landing, penalty: hazResult.penalty };
   }
 
-  // OB: find trajectory entry point, drop on playable side
+  // OB: drop at boundary entry point + 2-stroke penalty (local rule E-5)
   if (hazardType === 'ob') {
     const dropPoint = findOBEntryDrop(shotOrigin, landing, hazards);
-    return { landing: dropPoint, penalty: hazResult.penalty };
+    return { landing: dropPoint, penalty: OB_PENALTY };
   }
 
   // Water: move backward, validate safe

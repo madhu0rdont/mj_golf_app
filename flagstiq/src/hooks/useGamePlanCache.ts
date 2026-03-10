@@ -122,6 +122,29 @@ export function useGamePlanCache(
     }
   }, [course, teeBox, cacheKey]);
 
+  const regenerateHole = useCallback(async (holeNumber: number) => {
+    if (!course) return;
+
+    const res = await fetch(`/api/game-plans/${course.id}/${teeBox}/scoring/generate/${holeNumber}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
+      body: '{}',
+    });
+
+    if (!res.ok) throw new Error(`API ${res.status}`);
+
+    // Revalidate SWR caches
+    if (cacheKey) {
+      await globalMutate(cacheKey);
+    }
+    // Also invalidate the per-hole strategy cache so sim view picks up new data
+    globalMutate(
+      (key: string) => typeof key === 'string' && key.startsWith(`strategy:${course.id}:${holeNumber}:`),
+      undefined,
+      { revalidate: true },
+    );
+  }, [course, teeBox, cacheKey]);
+
   return {
     gamePlan,
     isStale,
@@ -130,6 +153,7 @@ export function useGamePlanCache(
     isGenerating,
     progress,
     generate,
+    regenerateHole,
     cacheAge,
   };
 }

@@ -5,7 +5,12 @@ import { logger } from '../logger.js';
 import { regenerateStalePlans } from '../services/plan-regenerator.js';
 import { getRoughPenalty } from '../services/strategy-optimizer.js';
 import { generatePlanParallel } from '../services/plan-worker-pool.js';
+import { dpOptimizeHole } from '../services/dp-optimizer.js';
 import type { ScoringMode } from '../services/dp-optimizer.js';
+import { computeClubShotGroups } from '../services/club-shot-groups.js';
+import { buildDistributions } from '../services/monte-carlo.js';
+import { assembleGamePlan } from '../services/game-plan.js';
+import type { GamePlan } from '../services/game-plan.js';
 import type { Club, Shot, CourseWithHoles, CourseHole } from '../models/types.js';
 
 const router = Router();
@@ -235,6 +240,96 @@ router.post('/:courseId/:teeBox/:mode/generate', async (req, res) => {
     } else {
       res.status(500).json({ error: 'Internal server error' });
     }
+  }
+});
+
+// POST /api/game-plans/:courseId/:teeBox/:mode/generate/:holeNumber — regenerate single hole
+router.post('/:courseId/:teeBox/:mode/generate/:holeNumber', async (req, res) => {
+  try {
+    const userId = req.session.userId!;
+    const { courseId, teeBox, mode } = req.params;
+    const holeNumber = parseInt(req.params.holeNumber);
+
+    if (!['scoring', 'safe', 'aggressive'].includes(mode)) {
+      return res.status(400).json({ error: 'Mode must be scoring, safe, or aggressive' });
+    }
+    if (isNaN(holeNumber) || holeNumber < 1 || holeNumber > 18) {
+      return res.status(400).json({ error: 'Invalid hole number' });
+    }
+
+    // Load existing cached plan
+    const { rows: cacheRows } = await query(
+      `SELECT * FROM game_plan_cache WHERE course_id = $1 AND tee_box = $2 AND mode = $3 AND user_id = $4`,
+      [courseId, teeBox, mode, userId],
+    );
+    if (cacheRows.length === 0) {
+      return res.status(404).json({ error: 'No cached plan — generate the full plan first' });
+    }
+    const cachedPlan = toCamel<{ plan: GamePlan }>(cacheRows[0]).plan;
+
+    // Load the specific hole
+    const { rows: holeRows } = await query(
+      'SELECT * FROM course_holes WHERE course_id = $1 AND hole_number = $2',
+      [courseId, holeNumber],
+    );
+    if (holeRows.length === 0) {
+      return res.status(404).json({ error: 'Hole not found' });
+    }
+    const hole = toCamel<CourseHole>(holeRows[0]);
+
+    // Load user's club/shot data and build distributions
+    const { rows: clubRows } = await query('SELECT * FROM clubs WHERE user_id = $1 ORDER BY sort_order', [userId]);
+    const clubs = clubRows.map(toCamel<Club>);
+    const { rows: shotRows } = await query('SELECT * FROM shots WHERE user_id = $1', [userId]);
+    const shots = shotRows.map(toCamel<Shot>);
+
+    const groups = computeClubShotGroups(clubs, shots);
+    const distributions = buildDistributions(groups);
+    if (distributions.length === 0) {
+      return res.status(400).json({ error: 'No distributions — not enough shot data' });
+    }
+
+    // Run DP optimizer for this single hole (runs synchronously, ~15-20s for one hole)
+    const roughPenalty = await getRoughPenalty();
+    const strategies = dpOptimizeHole(hole, teeBox, distributions, roughPenalty);
+
+    if (strategies.length === 0) {
+      return res.status(400).json({ error: 'Optimizer returned no strategies for this hole' });
+    }
+
+    // Patch the single hole into the cached plan
+    const MODE_INDEX: Record<string, number> = { scoring: 0, safe: 1, aggressive: 2 };
+    const modeIdx = MODE_INDEX[mode] ?? 0;
+    const strategy = strategies[modeIdx] ?? strategies[0];
+
+    const holeIdx = cachedPlan.holes.findIndex((h) => h.holeNumber === holeNumber);
+    if (holeIdx >= 0) {
+      cachedPlan.holes[holeIdx].strategy = strategy;
+      cachedPlan.holes[holeIdx].allStrategies = strategies;
+    }
+
+    // Recalculate total expected
+    const rawTotal = cachedPlan.holes.reduce((sum, h) => sum + h.strategy.expectedStrokes, 0);
+    cachedPlan.totalExpected = Number.isFinite(rawTotal)
+      ? rawTotal
+      : cachedPlan.holes.reduce((sum, h) => sum + h.par, 0);
+
+    // Update cache
+    const now = Date.now();
+    await query(
+      `UPDATE game_plan_cache SET plan = $1, stale = FALSE, stale_reason = NULL, updated_at = $2
+       WHERE course_id = $3 AND tee_box = $4 AND mode = $5 AND user_id = $6`,
+      [JSON.stringify(cachedPlan), now, courseId, teeBox, mode, userId],
+    );
+
+    logger.info(`Regenerated hole ${holeNumber} for ${courseId} (${teeBox}/${mode}): ${strategy.expectedStrokes.toFixed(1)} xS`, {
+      component: 'game-plan-generate',
+    });
+
+    res.json({ ok: true, plan: cachedPlan });
+  } catch (err) {
+    logger.error('Failed to regenerate single hole', { error: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
