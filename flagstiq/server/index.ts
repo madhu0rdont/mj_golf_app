@@ -51,6 +51,32 @@ app.use(csrfCheck);
 // Health checks (unauthenticated)
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
+// Temporary debug endpoint — check hole hazard data
+app.get('/debug/hole-hazards/:courseId/:holeNumber', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT hole_number, hazards, tee, pin, notes FROM course_holes WHERE course_id = $1 AND hole_number = $2',
+      [req.params.courseId, parseInt(req.params.holeNumber)],
+    );
+    if (rows.length === 0) return res.json({ error: 'not found' });
+    const hole = rows[0];
+    const hazards = (hole.hazards ?? []) as { name: string; type: string; penalty: number; polygon: unknown[] }[];
+    res.json({
+      holeNumber: hole.hole_number,
+      notes: hole.notes,
+      hazardCount: hazards.length,
+      hazards: hazards.map((h) => ({
+        name: h.name,
+        type: h.type,
+        penalty: h.penalty,
+        polygonPoints: h.polygon?.length ?? 0,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // Temporary fix endpoint — remove after elevation data is restored
 app.get('/debug/fix-elevations/:courseId', async (_req, res) => {
   const req = _req;
@@ -216,7 +242,7 @@ async function start() {
   // IMPORTANT: Only bump OPTIMIZER_VERSION when the DP optimizer / MC simulation
   // / game-plan logic actually changes. Package version bumps alone should NOT
   // trigger costly regeneration that blocks the event loop for minutes.
-  const OPTIMIZER_VERSION = '1.5.7'; // tee bearing look-ahead fix for doglegs
+  const OPTIMIZER_VERSION = '1.5.8'; // varied strategy names per hole
   try {
     const { rows } = await pool.query(
       `SELECT value FROM app_settings WHERE key = 'optimizer_version'`,

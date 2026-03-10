@@ -126,11 +126,41 @@ const LIE_MULTIPLIER: Record<LieClass, number> = {
   recovery: 1.60,
 };
 
-const MODE_LABELS: Record<ScoringMode, { name: string; type: 'scoring' | 'safe' | 'balanced' }> = {
-  scoring: { name: 'Optimal Scoring', type: 'scoring' },
-  safe: { name: 'Risk-Averse', type: 'safe' },
-  aggressive: { name: 'Birdie Hunt', type: 'balanced' },
+const MODE_TYPE: Record<ScoringMode, 'scoring' | 'safe' | 'balanced'> = {
+  scoring: 'scoring',
+  safe: 'safe',
+  aggressive: 'balanced',
 };
+
+const MODE_NAME_POOL: Record<ScoringMode, string[]> = {
+  scoring: [
+    'Smart Play',
+    'Optimal Line',
+    'Best Score',
+    'Course Management',
+    'Calculated Play',
+  ],
+  safe: [
+    'Safe Play',
+    'Conservative Line',
+    'Play It Safe',
+    'Keep It In Play',
+    'Fairways & Greens',
+  ],
+  aggressive: [
+    'Attack',
+    'Go For It',
+    'Aggressive Line',
+    'Full Send',
+    'Pin Seeking',
+  ],
+};
+
+function modeLabel(mode: ScoringMode, holeNumber: number): { name: string; type: 'scoring' | 'safe' | 'balanced' } {
+  const pool = MODE_NAME_POOL[mode];
+  const name = pool[(holeNumber - 1) % pool.length];
+  return { name, type: MODE_TYPE[mode] };
+}
 
 // ---------------------------------------------------------------------------
 // Hole-Frame Projection
@@ -1096,7 +1126,7 @@ function extractPlan(
     shots.push({ clubDist: fallbackClub, aimPoint: pin });
   }
 
-  const { name, type } = MODE_LABELS[mode];
+  const { name, type } = modeLabel(mode, hole.holeNumber);
   return { name, type, shots };
 }
 
@@ -1344,7 +1374,8 @@ export function dpOptimizeHole(
   // 5. Extract initial plans
   for (let i = 0; i < modes.length; i++) {
     if (policies[i].size === 0) {
-      plans.push({ name: MODE_LABELS[modes[i]].name, type: MODE_LABELS[modes[i]].type, shots: [] });
+      const ml = modeLabel(modes[i], hole.holeNumber);
+      plans.push({ name: ml.name, type: ml.type, shots: [] });
     } else {
       plans.push(extractPlan(anchors, policies[i], distributions, hole, teeBox, modes[i], elevProfile));
     }

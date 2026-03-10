@@ -328,10 +328,10 @@ describe('dpOptimizeHole — par 4', () => {
     expect(results.length).toBeLessThanOrEqual(3);
   });
 
-  it('strategy names are from the 3 modes', () => {
-    const validNames = new Set(['Optimal Scoring', 'Risk-Averse', 'Birdie Hunt']);
+  it('strategy types are from the 3 modes', () => {
+    const validTypes = new Set(['scoring', 'safe', 'balanced']);
     for (const r of results) {
-      expect(validNames.has(r.strategyName)).toBe(true);
+      expect(validTypes.has(r.strategyType)).toBe(true);
     }
   });
 
