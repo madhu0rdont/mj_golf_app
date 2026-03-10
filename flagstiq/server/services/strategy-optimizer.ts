@@ -296,11 +296,8 @@ export interface HazardDropResult {
   penalty: number;
 }
 
-const OB_DROP_OFFSET = 2;        // yards back from OB boundary
-const BINARY_SEARCH_STEPS = 8;   // ~1 yard precision on 250y shots
 const MAX_RETREAT_STEPS = 10;
 const RETREAT_STEP = 2;          // yards per retreat step
-const OB_PENALTY = 2;            // 2-stroke penalty (local rule E-5: drop near crossing + 2 strokes)
 
 /** Check if a point is in a "bad" hazard (OB, water, trees) — NOT bunker, which is playable. */
 function isInBadHazard(
@@ -327,40 +324,6 @@ function findSafeDrop(
     point = projectPoint(point, retreatBearing, RETREAT_STEP);
   }
   return point;
-}
-
-/** Binary search along trajectory to find where ball enters OB, drop 2y back. */
-function findOBEntryDrop(
-  shotOrigin: { lat: number; lng: number },
-  landing: { lat: number; lng: number },
-  hazards: HazardFeature[],
-): { lat: number; lng: number } {
-  const trajectoryBearing = bearingBetween(shotOrigin, landing);
-  const totalDist = haversineYards(shotOrigin, landing);
-
-  // Binary search: lo = outside OB (shotOrigin side), hi = inside OB (landing side)
-  let lo = 0;
-  let hi = totalDist;
-
-  for (let i = 0; i < BINARY_SEARCH_STEPS; i++) {
-    const mid = (lo + hi) / 2;
-    const midPoint = projectPoint(shotOrigin, trajectoryBearing, mid);
-    const midHaz = checkHazards(midPoint, hazards);
-
-    if (midHaz.inHazard && midHaz.hazardType === 'ob') {
-      hi = mid;
-    } else {
-      lo = mid;
-    }
-  }
-
-  // Drop OB_DROP_OFFSET yards back from entry point
-  const dropDist = Math.max(0, hi - OB_DROP_OFFSET);
-  const dropPoint = projectPoint(shotOrigin, trajectoryBearing, dropDist);
-
-  // Validate the drop is not in another bad hazard
-  const retreatBearing = (trajectoryBearing + 180) % 360;
-  return findSafeDrop(dropPoint, retreatBearing, hazards);
 }
 
 /**
@@ -401,10 +364,10 @@ export function resolveHazardDrop(
     return { landing, penalty: hazResult.penalty };
   }
 
-  // OB: drop at boundary entry point + 2-stroke penalty (local rule E-5)
+  // OB: stroke-and-distance — return to shot origin, hitting 3 (1 penalty stroke)
+  // The player replays from where they hit, losing all distance + 1 stroke.
   if (hazardType === 'ob') {
-    const dropPoint = findOBEntryDrop(shotOrigin, landing, hazards);
-    return { landing: dropPoint, penalty: OB_PENALTY };
+    return { landing: shotOrigin, penalty: 1 };
   }
 
   // Water: move backward, validate safe
