@@ -60,9 +60,12 @@ app.get('/debug/hole-hazards/:courseId/:holeNumber', async (req, res) => {
     );
     if (rows.length === 0) return res.json({ error: 'not found' });
     const hole = rows[0];
-    const hazards = (hole.hazards ?? []) as { name: string; type: string; penalty: number; polygon: unknown[] }[];
+    const hazards = (hole.hazards ?? []) as { name: string; type: string; penalty: number; polygon: { lat: number; lng: number }[] }[];
+    const full = req.query.full === '1';
     res.json({
       holeNumber: hole.hole_number,
+      tee: hole.tee,
+      pin: hole.pin,
       notes: hole.notes,
       hazardCount: hazards.length,
       hazards: hazards.map((h) => ({
@@ -70,6 +73,7 @@ app.get('/debug/hole-hazards/:courseId/:holeNumber', async (req, res) => {
         type: h.type,
         penalty: h.penalty,
         polygonPoints: h.polygon?.length ?? 0,
+        ...(full && { polygon: h.polygon }),
       })),
     });
   } catch (err) {
