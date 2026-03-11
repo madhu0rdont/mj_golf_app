@@ -693,6 +693,78 @@ function buildOutcomeTable(
   return entries;
 }
 
+/** Expand the tee anchor's bearing grid with 1° steps, filtered to bearings
+ *  where the MEAN landing is on the fairway and the trajectory is clear.
+ *  Only called when all standard bearings produce terrible strategies. */
+function expandTeeBearings(
+  anchors: AnchorState[],
+  distributions: ClubDistribution[],
+  hole: CourseHole,
+  existingBearings: Set<number>,
+  elevProfile: ElevationProfile,
+  centerLine: { lat: number; lng: number }[],
+  tee: { lat: number; lng: number },
+  heading: number,
+): ActionOutcomes[] {
+  const teeAnchor = anchors[0];
+  const pin = { lat: hole.pin.lat, lng: hole.pin.lng };
+  const pinElev = hole.pin.elevation;
+  const clubs = getEligibleClubs(teeAnchor, distributions, pinElev);
+  const maxCarry = distributions.reduce((m, d) => Math.max(m, d.meanCarry + 2 * d.stdCarry), 0);
+  const sampleCount = samplesForAnchor(teeAnchor, maxCarry, hole.hazards);
+  const entries: ActionOutcomes[] = [];
+  const fairwayPolygons = hole.fairway ?? [];
+
+  // Fine grid: 1° steps across ±BEARING_RANGE
+  for (let offset = -BEARING_RANGE; offset <= BEARING_RANGE; offset += 1) {
+    const b = (teeAnchor.localBearing + offset + 360) % 360;
+    const bKey = Math.round(b);
+    if (existingBearings.has(bKey)) continue;
+
+    for (let ci = 0; ci < clubs.length; ci++) {
+      const club = clubs[ci];
+
+      // Check mean landing is on fairway
+      const totalDist = club.meanTotal ?? club.meanCarry;
+      const eld = teeAnchor.distFromTee + totalDist;
+      const landElev = getProfileElevation(elevProfile, eld);
+      const adjDist = totalDist - (landElev - teeAnchor.elevation) * ELEV_YARDS_PER_METER;
+      const meanLanding = projectPoint(teeAnchor.position, b, adjDist);
+
+      let onFairway = false;
+      for (const fw of fairwayPolygons) {
+        if (fw.length >= 3 && pointInPolygon(meanLanding, fw)) {
+          onFairway = true;
+          break;
+        }
+      }
+      if (!onFairway) continue;
+
+      // Check trajectory is safe
+      const trajCheck = checkTreeTrajectory(teeAnchor.position, b, club.meanCarry, hole.hazards, club);
+      if (trajCheck.hitTrees || trajCheck.hitOB) continue;
+
+      // Safe fairway landing — evaluate this action
+      const { outcomes, pGreen, pFairway } = sampleOutcomes(
+        teeAnchor, club, b, hole, sampleCount,
+        elevProfile, centerLine, tee, heading,
+      );
+
+      const bi = 1000 + offset + BEARING_RANGE; // unique bearing index
+      entries.push({
+        key: { anchorId: teeAnchor.id, clubIdx: ci, bearingIdx: bi },
+        club,
+        bearing: b,
+        outcomes,
+        pGreen,
+        pFairway,
+      });
+    }
+  }
+
+  return entries;
+}
+
 // ---------------------------------------------------------------------------
 // Spatial Index (for efficient k-nearest lookup during interpolation)
 // ---------------------------------------------------------------------------
@@ -1070,12 +1142,36 @@ function extractPlan(
     const landingElev = getProfileElevation(elevProfile, elevLandingDist);
     const elevDelta = landingElev - currentAnchor.elevation;
     const adjustedTotalDist = totalDist - elevDelta * ELEV_YARDS_PER_METER;
-    const rawLanding = projectPoint(currentAnchor.position, bearing, adjustedTotalDist);
+    let rawLanding = projectPoint(currentAnchor.position, bearing, adjustedTotalDist);
 
-    const hazDrop = resolveHazardDrop(
+    // Check trajectory and landing for OB — try alternative bearings if needed
+    let trajHit = checkTreeTrajectory(currentAnchor.position, bearing, club.meanCarry, hole.hazards, club);
+    let hazDrop = resolveHazardDrop(
       currentAnchor.position, rawLanding,
       hole.hazards ?? [], hole.fairway ?? [], hole.green ?? [], HAZARD_DROP_PENALTY,
     );
+
+    if (trajHit.hitOB || (hazDrop.penalty > 0 && haversineYards(hazDrop.landing, currentAnchor.position) < 5)) {
+      // Policy's bearing goes through OB — try nearby safe bearings
+      for (const offset of [3, -3, 6, -6, 10, -10, 15, -15, 20, -20]) {
+        const altBearing = (bearing + offset + 360) % 360;
+        const altTraj = checkTreeTrajectory(currentAnchor.position, altBearing, club.meanCarry, hole.hazards, club);
+        if (altTraj.hitOB || altTraj.hitTrees) continue;
+        const altLanding = projectPoint(currentAnchor.position, altBearing, adjustedTotalDist);
+        const altHaz = resolveHazardDrop(
+          currentAnchor.position, altLanding,
+          hole.hazards ?? [], hole.fairway ?? [], hole.green ?? [], HAZARD_DROP_PENALTY,
+        );
+        if (altHaz.penalty === 0) {
+          bearing = altBearing;
+          rawLanding = altLanding;
+          trajHit = altTraj;
+          hazDrop = altHaz;
+          break;
+        }
+      }
+    }
+
     const landing = hazDrop.landing;
     const aimPoint = hazDrop.penalty > 0 ? landing : rawLanding;
 
@@ -1370,15 +1466,15 @@ export function dpOptimizeHole(
   const heading = bearingBetween(tee, { lat: hole.pin.lat, lng: hole.pin.lng });
   const yardage = hole.yardages[teeBox] ?? Object.values(hole.yardages)[0] ?? 400;
   const bearingStep = bearingStepForDistance(yardage);
-  const outcomeTable = buildOutcomeTable(anchors, distributions, hole, bearingStep, elevProfile, centerLine, tee, heading);
+  let outcomeTable = buildOutcomeTable(anchors, distributions, hole, bearingStep, elevProfile, centerLine, tee, heading);
   if (outcomeTable.length === 0) return [];
 
   // 3. Build spatial index for interpolation
   const spatialIndex = buildSpatialIndex(anchors);
 
   const modes: ScoringMode[] = ['scoring', 'safe', 'aggressive'];
-  const policies: Map<number, PolicyEntry>[] = [];
-  const allValues: Map<number, number>[] = [];
+  let policies: Map<number, PolicyEntry>[] = [];
+  let allValues: Map<number, number>[] = [];
   const plans: NamedStrategyPlan[] = [];
   const results: OptimizedStrategy[] = [];
 
@@ -1387,6 +1483,28 @@ export function dpOptimizeHole(
     const { policy, values } = valueIteration(anchors, outcomeTable, mode, hole.par, distributions, spatialIndex);
     policies.push(policy);
     allValues.push(values);
+  }
+
+  // 4b. Expand tee bearings if all strategies are terrible (no safe landing)
+  const teeValue = allValues[0].get(0) ?? 10;
+  if (teeValue > hole.par + 2) {
+    const existingBearings = new Set(
+      outcomeTable.filter((e) => e.key.anchorId === 0).map((e) => Math.round(e.bearing)),
+    );
+    const expanded = expandTeeBearings(
+      anchors, distributions, hole, existingBearings, elevProfile, centerLine, tee, heading,
+    );
+    if (expanded.length > 0) {
+      outcomeTable = [...outcomeTable, ...expanded];
+      // Re-run value iteration with expanded options
+      policies = [];
+      allValues = [];
+      for (const mode of modes) {
+        const { policy, values } = valueIteration(anchors, outcomeTable, mode, hole.par, distributions, spatialIndex);
+        policies.push(policy);
+        allValues.push(values);
+      }
+    }
   }
 
   // 5. Extract initial plans

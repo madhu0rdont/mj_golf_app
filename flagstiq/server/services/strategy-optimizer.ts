@@ -422,7 +422,9 @@ export function ballHeightAtDistance(
 
 /** Check if a ball's trajectory passes through any tree or OB polygon below canopy height.
  *  Samples the flight path at 10y intervals near each polygon.
- *  Returns the closest collision — OB hits trigger stroke-and-distance. */
+ *  Trees: single sample point triggers (ball hits a tree).
+ *  OB: requires 3 consecutive sample points (30y sustained flight through OB forest),
+ *      distinguishing "flying through OB forest" from "clipping the polygon edge." */
 export function checkTreeTrajectory(
   from: { lat: number; lng: number },
   bearing: number,
@@ -450,15 +452,29 @@ export function checkTreeTrajectory(
     const minDist = Math.max(20, centroidDist - 50);
     const maxDist = Math.min(carry - 5, centroidDist + 50);
 
+    const isOB = h.type === 'ob';
+    const requiredHits = isOB ? 3 : 1; // OB needs sustained flight through forest
+    let consecutiveHits = 0;
+    let firstHitDist = 0;
+
     for (let d = minDist; d <= maxDist; d += 10) {
       const height = ballHeightAtDistance(d, carry, club?.meanApex, club?.meanDescentAngle);
-      if (height >= TREE_HEIGHT_YARDS) continue; // Ball above canopy
+      if (height >= TREE_HEIGHT_YARDS) {
+        consecutiveHits = 0;
+        continue;
+      }
       const pos = projectPoint(from, bearing, d);
       if (pointInPolygon(pos, h.polygon)) {
-        if (!closestHit || d < closestHit.distance) {
-          closestHit = { type: h.type as 'trees' | 'ob', distance: d };
+        if (consecutiveHits === 0) firstHitDist = d;
+        consecutiveHits++;
+        if (consecutiveHits >= requiredHits) {
+          if (!closestHit || firstHitDist < closestHit.distance) {
+            closestHit = { type: h.type as 'trees' | 'ob', distance: firstHitDist };
+          }
+          break;
         }
-        break; // Found hit in this polygon, check next hazard
+      } else {
+        consecutiveHits = 0;
       }
     }
   }
