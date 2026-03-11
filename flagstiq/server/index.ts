@@ -78,6 +78,27 @@ app.get('/debug/plan-qc/:courseId', async (req, res) => {
   }
 });
 
+// Temporary debug — show yardage keys and game plan tee_box values per course
+app.get('/debug/tee-keys/:courseId', async (_req, res) => {
+  try {
+    const cid = _req.params.courseId;
+    const { rows: holes } = await pool.query(
+      'SELECT hole_number, yardages FROM course_holes WHERE course_id = $1 ORDER BY hole_number LIMIT 1',
+      [cid],
+    );
+    const { rows: plans } = await pool.query(
+      'SELECT tee_box, mode FROM game_plan_cache WHERE course_id = $1',
+      [cid],
+    );
+    res.json({
+      yardageKeys: holes[0] ? Object.keys(holes[0].yardages) : [],
+      cachedPlans: plans.map((p: Record<string, unknown>) => ({ teeBox: p.tee_box, mode: p.mode })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // Temporary debug endpoint — list courses
 app.get('/debug/courses', async (_req, res) => {
   try {
