@@ -51,6 +51,41 @@ app.use(csrfCheck);
 // Health checks (unauthenticated)
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
+// Temporary debug endpoint — per-hole plan QC
+app.get('/debug/plan-qc/:courseId', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT tee_box, mode, plan FROM game_plan_cache WHERE course_id = $1 AND stale = false ORDER BY mode`,
+      [req.params.courseId],
+    );
+    const result = rows.map((r: { tee_box: string; mode: string; plan: { holes?: { holeNumber: number; par: number; expectedStrokes: number; strategies: { strategyName: string; expectedStrokes: number; clubs: { clubName: string }[]; blowupRisk: number; label: string }[] }[]; totalExpected?: number } }) => {
+      const plan = r.plan;
+      const holes = (plan?.holes ?? []).map((h: { holeNumber: number; par: number; expectedStrokes: number; strategies: { strategyName: string; expectedStrokes: number; clubs: { clubName: string }[]; blowupRisk: number; label: string }[] }) => ({
+        hole: h.holeNumber,
+        par: h.par,
+        xS: h.expectedStrokes,
+        overPar: h.expectedStrokes != null ? +(h.expectedStrokes - h.par).toFixed(2) : null,
+        topStrategy: h.strategies?.[0]?.label,
+        blowup: h.strategies?.[0]?.blowupRisk,
+      }));
+      return { teeBox: r.tee_box, mode: r.mode, total: plan?.totalExpected, holes };
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// Temporary debug endpoint — list courses
+app.get('/debug/courses', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT id, name FROM courses ORDER BY name');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // Temporary debug endpoint — check hole hazard data
 app.get('/debug/hole-hazards/:courseId/:holeNumber', async (req, res) => {
   try {
