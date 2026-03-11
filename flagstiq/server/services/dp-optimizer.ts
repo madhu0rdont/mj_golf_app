@@ -503,7 +503,7 @@ function getEligibleClubs(
 }
 
 function bearingStepForDistance(yardage: number): number {
-  if (yardage < 180) return 4;
+  if (yardage < 180) return 2; // par 3s need fine resolution — safe windows are narrow
   if (yardage <= 350) return 3;
   return 2;
 }
@@ -512,12 +512,26 @@ function getAimBearings(
   anchor: AnchorState,
   _pin: { lat: number; lng: number },
   bearingStep: number,
+  pinBearing?: number,
 ): number[] {
   const center = anchor.localBearing;
   const bearings: number[] = [];
   for (let offset = -BEARING_RANGE; offset <= BEARING_RANGE; offset += bearingStep) {
     bearings.push((center + offset + 360) % 360);
   }
+
+  // Ensure the direct pin bearing is always evaluated (especially important
+  // for par 3 tee shots where the safe window to the green is narrow)
+  if (pinBearing != null) {
+    const hasPinBearing = bearings.some((b) => {
+      const diff = Math.abs(((b - pinBearing + 540) % 360) - 180);
+      return diff < 1;
+    });
+    if (!hasPinBearing) {
+      bearings.push((pinBearing + 360) % 360);
+    }
+  }
+
   return bearings;
 }
 
@@ -669,7 +683,9 @@ function buildOutcomeTable(
     if (anchor.isTerminal) continue;
 
     const clubs = getEligibleClubs(anchor, distributions, pinElev);
-    const bearings = getAimBearings(anchor, pin, bearingStep);
+    // Pass pin bearing for tee anchor so the direct-to-pin angle is always evaluated
+    const teePinBearing = anchor.id === 0 ? heading : undefined;
+    const bearings = getAimBearings(anchor, pin, bearingStep, teePinBearing);
     const sampleCount = samplesForAnchor(anchor, maxCarry, hole.hazards);
 
     for (let ci = 0; ci < clubs.length; ci++) {

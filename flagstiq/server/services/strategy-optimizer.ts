@@ -192,7 +192,7 @@ export function getProfileElevation(profile: ElevationProfile, distFromTee: numb
 
 const SURFACE_ROLLOUT: Record<string, number> = {
   fairway: 1.0,
-  rough: 0.3,
+  rough: 0.15,
   green: 0.65,
   bunker: 0.0,
 };
@@ -231,7 +231,17 @@ export function computeRollout(
     surface = classifyLieLocal(carryLanding, hole.fairway, hole.green);
   }
 
-  const multiplier = SURFACE_ROLLOUT[surface] ?? 0;
+  let multiplier = SURFACE_ROLLOUT[surface] ?? 0;
+
+  // Backspin damping: wedges (high loft) generate backspin that checks the
+  // ball on the green. Reduce green rollout proportionally to loft.
+  if (surface === 'green') {
+    const loft = club.loft ?? DEFAULT_LOFT;
+    if (loft > 30) {
+      const backspinFactor = Math.max(0.25, 1 - (loft - 30) * 0.03);
+      multiplier *= backspinFactor;
+    }
+  }
 
   // Slope factor: downhill landing = more rollout, uphill = less
   const slopeMultiplier = localSlope != null
