@@ -37,6 +37,7 @@ interface ConfirmBody {
     slope?: number;
     rating?: number;
     designers?: string[];
+    teeSets?: Record<string, { rating: number; slope: number; ratingWomen?: number; slopeWomen?: number }>;
   };
   scorecard: Record<number, Record<string, number>>; // { 1: { blue: 439, white: 427 }, ... }
   holes: ParsedHole[];
@@ -343,7 +344,7 @@ router.post('/courses/:id/scorecard', async (req, res) => {
   const courseId = req.params.id;
   const { holes: holeData, course: courseMeta } = req.body as {
     holes: { holeNumber: number; yardages: Record<string, number>; par?: number; handicap?: number }[];
-    course?: { par?: number; slope?: number; rating?: number };
+    course?: { par?: number; slope?: number; rating?: number; teeSets?: Record<string, { rating: number; slope: number; ratingWomen?: number; slopeWomen?: number }> };
   };
 
   if (!Array.isArray(holeData) || holeData.length === 0) {
@@ -362,6 +363,7 @@ router.post('/courses/:id/scorecard', async (req, res) => {
       if (courseMeta.par != null) { vals.push(courseMeta.par); sets.push(`par = $${vals.length}`); }
       if (courseMeta.slope != null) { vals.push(courseMeta.slope); sets.push(`slope = $${vals.length}`); }
       if (courseMeta.rating != null) { vals.push(courseMeta.rating); sets.push(`rating = $${vals.length}`); }
+      if (courseMeta.teeSets != null) { vals.push(JSON.stringify(courseMeta.teeSets)); sets.push(`tee_sets = $${vals.length}`); }
       if (sets.length > 0) {
         vals.push(courseId);
         await client.query(`UPDATE courses SET ${sets.join(', ')} WHERE id = $${vals.length}`, vals);

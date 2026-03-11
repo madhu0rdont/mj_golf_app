@@ -40,12 +40,20 @@ export interface HazardFeature {
   status?: 'accepted' | 'pending';
 }
 
+export interface TeeSet {
+  rating: number;
+  slope: number;
+  ratingWomen?: number;
+  slopeWomen?: number;
+}
+
 export interface Course {
   id: string;
   name: string;
   par: number | null;
   slope: number | null;
   rating: number | null;
+  teeSets: Record<string, TeeSet> | null;
   designers: string[];
   logo?: string;
   createdAt: number;

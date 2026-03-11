@@ -386,6 +386,9 @@ export async function migrate() {
   // Home course preference
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS home_course_id TEXT REFERENCES courses(id)`);
 
+  // Per-tee rating/slope data
+  await query(`ALTER TABLE courses ADD COLUMN IF NOT EXISTS tee_sets JSONB`);
+
   // Course logo (base64 data URL)
   await query(`ALTER TABLE courses ADD COLUMN IF NOT EXISTS logo TEXT`);
 
@@ -423,6 +426,106 @@ export async function migrate() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_api_usage_service ON api_usage(service)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_api_usage_created ON api_usage(created_at)`);
+
+  // ── Scorecard seed: TPC Stonebrae ──
+  const STONEBRAE_SEED = 'stonebrae_scorecard_v1';
+  const { rows: stonebraeFlag } = await query('SELECT 1 FROM _migration_flags WHERE flag = $1', [STONEBRAE_SEED]);
+  if (stonebraeFlag.length === 0) {
+    const { rows: stonebraeCourse } = await query("SELECT id FROM courses WHERE name ILIKE '%stonebrae%' LIMIT 1");
+    if (stonebraeCourse.length > 0) {
+      const cid = stonebraeCourse[0].id;
+      const teeSets = {
+        tour:     { rating: 74.8, slope: 138 },
+        black:    { rating: 72.0, slope: 133 },
+        silver:   { rating: 69.8, slope: 126, ratingWomen: 74.4, slopeWomen: 135 },
+        orange:   { rating: 67.3, slope: 119, ratingWomen: 71.5, slopeWomen: 127 },
+        gold:     { rating: 64.2, slope: 114, ratingWomen: 67.3, slopeWomen: 117 },
+        combo_tb: { rating: 73.4, slope: 137 },
+        combo_bs: { rating: 71.0, slope: 132 },
+        combo_so: { rating: 68.6, slope: 122, ratingWomen: 73.3, slopeWomen: 134 },
+        combo_og: { rating: 66.2, slope: 117, ratingWomen: 70.5, slopeWomen: 126 },
+      };
+      await query('UPDATE courses SET par = 72, slope = 138, rating = 74.8, tee_sets = $1, designers = $2 WHERE id = $3', [
+        JSON.stringify(teeSets), ['David McLay Kidd'], cid,
+      ]);
+      const stonebraeHoles = [
+        //       par  hcp  tour  black silver orange gold  combo_tb combo_bs combo_so combo_og
+        { n: 1,  p: 4, h: 9,  y: { tour: 396, black: 370, silver: 332, orange: 275, gold: 267, combo_tb: 396, combo_bs: 370, combo_so: 332, combo_og: 275 } },
+        { n: 2,  p: 4, h: 7,  y: { tour: 461, black: 385, silver: 342, orange: 342, gold: 229, combo_tb: 385, combo_bs: 385, combo_so: 342, combo_og: 229 } },
+        { n: 3,  p: 3, h: 15, y: { tour: 193, black: 176, silver: 164, orange: 140, gold: 129, combo_tb: 193, combo_bs: 176, combo_so: 164, combo_og: 140 } },
+        { n: 4,  p: 5, h: 11, y: { tour: 479, black: 462, silver: 443, orange: 417, gold: 364, combo_tb: 479, combo_bs: 443, combo_so: 417, combo_og: 417 } },
+        { n: 5,  p: 4, h: 13, y: { tour: 326, black: 301, silver: 274, orange: 249, gold: 224, combo_tb: 326, combo_bs: 301, combo_so: 274, combo_og: 249 } },
+        { n: 6,  p: 5, h: 1,  y: { tour: 606, black: 576, silver: 562, orange: 493, gold: 422, combo_tb: 576, combo_bs: 562, combo_so: 493, combo_og: 422 } },
+        { n: 7,  p: 3, h: 17, y: { tour: 176, black: 159, silver: 142, orange: 120, gold: 85,  combo_tb: 176, combo_bs: 159, combo_so: 142, combo_og: 120 } },
+        { n: 8,  p: 4, h: 3,  y: { tour: 466, black: 433, silver: 390, orange: 390, gold: 316, combo_tb: 433, combo_bs: 390, combo_so: 390, combo_og: 390 } },
+        { n: 9,  p: 4, h: 5,  y: { tour: 438, black: 407, silver: 362, orange: 325, gold: 278, combo_tb: 438, combo_bs: 362, combo_so: 325, combo_og: 325 } },
+        { n: 10, p: 4, h: 6,  y: { tour: 437, black: 397, silver: 350, orange: 270, gold: 270, combo_tb: 437, combo_bs: 397, combo_so: 350, combo_og: 270 } },
+        { n: 11, p: 3, h: 10, y: { tour: 240, black: 204, silver: 175, orange: 149, gold: 149, combo_tb: 204, combo_bs: 175, combo_so: 175, combo_og: 149 } },
+        { n: 12, p: 5, h: 4,  y: { tour: 625, black: 571, silver: 544, orange: 521, gold: 478, combo_tb: 625, combo_bs: 571, combo_so: 521, combo_og: 521 } },
+        { n: 13, p: 3, h: 18, y: { tour: 160, black: 138, silver: 124, orange: 112, gold: 99,  combo_tb: 160, combo_bs: 138, combo_so: 124, combo_og: 112 } },
+        { n: 14, p: 4, h: 14, y: { tour: 377, black: 321, silver: 279, orange: 268, gold: 253, combo_tb: 377, combo_bs: 279, combo_so: 279, combo_og: 253 } },
+        { n: 15, p: 3, h: 16, y: { tour: 188, black: 156, silver: 150, orange: 141, gold: 129, combo_tb: 188, combo_bs: 156, combo_so: 150, combo_og: 141 } },
+        { n: 16, p: 5, h: 12, y: { tour: 557, black: 469, silver: 437, orange: 425, gold: 339, combo_tb: 469, combo_bs: 469, combo_so: 437, combo_og: 425 } },
+        { n: 17, p: 4, h: 8,  y: { tour: 465, black: 436, silver: 424, orange: 381, gold: 336, combo_tb: 465, combo_bs: 436, combo_so: 381, combo_og: 381 } },
+        { n: 18, p: 5, h: 2,  y: { tour: 598, black: 554, silver: 537, orange: 467, gold: 407, combo_tb: 554, combo_bs: 537, combo_so: 467, combo_og: 407 } },
+      ];
+      for (const hole of stonebraeHoles) {
+        await query(
+          'UPDATE course_holes SET par = $1, handicap = $2, yardages = $3 WHERE course_id = $4 AND hole_number = $5',
+          [hole.p, hole.h, JSON.stringify(hole.y), cid, hole.n],
+        );
+      }
+      logger.info('Seeded TPC Stonebrae scorecard data');
+    }
+    await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [STONEBRAE_SEED, Date.now()]);
+  }
+
+  // ── Scorecard seed: TPC Harding Park ──
+  const HARDING_SEED = 'harding_scorecard_v1';
+  const { rows: hardingFlag } = await query('SELECT 1 FROM _migration_flags WHERE flag = $1', [HARDING_SEED]);
+  if (hardingFlag.length === 0) {
+    const { rows: hardingCourse } = await query("SELECT id FROM courses WHERE name ILIKE '%harding%' LIMIT 1");
+    if (hardingCourse.length > 0) {
+      const cid = hardingCourse[0].id;
+      const teeSets = {
+        championship: { rating: 74.3, slope: 129 },
+        blue:         { rating: 72.9, slope: 126 },
+        white:        { rating: 70.5, slope: 121 },
+        red:          { rating: 68.1, slope: 118, ratingWomen: 73.4, slopeWomen: 126 },
+      };
+      await query('UPDATE courses SET par = 72, slope = 129, rating = 74.3, tee_sets = $1 WHERE id = $2', [
+        JSON.stringify(teeSets), cid,
+      ]);
+      const hardingHoles = [
+        { n: 1,  p: 4, h: 13, y: { championship: 395, blue: 395, white: 375, red: 345 } },
+        { n: 2,  p: 4, h: 3,  y: { championship: 449, blue: 430, white: 400, red: 360 } },
+        { n: 3,  p: 3, h: 9,  y: { championship: 183, blue: 165, white: 155, red: 135 } },
+        { n: 4,  p: 5, h: 1,  y: { championship: 606, blue: 580, white: 540, red: 500 } },
+        { n: 5,  p: 4, h: 15, y: { championship: 429, blue: 395, white: 365, red: 335 } },
+        { n: 6,  p: 4, h: 5,  y: { championship: 473, blue: 440, white: 390, red: 350 } },
+        { n: 7,  p: 4, h: 11, y: { championship: 344, blue: 335, white: 325, red: 305 } },
+        { n: 8,  p: 3, h: 7,  y: { championship: 230, blue: 200, white: 190, red: 170 } },
+        { n: 9,  p: 5, h: 17, y: { championship: 525, blue: 495, white: 475, red: 455 } },
+        { n: 10, p: 5, h: 4,  y: { championship: 562, blue: 550, white: 530, red: 500 } },
+        { n: 11, p: 3, h: 12, y: { championship: 200, blue: 185, white: 155, red: 125 } },
+        { n: 12, p: 5, h: 16, y: { championship: 494, blue: 480, white: 450, red: 410 } },
+        { n: 13, p: 4, h: 14, y: { championship: 428, blue: 405, white: 375, red: 365 } },
+        { n: 14, p: 4, h: 6,  y: { championship: 467, blue: 440, white: 410, red: 370 } },
+        { n: 15, p: 4, h: 10, y: { championship: 405, blue: 405, white: 375, red: 345 } },
+        { n: 16, p: 4, h: 8,  y: { championship: 336, blue: 330, white: 310, red: 280 } },
+        { n: 17, p: 3, h: 18, y: { championship: 175, blue: 175, white: 165, red: 125 } },
+        { n: 18, p: 4, h: 2,  y: { championship: 468, blue: 440, white: 420, red: 400 } },
+      ];
+      for (const hole of hardingHoles) {
+        await query(
+          'UPDATE course_holes SET par = $1, handicap = $2, yardages = $3 WHERE course_id = $4 AND hole_number = $5',
+          [hole.p, hole.h, JSON.stringify(hole.y), cid, hole.n],
+        );
+      }
+      logger.info('Seeded TPC Harding Park scorecard data');
+    }
+    await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [HARDING_SEED, Date.now()]);
+  }
 
   logger.info('Database migration complete');
 }

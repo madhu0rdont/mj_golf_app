@@ -63,7 +63,7 @@ router.get('/handicap', async (req, res) => {
   try {
     const userId = req.session.userId!;
     const { rows } = await query(
-      `SELECT gpc.plan, c.name, c.par, c.rating, c.slope
+      `SELECT gpc.plan, gpc.tee_box, c.name, c.par, c.rating, c.slope, c.tee_sets
        FROM game_plan_cache gpc
        JOIN courses c ON c.id = gpc.course_id
        WHERE gpc.user_id = $1 AND gpc.mode = 'scoring'`,
@@ -78,8 +78,13 @@ router.get('/handicap', async (req, res) => {
       if (typeof totalExpected !== 'number') continue;
 
       const par = row.par as number;
-      const rating = row.rating as number | null;
-      const slope = row.slope as number | null;
+      const teeBox = row.tee_box as string;
+      const teeSets = row.tee_sets as Record<string, { rating: number; slope: number }> | null;
+
+      // Prefer tee-specific rating/slope from tee_sets, fall back to course-level
+      const teeData = teeSets?.[teeBox];
+      const rating = teeData?.rating ?? (row.rating as number | null);
+      const slope = teeData?.slope ?? (row.slope as number | null);
 
       // Skip 9-hole courses (par < 60) — scale them by 2x
       if (par < 60) {
