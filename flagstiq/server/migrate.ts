@@ -580,5 +580,146 @@ export async function migrate() {
     await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [MEADOW_SEED, Date.now()]);
   }
 
+  // ── Scorecard seed: Presidio Golf Course ──
+  const PRESIDIO_SEED = 'presidio_scorecard_v1';
+  const { rows: presidioFlag } = await query('SELECT 1 FROM _migration_flags WHERE flag = $1', [PRESIDIO_SEED]);
+  if (presidioFlag.length === 0) {
+    const { rows: presidioCourse } = await query("SELECT id FROM courses WHERE name ILIKE '%presidio%' LIMIT 1");
+    if (presidioCourse.length > 0) {
+      const cid = presidioCourse[0].id;
+      const teeSets = {
+        black: { rating: 72.6, slope: 135 },
+        white: { rating: 70.5, slope: 131 },
+        blue:  { rating: 69.0, slope: 127 },
+        red:   { rating: 67.2, slope: 120 },
+      };
+      await query('UPDATE courses SET par = 72, slope = 135, rating = 72.6, tee_sets = $1 WHERE id = $2', [
+        JSON.stringify(teeSets), cid,
+      ]);
+      const presidioHoles = [
+        { n: 1,  p: 4, h: 10, y: { black: 372, white: 349, blue: 339, red: 319 } },
+        { n: 2,  p: 5, h: 16, y: { black: 472, white: 435, blue: 411, red: 350 } },
+        { n: 3,  p: 4, h: 2,  y: { black: 385, white: 365, blue: 348, red: 300 } },
+        { n: 4,  p: 3, h: 18, y: { black: 130, white: 118, blue: 108, red: 86 } },
+        { n: 5,  p: 4, h: 14, y: { black: 307, white: 298, blue: 289, red: 256 } },
+        { n: 6,  p: 4, h: 4,  y: { black: 388, white: 361, blue: 347, red: 295 } },
+        { n: 7,  p: 3, h: 6,  y: { black: 219, white: 184, blue: 175, red: 145 } },
+        { n: 8,  p: 4, h: 8,  y: { black: 378, white: 356, blue: 348, red: 269 } },
+        { n: 9,  p: 5, h: 12, y: { black: 524, white: 493, blue: 440, red: 371 } },
+        { n: 10, p: 5, h: 9,  y: { black: 501, white: 486, blue: 460, red: 391 } },
+        { n: 11, p: 4, h: 3,  y: { black: 419, white: 387, blue: 373, red: 298 } },
+        { n: 12, p: 4, h: 1,  y: { black: 453, white: 442, blue: 420, red: 282 } },
+        { n: 13, p: 3, h: 13, y: { black: 188, white: 169, blue: 156, red: 120 } },
+        { n: 14, p: 4, h: 11, y: { black: 335, white: 326, blue: 310, red: 295 } },
+        { n: 15, p: 3, h: 17, y: { black: 171, white: 147, blue: 133, red: 129 } },
+        { n: 16, p: 4, h: 7,  y: { black: 383, white: 364, blue: 340, red: 276 } },
+        { n: 17, p: 4, h: 5,  y: { black: 350, white: 343, blue: 326, red: 281 } },
+        { n: 18, p: 5, h: 15, y: { black: 506, white: 480, blue: 433, red: 413 } },
+      ];
+      for (const hole of presidioHoles) {
+        await query(
+          'UPDATE course_holes SET par = $1, handicap = $2, yardages = $3 WHERE course_id = $4 AND hole_number = $5',
+          [hole.p, hole.h, JSON.stringify(hole.y), cid, hole.n],
+        );
+      }
+      logger.info('Seeded Presidio Golf Course scorecard data');
+    }
+    await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [PRESIDIO_SEED, Date.now()]);
+  }
+
+  // ── Scorecard seed: Blackhawk Country Club ──
+  const BLACKHAWK_SEED = 'blackhawk_scorecard_v1';
+  const { rows: blackhawkFlag } = await query('SELECT 1 FROM _migration_flags WHERE flag = $1', [BLACKHAWK_SEED]);
+  if (blackhawkFlag.length === 0) {
+    const { rows: blackhawkCourse } = await query("SELECT id FROM courses WHERE name ILIKE '%blackhawk%' LIMIT 1");
+    if (blackhawkCourse.length > 0) {
+      const cid = blackhawkCourse[0].id;
+      const teeSets = {
+        black: { rating: 72.9, slope: 133 },
+        white: { rating: 71.2, slope: 123 },
+        gold:  { rating: 67.6, slope: 121, ratingWomen: 73.1, slopeWomen: 125 },
+        red:   { rating: 70.9, slope: 123 },
+      };
+      await query('UPDATE courses SET par = 72, slope = 133, rating = 72.9, tee_sets = $1 WHERE id = $2', [
+        JSON.stringify(teeSets), cid,
+      ]);
+      const blackhawkHoles = [
+        { n: 1,  p: 4, h: 8,  y: { black: 402, white: 375, gold: 324, red: 316 } },
+        { n: 2,  p: 4, h: 14, y: { black: 355, white: 319, gold: 286, red: 240 } },
+        { n: 3,  p: 3, h: 18, y: { black: 178, white: 144, gold: 134, red: 125 } },
+        { n: 4,  p: 4, h: 12, y: { black: 339, white: 326, gold: 296, red: 273 } },
+        { n: 5,  p: 5, h: 2,  y: { black: 484, white: 458, gold: 408, red: 378 } },
+        { n: 6,  p: 4, h: 10, y: { black: 333, white: 318, gold: 306, red: 254 } },
+        { n: 7,  p: 3, h: 16, y: { black: 187, white: 169, gold: 147, red: 143 } },
+        { n: 8,  p: 5, h: 4,  y: { black: 493, white: 472, gold: 430, red: 426 } },
+        { n: 9,  p: 4, h: 6,  y: { black: 344, white: 320, gold: 315, red: 259 } },
+        { n: 10, p: 5, h: 7,  y: { black: 528, white: 504, gold: 479, red: 476 } },
+        { n: 11, p: 4, h: 1,  y: { black: 436, white: 401, gold: 328, red: 322 } },
+        { n: 12, p: 3, h: 15, y: { black: 222, white: 202, gold: 180, red: 140 } },
+        { n: 13, p: 4, h: 9,  y: { black: 363, white: 333, gold: 320, red: 286 } },
+        { n: 14, p: 4, h: 13, y: { black: 400, white: 333, gold: 338, red: 326 } },
+        { n: 15, p: 3, h: 17, y: { black: 135, white: 105, gold: 95,  red: 91 } },
+        { n: 16, p: 4, h: 5,  y: { black: 418, white: 395, gold: 343, red: 336 } },
+        { n: 17, p: 5, h: 3,  y: { black: 586, white: 540, gold: 472, red: 427 } },
+        { n: 18, p: 4, h: 11, y: { black: 397, white: 358, gold: 325, red: 315 } },
+      ];
+      for (const hole of blackhawkHoles) {
+        await query(
+          'UPDATE course_holes SET par = $1, handicap = $2, yardages = $3 WHERE course_id = $4 AND hole_number = $5',
+          [hole.p, hole.h, JSON.stringify(hole.y), cid, hole.n],
+        );
+      }
+      logger.info('Seeded Blackhawk Country Club scorecard data');
+    }
+    await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [BLACKHAWK_SEED, Date.now()]);
+  }
+
+  // ── Scorecard seed: Tilden Park Golf Course ──
+  const TILDEN_SEED = 'tilden_scorecard_v1';
+  const { rows: tildenFlag } = await query('SELECT 1 FROM _migration_flags WHERE flag = $1', [TILDEN_SEED]);
+  if (tildenFlag.length === 0) {
+    const { rows: tildenCourse } = await query("SELECT id FROM courses WHERE name ILIKE '%tilden%' LIMIT 1");
+    if (tildenCourse.length > 0) {
+      const cid = tildenCourse[0].id;
+      const teeSets = {
+        blue:  { rating: 71.6, slope: 130, ratingWomen: 76.4, slopeWomen: 137 },
+        white: { rating: 69.5, slope: 124, ratingWomen: 73.8, slopeWomen: 132 },
+        red:   { rating: 67.8, slope: 120, ratingWomen: 71.6, slopeWomen: 124 },
+        gold:  { rating: 0, slope: 0 },
+      };
+      await query('UPDATE courses SET par = 70, slope = 130, rating = 71.6, tee_sets = $1 WHERE id = $2', [
+        JSON.stringify(teeSets), cid,
+      ]);
+      const tildenHoles = [
+        { n: 1,  p: 4, h: 1,  y: { blue: 411, white: 404, red: 401, gold: 200 } },
+        { n: 2,  p: 4, h: 7,  y: { blue: 399, white: 385, red: 376, gold: 264 } },
+        { n: 3,  p: 4, h: 3,  y: { blue: 464, white: 377, red: 356, gold: 150 } },
+        { n: 4,  p: 3, h: 11, y: { blue: 143, white: 137, red: 123, gold: 60 } },
+        { n: 5,  p: 4, h: 9,  y: { blue: 366, white: 327, red: 316, gold: 205 } },
+        { n: 6,  p: 4, h: 17, y: { blue: 316, white: 297, red: 270, gold: 168 } },
+        { n: 7,  p: 3, h: 5,  y: { blue: 221, white: 201, red: 170, gold: 94 } },
+        { n: 8,  p: 5, h: 13, y: { blue: 475, white: 467, red: 460, gold: 269 } },
+        { n: 9,  p: 5, h: 15, y: { blue: 334, white: 320, red: 286, gold: 160 } },
+        { n: 10, p: 4, h: 10, y: { blue: 395, white: 387, red: 381, gold: 232 } },
+        { n: 11, p: 3, h: 6,  y: { blue: 234, white: 199, red: 120, gold: 120 } },
+        { n: 12, p: 4, h: 2,  y: { blue: 350, white: 300, red: 264, gold: 160 } },
+        { n: 13, p: 5, h: 16, y: { blue: 504, white: 438, red: 431, gold: 265 } },
+        { n: 14, p: 4, h: 14, y: { blue: 352, white: 311, red: 284, gold: 171 } },
+        { n: 15, p: 4, h: 18, y: { blue: 329, white: 322, red: 309, gold: 166 } },
+        { n: 16, p: 3, h: 8,  y: { blue: 206, white: 186, red: 138, gold: 138 } },
+        { n: 17, p: 4, h: 4,  y: { blue: 395, white: 395, red: 379, gold: 195 } },
+        { n: 18, p: 4, h: 12, y: { blue: 400, white: 370, red: 335, gold: 160 } },
+      ];
+      for (const hole of tildenHoles) {
+        await query(
+          'UPDATE course_holes SET par = $1, handicap = $2, yardages = $3 WHERE course_id = $4 AND hole_number = $5',
+          [hole.p, hole.h, JSON.stringify(hole.y), cid, hole.n],
+        );
+      }
+      logger.info('Seeded Tilden Park scorecard data');
+    }
+    await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [TILDEN_SEED, Date.now()]);
+  }
+
   logger.info('Database migration complete');
 }
