@@ -527,5 +527,58 @@ export async function migrate() {
     await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [HARDING_SEED, Date.now()]);
   }
 
+  // ── Scorecard seed: Meadow Club ──
+  const MEADOW_SEED = 'meadow_club_scorecard_v1';
+  const { rows: meadowFlag } = await query('SELECT 1 FROM _migration_flags WHERE flag = $1', [MEADOW_SEED]);
+  if (meadowFlag.length === 0) {
+    const { rows: meadowCourse } = await query("SELECT id FROM courses WHERE name ILIKE '%meadow%club%' LIMIT 1");
+    if (meadowCourse.length > 0) {
+      const cid = meadowCourse[0].id;
+      const teeSets = {
+        black_blue:  { rating: 72.8, slope: 136 },
+        blue:        { rating: 72.2, slope: 134 },
+        blue_white:  { rating: 71.4, slope: 133 },
+        white:       { rating: 70.7, slope: 131 },
+        white_gold:  { rating: 69.4, slope: 130 },
+        gold:        { rating: 69.0, slope: 129, ratingWomen: 75.2, slopeWomen: 135 },
+        gold_red:    { rating: 68.7, slope: 128, ratingWomen: 74.3, slopeWomen: 132 },
+        red:         { rating: 68.3, slope: 127, ratingWomen: 74.0, slopeWomen: 130 },
+        red_green:   { rating: 66.7, slope: 124, ratingWomen: 71.7, slopeWomen: 127 },
+        green:       { rating: 65.1, slope: 122, ratingWomen: 69.7, slopeWomen: 121 },
+      };
+      await query('UPDATE courses SET par = 71, slope = 136, rating = 72.8, tee_sets = $1 WHERE id = $2', [
+        JSON.stringify(teeSets), cid,
+      ]);
+      const meadowHoles = [
+        { n: 1,  p: 5, h: 15, y: { black_blue: 492, blue: 492, blue_white: 492, white: 478, white_gold: 478, gold: 478, gold_red: 464, red: 464, red_green: 464, green: 464 } },
+        { n: 2,  p: 4, h: 9,  y: { black_blue: 443, blue: 443, blue_white: 423, white: 423, white_gold: 420, gold: 420, gold_red: 420, red: 417, red_green: 417, green: 381 } },
+        { n: 3,  p: 4, h: 1,  y: { black_blue: 403, blue: 383, blue_white: 365, white: 365, white_gold: 365, gold: 357, gold_red: 357, red: 351, red_green: 317, green: 317 } },
+        { n: 4,  p: 4, h: 13, y: { black_blue: 400, blue: 400, blue_white: 400, white: 380, white_gold: 350, gold: 350, gold_red: 350, red: 345, red_green: 345, green: 268 } },
+        { n: 5,  p: 3, h: 11, y: { black_blue: 194, blue: 194, blue_white: 194, white: 177, white_gold: 177, gold: 165, gold_red: 144, red: 144, red_green: 104, green: 104 } },
+        { n: 6,  p: 4, h: 7,  y: { black_blue: 454, blue: 415, blue_white: 395, white: 395, white_gold: 383, gold: 383, gold_red: 346, red: 346, red_green: 315, green: 315 } },
+        { n: 7,  p: 4, h: 5,  y: { black_blue: 436, blue: 417, blue_white: 404, white: 404, white_gold: 350, gold: 350, gold_red: 344, red: 344, red_green: 309, green: 309 } },
+        { n: 8,  p: 3, h: 17, y: { black_blue: 165, blue: 165, blue_white: 165, white: 150, white_gold: 150, gold: 139, gold_red: 139, red: 139, red_green: 139, green: 118 } },
+        { n: 9,  p: 4, h: 3,  y: { black_blue: 464, blue: 448, blue_white: 438, white: 438, white_gold: 379, gold: 379, gold_red: 372, red: 372, red_green: 313, green: 313 } },
+        { n: 10, p: 4, h: 6,  y: { black_blue: 378, blue: 378, blue_white: 378, white: 348, white_gold: 348, gold: 348, gold_red: 348, red: 340, red_green: 340, green: 340 } },
+        { n: 11, p: 3, h: 18, y: { black_blue: 152, blue: 152, blue_white: 152, white: 142, white_gold: 131, gold: 131, gold_red: 120, red: 120, red_green: 96,  green: 96 } },
+        { n: 12, p: 4, h: 14, y: { black_blue: 374, blue: 374, blue_white: 374, white: 369, white_gold: 369, gold: 348, gold_red: 348, red: 344, red_green: 298, green: 298 } },
+        { n: 13, p: 5, h: 12, y: { black_blue: 543, blue: 543, blue_white: 508, white: 508, white_gold: 508, gold: 503, gold_red: 478, red: 478, red_green: 478, green: 448 } },
+        { n: 14, p: 3, h: 10, y: { black_blue: 208, blue: 199, blue_white: 181, white: 181, white_gold: 163, gold: 163, gold_red: 163, red: 131, red_green: 131, green: 87 } },
+        { n: 15, p: 5, h: 4,  y: { black_blue: 506, blue: 506, blue_white: 506, white: 496, white_gold: 482, gold: 482, gold_red: 456, red: 456, red_green: 403, green: 403 } },
+        { n: 16, p: 4, h: 16, y: { black_blue: 323, blue: 323, blue_white: 323, white: 307, white_gold: 294, gold: 294, gold_red: 294, red: 289, red_green: 289, green: 240 } },
+        { n: 17, p: 4, h: 2,  y: { black_blue: 428, blue: 405, blue_white: 395, white: 395, white_gold: 395, gold: 395, gold_red: 395, red: 385, red_green: 321, green: 321 } },
+        { n: 18, p: 4, h: 8,  y: { black_blue: 363, blue: 363, blue_white: 352, white: 352, white_gold: 352, gold: 352, gold_red: 341, red: 341, red_green: 341, green: 277 } },
+      ];
+      for (const hole of meadowHoles) {
+        await query(
+          'UPDATE course_holes SET par = $1, handicap = $2, yardages = $3 WHERE course_id = $4 AND hole_number = $5',
+          [hole.p, hole.h, JSON.stringify(hole.y), cid, hole.n],
+        );
+      }
+      logger.info('Seeded Meadow Club scorecard data');
+    }
+    await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [MEADOW_SEED, Date.now()]);
+  }
+
   logger.info('Database migration complete');
 }
