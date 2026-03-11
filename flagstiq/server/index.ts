@@ -81,7 +81,12 @@ app.get('/debug/plan-qc/:courseId', async (req, res) => {
 // Temporary debug endpoint — list courses
 app.get('/debug/courses', async (_req, res) => {
   try {
-    const { rows } = await pool.query('SELECT id, name FROM courses ORDER BY name');
+    const { rows } = await pool.query(`
+      SELECT c.id, c.name, c.par, c.slope, c.rating, c.tee_sets IS NOT NULL as has_tee_sets,
+        (SELECT COUNT(*)::int FROM course_holes ch WHERE ch.course_id = c.id AND ch.handicap IS NOT NULL) as holes_with_hcp,
+        (SELECT COUNT(*)::int FROM course_holes ch WHERE ch.course_id = c.id) as total_holes
+      FROM courses c ORDER BY c.name
+    `);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: String(err) });
