@@ -721,5 +721,51 @@ export async function migrate() {
     await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [TILDEN_SEED, Date.now()]);
   }
 
+  // ── Scorecard seed: Claremont Country Club ──
+  const CLAREMONT_SEED = 'claremont_scorecard_v1';
+  const { rows: claremontFlag } = await query('SELECT 1 FROM _migration_flags WHERE flag = $1', [CLAREMONT_SEED]);
+  if (claremontFlag.length === 0) {
+    const { rows: claremontCourse } = await query("SELECT id FROM courses WHERE name ILIKE '%claremont%' LIMIT 1");
+    if (claremontCourse.length > 0) {
+      const cid = claremontCourse[0].id;
+      const teeSets = {
+        blue:  { rating: 67.7, slope: 125, ratingWomen: 73.2, slopeWomen: 131 },
+        white: { rating: 66.1, slope: 122, ratingWomen: 71.2, slopeWomen: 127 },
+        green: { rating: 59.2, slope: 104, ratingWomen: 61.6, slopeWomen: 106 },
+      };
+      await query('UPDATE courses SET par = 68, slope = 125, rating = 67.7, tee_sets = $1 WHERE id = $2', [
+        JSON.stringify(teeSets), cid,
+      ]);
+      const claremontHoles = [
+        { n: 1,  p: 5, h: 14, y: { blue: 443, white: 381, green: 279 } },
+        { n: 2,  p: 3, h: 4,  y: { blue: 212, white: 202, green: 109 } },
+        { n: 3,  p: 3, h: 10, y: { blue: 139, white: 120, green: 83 } },
+        { n: 4,  p: 4, h: 8,  y: { blue: 339, white: 333, green: 206 } },
+        { n: 5,  p: 4, h: 16, y: { blue: 329, white: 324, green: 202 } },
+        { n: 6,  p: 4, h: 18, y: { blue: 252, white: 238, green: 172 } },
+        { n: 7,  p: 4, h: 2,  y: { blue: 380, white: 368, green: 192 } },
+        { n: 8,  p: 3, h: 12, y: { blue: 164, white: 140, green: 83 } },
+        { n: 9,  p: 4, h: 6,  y: { blue: 387, white: 375, green: 245 } },
+        { n: 10, p: 3, h: 9,  y: { blue: 164, white: 151, green: 112 } },
+        { n: 11, p: 4, h: 5,  y: { blue: 389, white: 350, green: 267 } },
+        { n: 12, p: 4, h: 1,  y: { blue: 395, white: 387, green: 268 } },
+        { n: 13, p: 3, h: 3,  y: { blue: 224, white: 200, green: 124 } },
+        { n: 14, p: 4, h: 17, y: { blue: 287, white: 268, green: 241 } },
+        { n: 15, p: 4, h: 11, y: { blue: 336, white: 320, green: 198 } },
+        { n: 16, p: 4, h: 7,  y: { blue: 374, white: 361, green: 291 } },
+        { n: 17, p: 3, h: 13, y: { blue: 135, white: 120, green: 111 } },
+        { n: 18, p: 5, h: 15, y: { blue: 503, white: 486, green: 361 } },
+      ];
+      for (const hole of claremontHoles) {
+        await query(
+          'UPDATE course_holes SET par = $1, handicap = $2, yardages = $3 WHERE course_id = $4 AND hole_number = $5',
+          [hole.p, hole.h, JSON.stringify(hole.y), cid, hole.n],
+        );
+      }
+      logger.info('Seeded Claremont Country Club scorecard data');
+    }
+    await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [CLAREMONT_SEED, Date.now()]);
+  }
+
   logger.info('Database migration complete');
 }
