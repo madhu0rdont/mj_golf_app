@@ -51,29 +51,28 @@ app.use(csrfCheck);
 // Health checks (unauthenticated)
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-// Temporary debug endpoint — per-hole plan QC (dump raw structure for first hole)
+// Temporary debug endpoint — raw plan structure for a specific hole
 app.get('/debug/plan-qc/:courseId', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT tee_box, mode, plan FROM game_plan_cache WHERE course_id = $1 AND stale = false ORDER BY mode`,
+      `SELECT tee_box, mode, plan FROM game_plan_cache WHERE course_id = $1 AND stale = false LIMIT 1`,
       [req.params.courseId],
     );
+    if (rows.length === 0) return res.json({ error: 'no plan' });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = rows.map((r: any) => {
-      const plan = r.plan;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const holes = (plan?.holes ?? []).map((h: any) => ({
-        hole: h.holeNumber,
-        par: h.par,
-        xS: h.strategies?.[0]?.expectedStrokes ?? null,
-        label: h.strategies?.[0]?.label ?? null,
-        blowup: h.strategies?.[0]?.blowupRisk ?? null,
-        clubs: h.strategies?.[0]?.clubs?.map((c: { clubName: string }) => c.clubName) ?? [],
-        numStrategies: h.strategies?.length ?? 0,
-      }));
-      return { teeBox: r.tee_box, mode: r.mode, total: plan?.totalExpected, holes };
+    const plan = (rows[0] as any).plan;
+    // Show structure of first hole and keys
+    const hole3 = plan?.holes?.[2];
+    res.json({
+      totalExpected: plan?.totalExpected,
+      holeCount: plan?.holes?.length,
+      hole3Keys: hole3 ? Object.keys(hole3) : [],
+      hole3: hole3 ? JSON.parse(JSON.stringify(hole3, (k, v) => {
+        // Truncate large arrays like aimPoints polygons
+        if (k === 'polygon' && Array.isArray(v)) return `[${v.length} points]`;
+        return v;
+      })) : null,
     });
-    res.json(result);
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
