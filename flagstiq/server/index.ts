@@ -86,6 +86,29 @@ app.get('/debug/courses', async (_req, res) => {
   }
 });
 
+// Temporary debug — check green/fairway polygon
+app.get('/debug/hole-green/:courseId/:holeNumber', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT hole_number, green, fairway FROM course_holes WHERE course_id = $1 AND hole_number = $2',
+      [req.params.courseId, parseInt(req.params.holeNumber)],
+    );
+    if (rows.length === 0) return res.json({ error: 'not found' });
+    const hole = rows[0];
+    const green = hole.green as { lat: number; lng: number }[] | null;
+    const fairway = hole.fairway as { lat: number; lng: number }[][] | null;
+    res.json({
+      holeNumber: hole.hole_number,
+      greenPoints: green?.length ?? 0,
+      green: green,
+      fairwayPolygons: fairway?.length ?? 0,
+      fairwayPointCounts: fairway?.map((f: { lat: number; lng: number }[]) => f.length) ?? [],
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // Temporary debug endpoint — check hole hazard data
 app.get('/debug/hole-hazards/:courseId/:holeNumber', async (req, res) => {
   try {
