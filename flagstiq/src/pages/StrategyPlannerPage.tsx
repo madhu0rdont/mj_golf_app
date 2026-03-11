@@ -19,11 +19,49 @@ import { useGamePlanCache } from '../hooks/useGamePlanCache';
 import { buildDistributions } from '../services/monte-carlo';
 import type { Course } from '../models/course';
 
-const TEE_BOXES = [
-  { key: 'blue', label: 'Blue', color: '#3B82F6' },
-  { key: 'white', label: 'White', color: '#E5E7EB' },
-  { key: 'green', label: 'Green', color: '#22C55E' },
-];
+const TEE_COLORS: Record<string, string> = {
+  tour: '#1A1A1A',
+  championship: '#1A1A1A',
+  black: '#1A1A1A',
+  black_blue: '#2D3748',
+  blue: '#3B82F6',
+  blue_white: '#7BA4D9',
+  white: '#E5E7EB',
+  white_gold: '#D4C78F',
+  silver: '#9CA3AF',
+  gold: '#D4A030',
+  gold_red: '#C47A2A',
+  orange: '#F97316',
+  red: '#EF4444',
+  red_green: '#A3BB72',
+  green: '#22C55E',
+  combo_tb: '#2D3748',
+  combo_bs: '#7BA4D9',
+  combo_so: '#C4A060',
+  combo_og: '#D48A30',
+};
+
+function buildTeeBoxes(holes: { yardages: Record<string, number> }[]): { key: string; label: string; color: string }[] {
+  const teeSet = new Set<string>();
+  for (const h of holes) {
+    for (const key of Object.keys(h.yardages)) teeSet.add(key);
+  }
+  const tees = Array.from(teeSet);
+  // Sort by average yardage descending (longest first)
+  const avgYardage = (tee: string) => {
+    let sum = 0, count = 0;
+    for (const h of holes) {
+      if (h.yardages[tee]) { sum += h.yardages[tee]; count++; }
+    }
+    return count > 0 ? sum / count : 0;
+  };
+  tees.sort((a, b) => avgYardage(b) - avgYardage(a));
+  return tees.map((t) => ({
+    key: t,
+    label: t.replace(/_/g, '/').replace(/\b\w/g, (c) => c.toUpperCase()),
+    color: TEE_COLORS[t] ?? '#6B7280',
+  }));
+}
 
 type ViewMode = 'hole' | 'gameplan';
 
@@ -97,6 +135,19 @@ export function StrategyPlannerPage() {
   }, [courseId, holeNumber, navigate]);
 
   const { course, isLoading: courseLoading } = useCourse(courseId);
+
+  // Build tee box list from course yardage data
+  const teeBoxes = useMemo(() => {
+    if (!course?.holes?.length) return [{ key: 'blue', label: 'Blue', color: '#3B82F6' }];
+    return buildTeeBoxes(course.holes);
+  }, [course]);
+
+  // Default to first available tee when course loads
+  useEffect(() => {
+    if (teeBoxes.length > 0 && !teeBoxes.find((t) => t.key === teeBox)) {
+      setTeeBox(teeBoxes[0].key);
+    }
+  }, [teeBoxes, teeBox]);
 
   const hole = course?.holes.find((h) => h.holeNumber === holeNumber);
   const totalHoles = course?.holes.length ?? 18;
@@ -208,7 +259,7 @@ export function StrategyPlannerPage() {
         {/* View mode toggle */}
         <div className="flex items-center gap-1.5">
           {/* Tee box selector */}
-          {TEE_BOXES.map((t) => (
+          {teeBoxes.map((t) => (
             <button
               key={t.key}
               onClick={() => setTeeBox(t.key)}

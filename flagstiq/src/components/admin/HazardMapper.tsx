@@ -19,7 +19,24 @@ const STATUS_COLORS: Record<HoleStatus, string> = {
   accepted: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-600',
 };
 
-const TEES = ['blue', 'white', 'red'] as const;
+/** Derive available tee names from hole yardage keys (sorted longest→shortest) */
+function getCourseTees(holes: CourseHole[]): string[] {
+  const teeSet = new Set<string>();
+  for (const h of holes) {
+    for (const key of Object.keys(h.yardages)) teeSet.add(key);
+  }
+  // Sort by average yardage descending (longest tee first)
+  const tees = Array.from(teeSet);
+  const avgYardage = (tee: string) => {
+    let sum = 0, count = 0;
+    for (const h of holes) {
+      if (h.yardages[tee]) { sum += h.yardages[tee]; count++; }
+    }
+    return count > 0 ? sum / count : 0;
+  };
+  tees.sort((a, b) => avgYardage(b) - avgYardage(a));
+  return tees;
+}
 
 interface HazardMapperProps {
   courseId: string;
@@ -30,7 +47,7 @@ interface HazardMapperProps {
 // ---------------------------------------------------------------------------
 // Inline Scorecard Editor
 // ---------------------------------------------------------------------------
-function ScorecardEditor({ courseId, holes }: { courseId: string; holes: CourseHole[] }) {
+function ScorecardEditor({ courseId, holes, tees }: { courseId: string; holes: CourseHole[]; tees: string[] }) {
   const [edits, setEdits] = useState<Record<number, { par?: number; handicap?: number | null; yardages?: Record<string, number> }>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -140,7 +157,7 @@ function ScorecardEditor({ courseId, holes }: { courseId: string; holes: CourseH
                 );
               })}
             </tr>
-            {TEES.map((tee) => (
+            {tees.map((tee) => (
               <tr key={tee} className="border-t border-border">
                 <td className="px-1 py-1 text-text-muted font-medium capitalize">{tee}</td>
                 {nineHoles.map((h) => {
@@ -196,7 +213,7 @@ export function HazardMapper({ courseId, selectedHole, onSelectHole }: HazardMap
       {course && (
         <>
           {/* Scorecard editor */}
-          <ScorecardEditor courseId={courseId} holes={course.holes} />
+          <ScorecardEditor courseId={courseId} holes={course.holes} tees={getCourseTees(course.holes)} />
 
           {/* Hole status grid */}
           <div className="grid grid-cols-6 gap-1.5">
