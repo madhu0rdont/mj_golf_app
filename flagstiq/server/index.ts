@@ -51,22 +51,25 @@ app.use(csrfCheck);
 // Health checks (unauthenticated)
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-// Temporary debug endpoint — per-hole plan QC
+// Temporary debug endpoint — per-hole plan QC (dump raw structure for first hole)
 app.get('/debug/plan-qc/:courseId', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT tee_box, mode, plan FROM game_plan_cache WHERE course_id = $1 AND stale = false ORDER BY mode`,
       [req.params.courseId],
     );
-    const result = rows.map((r: { tee_box: string; mode: string; plan: { holes?: { holeNumber: number; par: number; expectedStrokes: number; strategies: { strategyName: string; expectedStrokes: number; clubs: { clubName: string }[]; blowupRisk: number; label: string }[] }[]; totalExpected?: number } }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = rows.map((r: any) => {
       const plan = r.plan;
-      const holes = (plan?.holes ?? []).map((h: { holeNumber: number; par: number; expectedStrokes: number; strategies: { strategyName: string; expectedStrokes: number; clubs: { clubName: string }[]; blowupRisk: number; label: string }[] }) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const holes = (plan?.holes ?? []).map((h: any) => ({
         hole: h.holeNumber,
         par: h.par,
-        xS: h.expectedStrokes,
-        overPar: h.expectedStrokes != null ? +(h.expectedStrokes - h.par).toFixed(2) : null,
-        topStrategy: h.strategies?.[0]?.label,
-        blowup: h.strategies?.[0]?.blowupRisk,
+        xS: h.strategies?.[0]?.expectedStrokes ?? null,
+        label: h.strategies?.[0]?.label ?? null,
+        blowup: h.strategies?.[0]?.blowupRisk ?? null,
+        clubs: h.strategies?.[0]?.clubs?.map((c: { clubName: string }) => c.clubName) ?? [],
+        numStrategies: h.strategies?.length ?? 0,
       }));
       return { teeBox: r.tee_box, mode: r.mode, total: plan?.totalExpected, holes };
     });
