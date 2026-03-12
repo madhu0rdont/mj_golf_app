@@ -201,6 +201,7 @@ router.post('/:courseId/:teeBox/:mode/generate', async (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable proxy buffering (Railway/nginx)
     res.flushHeaders();
 
     // Generate plan across parallel worker threads (non-blocking)
@@ -209,6 +210,8 @@ router.post('/:courseId/:teeBox/:mode/generate', async (req, res) => {
       { clubs, shots, course, teeBox, mode: mode as ScoringMode, roughPenalty },
       (completed, total) => {
         res.write(`data: ${JSON.stringify({ type: 'progress', completed, total })}\n\n`);
+        // Flush the compression buffer so SSE events stream immediately
+        if (typeof (res as any).flush === 'function') (res as any).flush();
       },
     );
 
