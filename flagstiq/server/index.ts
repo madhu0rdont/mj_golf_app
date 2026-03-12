@@ -328,11 +328,42 @@ async function start() {
   await migrate();
   await seed();
 
+  // Recompute playsLikeYards from current elevation data (fixes stale values
+  // left over from before elevation data was corrected)
+  try {
+    const { rows: holes } = await pool.query(`
+      SELECT id, yardages, plays_like_yards,
+             (tee->>'elevation')::float AS tee_elev,
+             (pin->>'elevation')::float AS pin_elev
+      FROM course_holes
+      WHERE tee->>'elevation' IS NOT NULL AND pin->>'elevation' IS NOT NULL
+    `);
+    let fixed = 0;
+    for (const h of holes) {
+      const elevDelta = h.pin_elev - h.tee_elev;
+      const yardages = h.yardages as Record<string, number>;
+      const stored = (h.plays_like_yards ?? {}) as Record<string, number>;
+      const correct: Record<string, number> = {};
+      let needsUpdate = false;
+      for (const [color, yards] of Object.entries(yardages)) {
+        correct[color] = yards + Math.round(elevDelta * 1.09);
+        if (stored[color] !== correct[color]) needsUpdate = true;
+      }
+      if (needsUpdate) {
+        await pool.query('UPDATE course_holes SET plays_like_yards = $1 WHERE id = $2', [JSON.stringify(correct), h.id]);
+        fixed++;
+      }
+    }
+    if (fixed > 0) logger.info(`Fixed playsLikeYards for ${fixed} holes`);
+  } catch (err) {
+    logger.warn('playsLikeYards recomputation skipped', { error: String(err) });
+  }
+
   // Auto-regenerate game plans when optimizer version changes.
   // IMPORTANT: Only bump OPTIMIZER_VERSION when the DP optimizer / MC simulation
   // / game-plan logic actually changes. Package version bumps alone should NOT
   // trigger costly regeneration that blocks the event loop for minutes.
-  const OPTIMIZER_VERSION = '1.7.3'; // green-first hazard check (fixes OB/green polygon overlap)
+  const OPTIMIZER_VERSION = '1.7.4'; // fix stale playsLikeYards + green-first hazard check
   try {
     const { rows } = await pool.query(
       `SELECT value FROM app_settings WHERE key = 'optimizer_version'`,

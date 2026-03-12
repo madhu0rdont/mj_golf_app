@@ -39,8 +39,7 @@ export function computeLandingZones(
       center = projectPoint(center, perpBearing, dist.meanOffline);
     }
 
-    // Ensure carry axis is at least 1.5× offline for a visibly elongated oval
-    const carryAxis = Math.max(dist.stdCarry, dist.stdOffline * 1.5);
+    const carryAxis = dist.stdCarry;
     const offlineAxis = dist.stdOffline;
     const sigma1 = computeEllipsePoints(center, bearing, carryAxis * 1.5, offlineAxis * 1.5, 36);
     const sigma2 = computeEllipsePoints(center, bearing, carryAxis * 3, offlineAxis * 3, 36);
@@ -79,8 +78,7 @@ export function computeLandingZonesFromAimPoints(
       center = projectPoint(center, heading + 90, dist.meanOffline);
     }
 
-    // Ensure carry axis is at least 1.5× offline for a visibly elongated oval
-    const carryAxis = Math.max(dist.stdCarry, dist.stdOffline * 1.5);
+    const carryAxis = dist.stdCarry;
     const offlineAxis = dist.stdOffline;
     const sigma1 = computeEllipsePoints(center, heading, carryAxis * 1.5, offlineAxis * 1.5, 36);
     const sigma2 = computeEllipsePoints(center, heading, carryAxis * 3, offlineAxis * 3, 36);
