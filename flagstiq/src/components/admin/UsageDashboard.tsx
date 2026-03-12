@@ -91,7 +91,7 @@ function DailyChart({ data }: { data: DailyEntry[] }) {
     );
   }
 
-  const maxCost = Math.max(...data.map(d => d.claude + d.google_elevation + d.google_maps + d.resend + (d.railway ?? 0)), 0.001);
+  const maxCost = Math.max(...data.map(d => (d.claude ?? 0) + (d.google_elevation ?? 0) + (d.google_maps ?? 0) + (d.resend ?? 0) + (d.railway ?? 0)), 0.001);
   const barWidth = Math.max(4, Math.min(20, Math.floor(280 / data.length) - 2));
   const chartWidth = data.length * (barWidth + 2) + 40;
   const chartHeight = 120;
@@ -114,10 +114,10 @@ function DailyChart({ data }: { data: DailyEntry[] }) {
 
           const segments = [
             { key: 'railway', val: d.railway ?? 0 },
-            { key: 'resend', val: d.resend },
-            { key: 'google_maps', val: d.google_maps },
-            { key: 'google_elevation', val: d.google_elevation },
-            { key: 'claude', val: d.claude },
+            { key: 'resend', val: d.resend ?? 0 },
+            { key: 'google_maps', val: d.google_maps ?? 0 },
+            { key: 'google_elevation', val: d.google_elevation ?? 0 },
+            { key: 'claude', val: d.claude ?? 0 },
           ];
 
           return (

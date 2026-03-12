@@ -771,7 +771,7 @@ router.get('/usage', async (req, res) => {
     // Pivot daily rows into { date, claude, google_elevation, resend }
     const dailyMap = new Map<string, Record<string, number>>();
     for (const row of dailyRows) {
-      if (!dailyMap.has(row.date)) dailyMap.set(row.date, { claude: 0, google_elevation: 0, resend: 0 });
+      if (!dailyMap.has(row.date)) dailyMap.set(row.date, { claude: 0, google_elevation: 0, google_maps: 0, resend: 0 });
       dailyMap.get(row.date)![row.service] = parseFloat(row.cost);
     }
     const daily = Array.from(dailyMap.entries()).map(([date, costs]) => ({ date, ...costs }));
