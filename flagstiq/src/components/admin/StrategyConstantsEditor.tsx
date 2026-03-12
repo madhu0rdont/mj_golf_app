@@ -309,24 +309,30 @@ const CONSTANT_MATH: Record<string, MathInfo> = {
 // Info Popover Component
 // ---------------------------------------------------------------------------
 
-function InfoPopover({ info, onClose }: { info: MathInfo; onClose: () => void }) {
+function InfoModal({ info, onClose }: { info: MathInfo; onClose: () => void }) {
   return (
-    <div className="absolute right-0 top-full mt-1 z-50 w-72 rounded-sm border border-border bg-card shadow-lg p-3 flex flex-col gap-2">
-      <div className="flex items-start justify-between gap-2">
-        <h5 className="text-xs font-semibold text-text-dark">{info.title}</h5>
-        <button onClick={onClose} className="text-text-muted hover:text-text-dark flex-shrink-0">
-          <X size={14} />
-        </button>
-      </div>
-      <p className="text-[11px] text-text-medium leading-relaxed">{info.explanation}</p>
-      {info.formula && (
-        <div className="overflow-x-auto -mx-1 px-1 py-1 bg-surface rounded">
-          <BlockMath math={info.formula} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/30" />
+      <div
+        className="relative w-full max-w-sm rounded-sm border border-border bg-card shadow-lg p-4 flex flex-col gap-2.5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <h5 className="text-sm font-semibold text-text-dark">{info.title}</h5>
+          <button onClick={onClose} className="text-text-muted hover:text-text-dark flex-shrink-0 -mt-0.5">
+            <X size={16} />
+          </button>
         </div>
-      )}
-      {info.context && (
-        <p className="text-[10px] text-text-muted leading-relaxed italic">{info.context}</p>
-      )}
+        <p className="text-xs text-text-medium leading-relaxed">{info.explanation}</p>
+        {info.formula && (
+          <div className="overflow-x-auto py-2 px-2 bg-surface rounded">
+            <BlockMath math={info.formula} />
+          </div>
+        )}
+        {info.context && (
+          <p className="text-[11px] text-text-muted leading-relaxed italic">{info.context}</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -442,7 +448,7 @@ export function StrategyConstantsEditor() {
                 return (
                   <div
                     key={c.key}
-                    className="relative flex items-center gap-2 rounded-sm border border-border bg-surface px-3 py-2"
+                    className="flex items-center gap-2 rounded-sm border border-border bg-surface px-3 py-2"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
@@ -473,7 +479,7 @@ export function StrategyConstantsEditor() {
                       }`}
                     />
                     {openInfo === c.key && mathInfo && (
-                      <InfoPopover info={mathInfo} onClose={() => setOpenInfo(null)} />
+                      <InfoModal info={mathInfo} onClose={() => setOpenInfo(null)} />
                     )}
                   </div>
                 );
