@@ -41,8 +41,8 @@ export function computeLandingZones(
 
     const carryAxis = dist.stdCarry;
     const offlineAxis = dist.stdOffline;
-    const sigma1 = computeEllipsePoints(center, bearing, carryAxis * 1.5, offlineAxis * 1.5, 36);
-    const sigma2 = computeEllipsePoints(center, bearing, carryAxis * 3, offlineAxis * 3, 36);
+    const sigma1 = computeEllipsePoints(center, bearing, carryAxis, offlineAxis, 36);
+    const sigma2 = computeEllipsePoints(center, bearing, carryAxis * 2, offlineAxis * 2, 36);
 
     zones.push({
       clubName: dist.clubName,
