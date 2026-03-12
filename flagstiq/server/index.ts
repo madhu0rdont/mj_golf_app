@@ -332,7 +332,7 @@ async function start() {
   // IMPORTANT: Only bump OPTIMIZER_VERSION when the DP optimizer / MC simulation
   // / game-plan logic actually changes. Package version bumps alone should NOT
   // trigger costly regeneration that blocks the event loop for minutes.
-  const OPTIMIZER_VERSION = '1.7.2'; // backspin rollout damping + finer par-3 bearing grid
+  const OPTIMIZER_VERSION = '1.7.3'; // green-first hazard check (fixes OB/green polygon overlap)
   try {
     const { rows } = await pool.query(
       `SELECT value FROM app_settings WHERE key = 'optimizer_version'`,

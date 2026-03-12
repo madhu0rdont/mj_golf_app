@@ -352,12 +352,14 @@ export function resolveHazardDrop(
   greenPoly: { lat: number; lng: number }[] = [],
   roughPenalty: number = DEFAULT_ROUGH_PENALTY,
 ): HazardDropResult {
+  // Green takes priority — a ball on the putting surface is never OB/hazard,
+  // even if hazard polygons overlap the green boundary.
+  if (greenPoly.length >= 3 && pointInPolygon(landing, greenPoly)) {
+    return { landing, penalty: 0 };
+  }
+
   const hazResult = checkHazards(landing, hazards);
   if (!hazResult.inHazard) {
-    // Not in any defined hazard — check if on fairway or green
-    if (greenPoly.length >= 3 && pointInPolygon(landing, greenPoly)) {
-      return { landing, penalty: 0 };
-    }
     for (const fw of fairwayPolygons) {
       if (fw.length >= 3 && pointInPolygon(landing, fw)) {
         return { landing, penalty: 0 };
