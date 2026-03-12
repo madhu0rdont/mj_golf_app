@@ -363,7 +363,7 @@ async function start() {
   // IMPORTANT: Only bump OPTIMIZER_VERSION when the DP optimizer / MC simulation
   // / game-plan logic actually changes. Package version bumps alone should NOT
   // trigger costly regeneration that blocks the event loop for minutes.
-  const OPTIMIZER_VERSION = '1.7.4'; // fix stale playsLikeYards + green-first hazard check
+  const OPTIMIZER_VERSION = '1.7.5'; // fix stale playsLikeYards + green-first hazard check
   try {
     const { rows } = await pool.query(
       `SELECT value FROM app_settings WHERE key = 'optimizer_version'`,
@@ -377,6 +377,8 @@ async function start() {
         [OPTIMIZER_VERSION],
       );
       await markPlansStale(`Optimizer updated to ${OPTIMIZER_VERSION}`);
+      // Reset updated_at so the regenerator's 2-min cooldown doesn't skip
+      await pool.query(`UPDATE game_plan_cache SET updated_at = 0 WHERE stale = TRUE`);
     }
   } catch {
     // app_settings table may not exist yet — create it
