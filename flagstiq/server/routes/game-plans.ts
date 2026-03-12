@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import { query, toCamel } from '../db.js';
 import { logger } from '../logger.js';
 import { regenerateStalePlans } from '../services/plan-regenerator.js';
-import { getRoughPenalty } from '../services/strategy-optimizer.js';
+import { getRoughPenalty, loadStrategyConstants } from '../services/strategy-optimizer.js';
 import { generatePlanParallel } from '../services/plan-worker-pool.js';
 import { dpOptimizeHole } from '../services/dp-optimizer.js';
 import type { ScoringMode } from '../services/dp-optimizer.js';
@@ -205,9 +205,10 @@ router.post('/:courseId/:teeBox/:mode/generate', async (req, res) => {
     res.flushHeaders();
 
     // Generate plan across parallel worker threads (non-blocking)
-    const roughPenalty = await getRoughPenalty();
+    const constants = await loadStrategyConstants();
+    const roughPenalty = constants.hazard_drop_penalty;
     const plan = await generatePlanParallel(
-      { clubs, shots, course, teeBox, mode: mode as ScoringMode, roughPenalty },
+      { clubs, shots, course, teeBox, mode: mode as ScoringMode, roughPenalty, constants },
       (completed, total) => {
         res.write(`data: ${JSON.stringify({ type: 'progress', completed, total })}\n\n`);
         // Flush the compression buffer so SSE events stream immediately
@@ -298,8 +299,9 @@ router.post('/:courseId/:teeBox/:mode/generate/:holeNumber', async (req, res) =>
     }
 
     // Run DP optimizer for this single hole (runs synchronously, ~15-20s for one hole)
-    const roughPenalty = await getRoughPenalty();
-    const strategies = dpOptimizeHole(hole, teeBox, distributions, roughPenalty);
+    const singleHoleConstants = await loadStrategyConstants();
+    const roughPenalty = singleHoleConstants.hazard_drop_penalty;
+    const strategies = dpOptimizeHole(hole, teeBox, distributions, roughPenalty, singleHoleConstants);
 
     if (strategies.length === 0) {
       return res.status(400).json({ error: 'Optimizer returned no strategies for this hole' });

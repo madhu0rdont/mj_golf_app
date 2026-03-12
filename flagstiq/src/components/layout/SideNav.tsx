@@ -33,6 +33,7 @@ const ADMIN_SECTIONS = [
       { to: '/admin', icon: '🛡', label: 'Dashboard' },
       { to: '/admin/courses', icon: '🗺', label: 'Courses' },
       { to: '/admin/penalties', icon: '🛡', label: 'Penalties' },
+      { to: '/admin/constants', icon: '🎛', label: 'Strategy Constants' },
       { to: '/admin/import', icon: '📥', label: 'Import Course' },
       { to: '/admin/users', icon: '👥', label: 'Users' },
       { to: '/admin/usage', icon: '📊', label: 'Usage & Spend' },

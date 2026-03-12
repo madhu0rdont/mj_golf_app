@@ -1,6 +1,6 @@
 import { expectedPutts } from './monte-carlo.js';
 import type { ClubDistribution } from './monte-carlo.js';
-import type { CourseHole, HazardFeature } from '../models/types.js';
+import type { CourseHole, HazardFeature, StrategyConstants } from '../models/types.js';
 import { projectPoint, haversineYards, pointInPolygon, bearingBetween } from './geo.js';
 import {
   gaussianSample,
@@ -20,6 +20,8 @@ import {
   getProfileElevation,
   getProfileSlope,
   ELEV_YARDS_PER_METER,
+  DEFAULT_STRATEGY_CONSTANTS,
+  applyStrategyConstants,
 } from './strategy-optimizer.js';
 import type { OptimizedStrategy, NamedStrategyPlan, AimPoint, ElevationProfile } from './strategy-optimizer.js';
 
@@ -94,29 +96,29 @@ interface SpatialIndex {
 // Constants
 // ---------------------------------------------------------------------------
 
-const ZONE_INTERVAL = 20;        // yards between anchor markers along centerline
-const LATERAL_OFFSET = 20;       // yards left/right of centerline
-const BEARING_RANGE = 30;        // ±degrees from pin bearing
+let ZONE_INTERVAL = 20;        // yards between anchor markers along centerline
+let LATERAL_OFFSET = 20;       // yards left/right of centerline
+let BEARING_RANGE = 30;        // ±degrees from pin bearing
 const TEE_LOOK_AHEAD = 200;     // yards — center tee bearing fan on driver landing zone
-const SAMPLES_BASE = 100;       // minimum samples for safe anchors
-const SAMPLES_HAZARD = 250;     // anchors with hazards in play
-const SAMPLES_HIGH_RISK = 350;  // anchors with OB or water in play
-const GREEN_RADIUS = 10;         // yards — used for anchor discretization near pin
-const MAX_VALUE_ITERATIONS = 50;
-const CONVERGENCE_THRESHOLD = 0.001;
-const MIN_CARRY_RATIO = 0.5;     // club carry must be ≥ 50% of dist to pin
-const MAX_CARRY_RATIO = 1.10;    // club carry must be ≤ 110% of dist to pin
-const CHIP_RANGE = 30;           // within this distance, treat as near-green (chip/putt)
-const HAZARD_DROP_PENALTY = 0.3; // penalty passed to resolveHazardDrop
+let SAMPLES_BASE = 100;       // minimum samples for safe anchors
+let SAMPLES_HAZARD = 250;     // anchors with hazards in play
+let SAMPLES_HIGH_RISK = 350;  // anchors with OB or water in play
+let GREEN_RADIUS = 10;         // yards — used for anchor discretization near pin
+let MAX_VALUE_ITERATIONS = 50;
+let CONVERGENCE_THRESHOLD = 0.001;
+let MIN_CARRY_RATIO = 0.5;     // club carry must be ≥ 50% of dist to pin
+let MAX_CARRY_RATIO = 1.10;    // club carry must be ≤ 110% of dist to pin
+let CHIP_RANGE = 30;           // within this distance, treat as near-green (chip/putt)
+let HAZARD_DROP_PENALTY = 0.3; // penalty passed to resolveHazardDrop
 
 // Interpolation constants
-const K_NEIGHBORS = 6;
-const KERNEL_H_S = 25;           // yards, s-direction bandwidth
-const KERNEL_H_U = 20;           // yards, u-direction bandwidth
-const SHORT_GAME_THRESHOLD = 60; // yards from pin — bypass interpolation
+let K_NEIGHBORS = 6;
+let KERNEL_H_S = 25;           // yards, s-direction bandwidth
+let KERNEL_H_U = 20;           // yards, u-direction bandwidth
+let SHORT_GAME_THRESHOLD = 60; // yards from pin — bypass interpolation
 
 // Per-lie dispersion multiplier (replaces binary ROUGH_LIE_MULTIPLIER)
-const LIE_MULTIPLIER: Record<LieClass, number> = {
+let LIE_MULTIPLIER: Record<LieClass, number> = {
   fairway: 1.0,
   rough: 1.15,
   green: 1.0,
@@ -125,6 +127,41 @@ const LIE_MULTIPLIER: Record<LieClass, number> = {
   trees: 1.40,
   recovery: 1.60,
 };
+
+let SAFE_VARIANCE_WEIGHT = 1.0;
+let AGGRESSIVE_GREEN_BONUS = 0.6;
+
+/** Apply StrategyConstants to module-level variables for the current optimization run. */
+function applyConstants(c: StrategyConstants): void {
+  ZONE_INTERVAL = c.zone_interval;
+  LATERAL_OFFSET = c.lateral_offset;
+  BEARING_RANGE = c.bearing_range;
+  SAMPLES_BASE = c.samples_base;
+  SAMPLES_HAZARD = c.samples_hazard;
+  SAMPLES_HIGH_RISK = c.samples_high_risk;
+  GREEN_RADIUS = c.green_radius;
+  MAX_VALUE_ITERATIONS = c.max_iterations;
+  CONVERGENCE_THRESHOLD = c.convergence_threshold;
+  MIN_CARRY_RATIO = c.min_carry_ratio;
+  MAX_CARRY_RATIO = c.max_carry_ratio;
+  CHIP_RANGE = c.chip_range;
+  HAZARD_DROP_PENALTY = c.hazard_drop_penalty;
+  K_NEIGHBORS = c.k_neighbors;
+  KERNEL_H_S = c.kernel_h_s;
+  KERNEL_H_U = c.kernel_h_u;
+  SHORT_GAME_THRESHOLD = c.short_game_threshold;
+  SAFE_VARIANCE_WEIGHT = c.safe_variance_weight;
+  AGGRESSIVE_GREEN_BONUS = c.aggressive_green_bonus;
+  LIE_MULTIPLIER = {
+    fairway: c.lie_fairway,
+    rough: c.lie_rough,
+    green: c.lie_green,
+    fairway_bunker: c.lie_fairway_bunker,
+    greenside_bunker: c.lie_greenside_bunker,
+    trees: c.lie_trees,
+    recovery: c.lie_recovery,
+  };
+}
 
 const MODE_TYPE: Record<ScoringMode, 'scoring' | 'safe' | 'balanced'> = {
   scoring: 'scoring',
@@ -1012,10 +1049,10 @@ function valueIteration(
         if (mode === 'scoring') {
           modeValue = meanQ;
         } else if (mode === 'safe') {
-          modeValue = meanQ + 1.0 * Math.sqrt(Math.max(0, variance));
+          modeValue = meanQ + SAFE_VARIANCE_WEIGHT * Math.sqrt(Math.max(0, variance));
         } else {
           // aggressive — reward green attainment
-          modeValue = meanQ - 0.6 * entry.pGreen;
+          modeValue = meanQ - AGGRESSIVE_GREEN_BONUS * entry.pGreen;
         }
 
         if (modeValue < bestModeValue) {
@@ -1087,9 +1124,9 @@ function findAlternativeTeeAction(
     if (mode === 'scoring') {
       modeValue = meanQ;
     } else if (mode === 'safe') {
-      modeValue = meanQ + 1.0 * Math.sqrt(Math.max(0, variance));
+      modeValue = meanQ + SAFE_VARIANCE_WEIGHT * Math.sqrt(Math.max(0, variance));
     } else {
-      modeValue = meanQ - 0.6 * entry.pGreen;
+      modeValue = meanQ - AGGRESSIVE_GREEN_BONUS * entry.pGreen;
     }
 
     if (modeValue < bestValue) {
@@ -1470,8 +1507,13 @@ export function dpOptimizeHole(
   teeBox: string,
   distributions: ClubDistribution[],
   _roughPenalty: number = 0.3,
+  constants: StrategyConstants = DEFAULT_STRATEGY_CONSTANTS,
 ): OptimizedStrategy[] {
   if (distributions.length === 0) return [];
+
+  // Apply configurable constants (dp-optimizer local + strategy-optimizer shared)
+  applyConstants(constants);
+  applyStrategyConstants(constants);
 
   // 1. Discretize hole into anchor states (with elevation profile)
   const { anchors, elevProfile, centerLine } = discretizeHole(hole, teeBox);

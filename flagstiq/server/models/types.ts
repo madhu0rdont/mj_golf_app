@@ -112,3 +112,58 @@ export interface Course {
 export interface CourseWithHoles extends Course {
   holes: CourseHole[];
 }
+
+export interface StrategyConstants {
+  // Lie multipliers
+  lie_fairway: number;
+  lie_rough: number;
+  lie_green: number;
+  lie_fairway_bunker: number;
+  lie_greenside_bunker: number;
+  lie_trees: number;
+  lie_recovery: number;
+  // Surface rollout
+  rollout_fairway: number;
+  rollout_rough: number;
+  rollout_green: number;
+  rollout_bunker: number;
+  // Mode weights
+  safe_variance_weight: number;
+  aggressive_green_bonus: number;
+  // Sampling
+  samples_base: number;
+  samples_hazard: number;
+  samples_high_risk: number;
+  // Thresholds
+  chip_range: number;
+  short_game_threshold: number;
+  green_radius: number;
+  // Spatial
+  zone_interval: number;
+  lateral_offset: number;
+  bearing_range: number;
+  k_neighbors: number;
+  kernel_h_s: number;
+  kernel_h_u: number;
+  // Flight model
+  tree_height_yards: number;
+  ball_apex_yards: number;
+  elev_yards_per_meter: number;
+  // Rollout
+  rollout_slope_factor: number;
+  default_loft: number;
+  // Putting model
+  putt_coefficient: number;
+  putt_cap: number;
+  // MC
+  mc_trials: number;
+  // DP
+  max_iterations: number;
+  convergence_threshold: number;
+  // Club selection
+  min_carry_ratio: number;
+  max_carry_ratio: number;
+  // Hazard
+  hazard_drop_penalty: number;
+  max_shots_per_hole: number;
+}

@@ -1,11 +1,47 @@
 import { expectedPutts } from './monte-carlo.js';
 import type { ClubDistribution, ApproachStrategy } from './monte-carlo.js';
-import type { CourseHole, HazardFeature } from '../models/types.js';
+import type { CourseHole, HazardFeature, StrategyConstants } from '../models/types.js';
 import { projectPoint, haversineYards, pointInPolygon, bearingBetween, distanceToPolygonEdge } from './geo.js';
 import { query } from '../db.js';
 
 // Re-export for convenience
 export { buildDistributions } from './monte-carlo.js';
+
+// ---------------------------------------------------------------------------
+// Strategy Constants — DB-backed with hardcoded fallbacks
+// ---------------------------------------------------------------------------
+
+export const DEFAULT_STRATEGY_CONSTANTS: StrategyConstants = {
+  lie_fairway: 1.0, lie_rough: 1.15, lie_green: 1.0, lie_fairway_bunker: 1.25,
+  lie_greenside_bunker: 1.20, lie_trees: 1.40, lie_recovery: 1.60,
+  rollout_fairway: 1.0, rollout_rough: 0.15, rollout_green: 0.65, rollout_bunker: 0.0,
+  safe_variance_weight: 1.0, aggressive_green_bonus: 0.6,
+  samples_base: 100, samples_hazard: 250, samples_high_risk: 350,
+  chip_range: 30, short_game_threshold: 60, green_radius: 10,
+  zone_interval: 20, lateral_offset: 20, bearing_range: 30,
+  k_neighbors: 6, kernel_h_s: 25, kernel_h_u: 20,
+  tree_height_yards: 15, ball_apex_yards: 28, elev_yards_per_meter: 1.09,
+  rollout_slope_factor: 3.0, default_loft: 30,
+  putt_coefficient: 0.42, putt_cap: 3,
+  mc_trials: 2000, max_iterations: 50, convergence_threshold: 0.001,
+  min_carry_ratio: 0.5, max_carry_ratio: 1.10,
+  hazard_drop_penalty: 0.3, max_shots_per_hole: 8,
+};
+
+export async function loadStrategyConstants(): Promise<StrategyConstants> {
+  try {
+    const { rows } = await query('SELECT key, value FROM strategy_constants');
+    const result = { ...DEFAULT_STRATEGY_CONSTANTS };
+    for (const row of rows) {
+      if (row.key in result) {
+        (result as Record<string, number>)[row.key] = row.value;
+      }
+    }
+    return result;
+  } catch {
+    return { ...DEFAULT_STRATEGY_CONSTANTS };
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -53,8 +89,8 @@ export interface NamedStrategyPlan {
 // Constants
 // ---------------------------------------------------------------------------
 
-export const HOLE_THRESHOLD = 10;  // yards — fallback when no green polygon defined
-export const MAX_SHOTS_PER_HOLE = 8;
+export let HOLE_THRESHOLD = 10;  // yards — fallback when no green polygon defined
+export let MAX_SHOTS_PER_HOLE = 8;
 
 /** Check if a position is on the green using polygon geofence, falling back to 10-yard radius */
 export function isOnGreen(
@@ -65,10 +101,10 @@ export function isOnGreen(
   if (greenPoly.length >= 3 && pointInPolygon(pos, greenPoly)) return true;
   return haversineYards(pos, pin) <= HOLE_THRESHOLD;
 }
-export const DEFAULT_TRIALS = 2000;
+export let DEFAULT_TRIALS = 2000;
 export const MIN_HAZARD_POINTS = 3;
-export const TREE_HEIGHT_YARDS = 15; // ~45 feet — typical mature golf course tree
-export const BALL_APEX_YARDS = 28;   // ~84 feet — reasonable average across all clubs
+export let TREE_HEIGHT_YARDS = 15; // ~45 feet — typical mature golf course tree
+export let BALL_APEX_YARDS = 28;   // ~84 feet — reasonable average across all clubs
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -101,7 +137,7 @@ export function greedyClub(target: number, clubs: ClubDistribution[]): ClubDistr
 // Elevation Profile
 // ---------------------------------------------------------------------------
 
-export const ELEV_YARDS_PER_METER = 1.09; // ~1 yard per 3 feet of elevation change
+export let ELEV_YARDS_PER_METER = 1.09; // ~1 yard per 3 feet of elevation change
 const ELEV_PROFILE_STEP = 10;      // yards between elevation profile samples
 
 export interface ElevationProfile {
@@ -190,15 +226,15 @@ export function getProfileElevation(profile: ElevationProfile, distFromTee: numb
 // Rollout Model
 // ---------------------------------------------------------------------------
 
-const SURFACE_ROLLOUT: Record<string, number> = {
+let SURFACE_ROLLOUT: Record<string, number> = {
   fairway: 1.0,
   rough: 0.15,
   green: 0.65,
   bunker: 0.0,
 };
-const DEFAULT_LOFT = 30;
+let DEFAULT_LOFT = 30;
 
-const ROLLOUT_SLOPE_FACTOR = 3.0; // rollout adjustment per unit slope (m/yd)
+let ROLLOUT_SLOPE_FACTOR = 3.0; // rollout adjustment per unit slope (m/yd)
 
 /**
  * Compute rollout distance for a shot based on club data, landing surface, and slope.
@@ -269,6 +305,24 @@ function classifyLieLocal(
 // ---------------------------------------------------------------------------
 
 export const DEFAULT_ROUGH_PENALTY = 0.3;
+
+/** Apply StrategyConstants to module-level variables for the current optimization run. */
+export function applyStrategyConstants(c: StrategyConstants): void {
+  HOLE_THRESHOLD = c.green_radius;
+  MAX_SHOTS_PER_HOLE = c.max_shots_per_hole;
+  DEFAULT_TRIALS = c.mc_trials;
+  TREE_HEIGHT_YARDS = c.tree_height_yards;
+  BALL_APEX_YARDS = c.ball_apex_yards;
+  ELEV_YARDS_PER_METER = c.elev_yards_per_meter;
+  SURFACE_ROLLOUT = {
+    fairway: c.rollout_fairway,
+    rough: c.rollout_rough,
+    green: c.rollout_green,
+    bunker: c.rollout_bunker,
+  };
+  DEFAULT_LOFT = c.default_loft;
+  ROLLOUT_SLOPE_FACTOR = c.rollout_slope_factor;
+}
 
 /** Load the rough penalty from the hazard_penalties table. */
 export async function getRoughPenalty(): Promise<number> {
@@ -1199,16 +1253,22 @@ export function optimizeHole(
   hole: CourseHole,
   teeBox: string,
   distributions: ClubDistribution[],
-  trials: number = DEFAULT_TRIALS,
-  roughPenalty: number = DEFAULT_ROUGH_PENALTY,
+  trials: number | undefined,
+  roughPenalty: number | undefined,
+  constants: StrategyConstants = DEFAULT_STRATEGY_CONSTANTS,
 ): OptimizedStrategy[] {
+  applyStrategyConstants(constants);
+
+  const effectiveTrials = trials ?? constants.mc_trials;
+  const effectiveRoughPenalty = roughPenalty ?? DEFAULT_ROUGH_PENALTY;
+
   if (distributions.length === 0) return [];
 
   const plans = generateNamedStrategies(hole, teeBox, distributions);
   if (plans.length === 0) return [];
 
   const results = plans.map((plan) =>
-    simulateHoleGPS(plan, hole, distributions, trials, roughPenalty),
+    simulateHoleGPS(plan, hole, distributions, effectiveTrials, effectiveRoughPenalty),
   );
 
   results.sort((a, b) => a.expectedStrokes - b.expectedStrokes);

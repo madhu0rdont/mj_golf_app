@@ -72,6 +72,7 @@ export const adminRouter = createBrowserRouter([
       { path: 'admin', element: <Suspense fallback={<LoadingPage />}><AdminPage /></Suspense> },
       { path: 'admin/courses', element: <Suspense fallback={<LoadingPage />}><AdminPage /></Suspense> },
       { path: 'admin/penalties', element: <Suspense fallback={<LoadingPage />}><AdminPage /></Suspense> },
+      { path: 'admin/constants', element: <Suspense fallback={<LoadingPage />}><AdminPage /></Suspense> },
       { path: 'admin/import', element: <Suspense fallback={<LoadingPage />}><AdminPage /></Suspense> },
       { path: 'admin/users', element: <Suspense fallback={<LoadingPage />}><AdminPage /></Suspense> },
       { path: 'admin/usage', element: <Suspense fallback={<LoadingPage />}><AdminPage /></Suspense> },

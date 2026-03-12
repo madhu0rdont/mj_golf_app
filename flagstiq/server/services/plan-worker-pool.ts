@@ -15,7 +15,7 @@ import { buildDistributions } from './monte-carlo.js';
 import { assembleGamePlan } from './game-plan.js';
 import type { GamePlan } from './game-plan.js';
 import type { OptimizedStrategy } from './strategy-optimizer.js';
-import type { Club, Shot, CourseWithHoles, CourseHole } from '../models/types.js';
+import type { Club, Shot, CourseWithHoles, CourseHole, StrategyConstants } from '../models/types.js';
 import type { ScoringMode } from './dp-optimizer.js';
 import type { ClubDistribution } from './monte-carlo.js';
 
@@ -42,6 +42,7 @@ export interface PlanWorkerInput {
   teeBox: string;
   mode: ScoringMode;
   roughPenalty: number;
+  constants?: StrategyConstants;
 }
 
 export function generatePlanInWorker(input: PlanWorkerInput): Promise<GamePlan> {
@@ -81,6 +82,7 @@ function runHolesWorker(
   teeBox: string,
   distributions: ClubDistribution[],
   roughPenalty: number,
+  constants?: StrategyConstants,
   onProgress?: (holeNumber: number) => void,
 ): Promise<HoleResult[]> {
   return new Promise((resolve, reject) => {
@@ -105,7 +107,7 @@ function runHolesWorker(
       reject(err);
     });
 
-    worker.postMessage({ holes, teeBox, distributions, roughPenalty });
+    worker.postMessage({ holes, teeBox, distributions, roughPenalty, constants });
   });
 }
 
@@ -134,7 +136,7 @@ async function _generatePlanParallelInner(
   input: PlanWorkerInput,
   onProgress?: (completed: number, total: number) => void,
 ): Promise<GamePlan> {
-  const { clubs, shots, course, teeBox, mode, roughPenalty } = input;
+  const { clubs, shots, course, teeBox, mode, roughPenalty, constants } = input;
 
   // 1. Compute distributions once on main thread (fast, ~50ms)
   const groups = computeClubShotGroups(clubs, shots);
@@ -164,7 +166,7 @@ async function _generatePlanParallelInner(
     : undefined;
 
   const batchResults = await Promise.all(
-    batches.map((batch) => runHolesWorker(batch, teeBox, distributions, roughPenalty, handleHoleProgress)),
+    batches.map((batch) => runHolesWorker(batch, teeBox, distributions, roughPenalty, constants, handleHoleProgress)),
   );
 
   // 4. Merge results into a single map

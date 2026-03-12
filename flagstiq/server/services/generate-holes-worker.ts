@@ -11,15 +11,15 @@ import { optimizeHole } from './strategy-optimizer.js';
 
 parentPort?.on('message', (msg) => {
   try {
-    const { holes, teeBox, distributions, roughPenalty } = msg;
+    const { holes, teeBox, distributions, roughPenalty, constants } = msg;
     const results: Array<{ holeNumber: number; strategies: unknown[] }> = [];
 
     for (const hole of holes) {
-      let strategies = dpOptimizeHole(hole, teeBox, distributions, roughPenalty);
+      let strategies = dpOptimizeHole(hole, teeBox, distributions, roughPenalty, constants);
 
       // Fallback to template-based optimizer if DP returns nothing
       if (strategies.length === 0) {
-        strategies = optimizeHole(hole, teeBox, distributions, undefined, roughPenalty);
+        strategies = optimizeHole(hole, teeBox, distributions, undefined, roughPenalty, constants);
       }
 
       results.push({ holeNumber: hole.holeNumber, strategies });

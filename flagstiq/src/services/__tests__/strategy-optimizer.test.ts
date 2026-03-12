@@ -540,12 +540,12 @@ describe('optimizeHole', () => {
 
   it('returns empty for empty distributions', () => {
     const hole = makeHole(4);
-    expect(optimizeHole(hole, 'blue', [])).toEqual([]);
+    expect(optimizeHole(hole, 'blue', [], undefined, undefined)).toEqual([]);
   });
 
   it('returns strategies sorted by expected strokes', () => {
     const hole = makeHole(4, 400);
-    const results = optimizeHole(hole, 'blue', dists, 500);
+    const results = optimizeHole(hole, 'blue', dists, 500, undefined);
     expect(results.length).toBeGreaterThanOrEqual(2);
     for (let i = 1; i < results.length; i++) {
       expect(results[i].expectedStrokes).toBeGreaterThanOrEqual(results[i - 1].expectedStrokes);
@@ -554,7 +554,7 @@ describe('optimizeHole', () => {
 
   it('all results have strategy names', () => {
     const hole = makeHole(4, 400);
-    const results = optimizeHole(hole, 'blue', dists, 500);
+    const results = optimizeHole(hole, 'blue', dists, 500, undefined);
     for (const r of results) {
       expect(r.strategyName).toBeTruthy();
     }
@@ -562,7 +562,7 @@ describe('optimizeHole', () => {
 
   it('par 3 results have single-shot aim points', () => {
     const hole = makeHole(3, 165);
-    const results = optimizeHole(hole, 'blue', dists, 500);
+    const results = optimizeHole(hole, 'blue', dists, 500, undefined);
     for (const r of results) {
       expect(r.aimPoints.length).toBe(1);
     }
@@ -601,7 +601,7 @@ describe('optimizeHole', () => {
       makeDist({ clubId: 'sw', clubName: 'SW', meanCarry: 85, stdCarry: 3, stdOffline: 3 }),
     ];
 
-    const results = optimizeHole(hole, 'blue', screenshotDists, 500);
+    const results = optimizeHole(hole, 'blue', screenshotDists, 500, undefined);
     expect(results.length).toBeGreaterThanOrEqual(2);
 
     const treePoly = hole.hazards[0].polygon;

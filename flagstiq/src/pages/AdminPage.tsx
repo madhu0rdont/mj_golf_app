@@ -1,12 +1,13 @@
 import { useMemo, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router';
-import { Map, Shield, Upload, ChevronLeft, MapPin, Users, LogOut, Camera, Loader2, BarChart3 } from 'lucide-react';
+import { Map, Shield, Upload, ChevronLeft, MapPin, Users, LogOut, Camera, Loader2, BarChart3, SlidersHorizontal } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { LoadingPage } from '../components/ui/LoadingPage';
 import { KmlImporter } from '../components/admin/KmlImporter';
 import { HazardMapper } from '../components/admin/HazardMapper';
 import { ElevationRefresh } from '../components/admin/ElevationRefresh';
 import { PenaltyEditor } from '../components/admin/PenaltyEditor';
+import { StrategyConstantsEditor } from '../components/admin/StrategyConstantsEditor';
 import { UserManager } from '../components/admin/UserManager';
 import { UsageDashboard } from '../components/admin/UsageDashboard';
 import { useCourses, useCourse, mutateCourses, mutateCourse } from '../hooks/useCourses';
@@ -54,10 +55,11 @@ function resizeImage(file: File, maxSize: number): Promise<string> {
   });
 }
 
-type View = 'dashboard' | 'course-grid' | 'course-edit' | 'penalties' | 'import' | 'users' | 'usage';
+type View = 'dashboard' | 'course-grid' | 'course-edit' | 'penalties' | 'constants' | 'import' | 'users' | 'usage';
 
 function deriveView(pathname: string, courseId: string): View {
   if (pathname === '/admin/penalties') return 'penalties';
+  if (pathname === '/admin/constants') return 'constants';
   if (pathname === '/admin/import') return 'import';
   if (pathname === '/admin/courses') return 'course-grid';
   if (pathname === '/admin/users') return 'users';
@@ -254,6 +256,17 @@ export function AdminPage() {
               </button>
 
               <button
+                onClick={() => navigate('/admin/constants')}
+                className="shimmer-hover flex flex-col items-center gap-2 rounded-sm border border-border bg-card p-5 text-center hover:border-fairway hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-1 transition-all"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-sm bg-turf/10">
+                  <SlidersHorizontal size={20} className="text-primary" />
+                </div>
+                <p className="font-display text-sm font-light text-text-dark">Strategy Constants</p>
+                <p className="text-xs text-text-muted">Tune optimizer parameters</p>
+              </button>
+
+              <button
                 onClick={() => navigate('/admin/import')}
                 className="shimmer-hover flex flex-col items-center gap-2 rounded-sm border border-border bg-card p-5 text-center hover:border-fairway hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-1 transition-all"
               >
@@ -347,6 +360,20 @@ export function AdminPage() {
               <span className="text-xs font-medium">Admin</span>
             </button>
             <PenaltyEditor />
+          </div>
+        )}
+
+        {/* Strategy Constants */}
+        {view === 'constants' && (
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => navigate('/admin')}
+              className="flex items-center gap-1 text-sm text-text-muted hover:text-text-dark transition-colors self-start -ml-1"
+            >
+              <ChevronLeft size={16} />
+              <span className="text-xs font-medium">Admin</span>
+            </button>
+            <StrategyConstantsEditor />
           </div>
         )}
 

@@ -767,5 +767,79 @@ export async function migrate() {
     await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [CLAREMONT_SEED, Date.now()]);
   }
 
+  // ── Strategy constants table ──
+  await query(`
+    CREATE TABLE IF NOT EXISTS strategy_constants (
+      key         TEXT PRIMARY KEY,
+      value       REAL NOT NULL,
+      category    TEXT NOT NULL,
+      description TEXT,
+      updated_at  BIGINT NOT NULL
+    )
+  `);
+
+  // Seed default strategy constants
+  const STRATEGY_DEFAULTS: [string, number, string, string][] = [
+    // Lie multipliers
+    ['lie_fairway', 1.0, 'lie', 'Fairway lie dispersion multiplier'],
+    ['lie_rough', 1.15, 'lie', 'Rough lie dispersion multiplier (+15%)'],
+    ['lie_green', 1.0, 'lie', 'Green lie dispersion multiplier'],
+    ['lie_fairway_bunker', 1.25, 'lie', 'Fairway bunker dispersion multiplier (+25%)'],
+    ['lie_greenside_bunker', 1.20, 'lie', 'Greenside bunker dispersion multiplier (+20%)'],
+    ['lie_trees', 1.40, 'lie', 'Trees lie dispersion multiplier (+40%)'],
+    ['lie_recovery', 1.60, 'lie', 'Recovery lie dispersion multiplier (+60%)'],
+    // Surface rollout
+    ['rollout_fairway', 1.0, 'rollout', 'Fairway rollout multiplier (full roll)'],
+    ['rollout_rough', 0.15, 'rollout', 'Rough rollout multiplier (85% reduction)'],
+    ['rollout_green', 0.65, 'rollout', 'Green rollout multiplier (35% reduction)'],
+    ['rollout_bunker', 0.0, 'rollout', 'Bunker rollout multiplier (no roll)'],
+    // Mode weights
+    ['safe_variance_weight', 1.0, 'mode', 'Safe mode variance penalty (+Nσ)'],
+    ['aggressive_green_bonus', 0.6, 'mode', 'Aggressive mode green probability bonus'],
+    // Sampling
+    ['samples_base', 100, 'sampling', 'Monte Carlo samples for safe anchors'],
+    ['samples_hazard', 250, 'sampling', 'Monte Carlo samples near hazards'],
+    ['samples_high_risk', 350, 'sampling', 'Monte Carlo samples near OB/water'],
+    // Thresholds
+    ['chip_range', 30, 'threshold', 'Yards — treat as chip within this distance'],
+    ['short_game_threshold', 60, 'threshold', 'Yards — bypass interpolation, use short-game model'],
+    ['green_radius', 10, 'threshold', 'Yards — green detection fallback radius'],
+    // Spatial
+    ['zone_interval', 20, 'spatial', 'Yards between anchor markers along centerline'],
+    ['lateral_offset', 20, 'spatial', 'Yards left/right of centerline for anchors'],
+    ['bearing_range', 30, 'spatial', 'Degrees ± from center line for aim bearings'],
+    ['k_neighbors', 6, 'spatial', 'Number of neighbors for kernel interpolation'],
+    ['kernel_h_s', 25, 'spatial', 'Interpolation bandwidth in s-direction (yards)'],
+    ['kernel_h_u', 20, 'spatial', 'Interpolation bandwidth in u-direction (yards)'],
+    // Flight model
+    ['tree_height_yards', 15, 'flight', 'Tree canopy height in yards (~45 ft)'],
+    ['ball_apex_yards', 28, 'flight', 'Default ball apex height in yards (~84 ft)'],
+    ['elev_yards_per_meter', 1.09, 'flight', 'Yard adjustment per meter of elevation change'],
+    // Rollout
+    ['rollout_slope_factor', 3.0, 'rollout', 'Rollout adjustment per unit slope (m/yd)'],
+    ['default_loft', 30, 'rollout', 'Default club loft (degrees) for rollout calc'],
+    // Putting model
+    ['putt_coefficient', 0.42, 'putting', 'Log coefficient in expected putts formula'],
+    ['putt_cap', 3, 'putting', 'Maximum expected putts (cap)'],
+    // MC trials
+    ['mc_trials', 2000, 'simulation', 'Monte Carlo trials per strategy'],
+    // DP convergence
+    ['max_iterations', 50, 'dp', 'Maximum value iteration rounds'],
+    ['convergence_threshold', 0.001, 'dp', 'Convergence delta threshold'],
+    // Club selection
+    ['min_carry_ratio', 0.5, 'club', 'Minimum carry as fraction of distance to pin'],
+    ['max_carry_ratio', 1.10, 'club', 'Maximum carry as fraction of distance to pin'],
+    // Hazard
+    ['hazard_drop_penalty', 0.3, 'hazard', 'Default penalty strokes for hazard drops'],
+    ['max_shots_per_hole', 8, 'simulation', 'Maximum shots allowed per simulation trial'],
+  ];
+  const constNow = Date.now();
+  for (const [key, value, category, description] of STRATEGY_DEFAULTS) {
+    await query(
+      `INSERT INTO strategy_constants (key, value, category, description, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
+      [key, value, category, description, constNow],
+    );
+  }
+
   logger.info('Database migration complete');
 }

@@ -11,14 +11,14 @@ import type { ScoringMode } from './dp-optimizer.js';
 
 parentPort?.on('message', (msg) => {
   try {
-    const { clubs, shots, course, teeBox, mode, roughPenalty } = msg;
+    const { clubs, shots, course, teeBox, mode, roughPenalty, constants } = msg;
     const groups = computeClubShotGroups(clubs, shots);
     const distributions = buildDistributions(groups);
     if (distributions.length === 0) {
       parentPort?.postMessage({ ok: false, error: 'No distributions' });
       return;
     }
-    const plan = generateGamePlan(course, teeBox, distributions, mode as ScoringMode, roughPenalty);
+    const plan = generateGamePlan(course, teeBox, distributions, mode as ScoringMode, roughPenalty, constants);
     parentPort?.postMessage({ ok: true, plan });
   } catch (err) {
     parentPort?.postMessage({ ok: false, error: String(err) });

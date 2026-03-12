@@ -3,7 +3,7 @@ import type { OptimizedStrategy, ScoreDistribution } from './strategy-optimizer.
 import { dpOptimizeHole } from './dp-optimizer.js';
 import type { ScoringMode } from './dp-optimizer.js';
 import type { ClubDistribution } from './monte-carlo.js';
-import type { CourseWithHoles } from '../models/types.js';
+import type { CourseWithHoles, StrategyConstants } from '../models/types.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -139,15 +139,16 @@ export function generateGamePlan(
   distributions: ClubDistribution[],
   mode: ScoringMode = 'scoring',
   roughPenalty: number = DEFAULT_ROUGH_PENALTY,
+  constants?: StrategyConstants,
 ): GamePlan {
   const allStrategies = new Map<number, OptimizedStrategy[]>();
 
   for (const hole of course.holes) {
-    let strategies = dpOptimizeHole(hole, teeBox, distributions, roughPenalty);
+    let strategies = dpOptimizeHole(hole, teeBox, distributions, roughPenalty, constants);
 
     // Fallback to template-based optimizer if DP returns nothing
     if (strategies.length === 0) {
-      strategies = optimizeHole(hole, teeBox, distributions, undefined, roughPenalty);
+      strategies = optimizeHole(hole, teeBox, distributions, undefined, roughPenalty, constants);
     }
 
     allStrategies.set(hole.holeNumber, strategies);

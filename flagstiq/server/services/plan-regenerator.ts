@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { query, toCamel } from '../db.js';
 import { logger } from '../logger.js';
-import { getRoughPenalty } from './strategy-optimizer.js';
+import { getRoughPenalty, loadStrategyConstants } from './strategy-optimizer.js';
 import { generatePlanParallel, isPlanGenerationActive } from './plan-worker-pool.js';
 import type { ScoringMode } from './dp-optimizer.js';
 import type { Club, Shot, CourseWithHoles, CourseHole } from '../models/types.js';
@@ -48,7 +48,8 @@ export async function regenerateStalePlans() {
       const { rows: shotRows } = await query('SELECT * FROM shots WHERE user_id = $1', [userId]);
       const shots = shotRows.map(toCamel<Shot>);
 
-      const roughPenalty = await getRoughPenalty();
+      const constants = await loadStrategyConstants();
+      const roughPenalty = constants.hazard_drop_penalty;
 
       // Pre-load all courses + holes for this user's stale plans
       const courseIds = [...new Set(userPlans.map(r => r.course_id as string))];
@@ -84,6 +85,7 @@ export async function regenerateStalePlans() {
               teeBox,
               mode: mode as ScoringMode,
               roughPenalty,
+              constants,
             });
 
             // Upsert game_plan_cache (stale = FALSE)
