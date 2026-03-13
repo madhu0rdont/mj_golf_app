@@ -7,7 +7,7 @@ const router = Router();
 // GET /api/courses — list all courses
 router.get('/', async (_req, res) => {
   try {
-    const { rows } = await query('SELECT * FROM courses ORDER BY name');
+    const { rows } = await query('SELECT id, name, par, slope, rating, tee_sets, designers, created_at, updated_at FROM courses ORDER BY name');
     res.json(rows.map(toCamel));
   } catch (err) {
     logger.error('Failed to list courses', { error: String(err) });

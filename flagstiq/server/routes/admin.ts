@@ -806,7 +806,7 @@ router.get('/usage', async (req, res) => {
 });
 
 // GET /api/admin/railway-usage — estimated Railway spend for current billing cycle
-const RAILWAY_PROJECT_ID = '7fd20f07-7e08-43d4-aa1e-065a955a91d6';
+const RAILWAY_PROJECT_ID = process.env.RAILWAY_PROJECT_ID ?? '7fd20f07-7e08-43d4-aa1e-065a955a91d6';
 const RAILWAY_GQL = 'https://backboard.railway.com/graphql/v2';
 // Per-unit rates from Railway pricing (https://docs.railway.com/pricing)
 const RAILWAY_RATES: Record<string, number> = {
