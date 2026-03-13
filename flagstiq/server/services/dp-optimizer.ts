@@ -695,6 +695,7 @@ function sampleOutcomes(
     if (onGreen) {
       lie = 'green';
       greenCount++;
+      if (penalty === 0) fairwayCount++;
     } else if (hitTree) {
       lie = 'recovery';
     } else {
