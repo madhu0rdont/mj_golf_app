@@ -46,6 +46,18 @@ router.post('/import', async (req, res) => {
     const userId = req.session.userId!;
     const { clubs, sessions, shots } = parsed.data;
 
+    // Validate referential integrity: every shot must reference a session in the import
+    const sessionIds = new Set(sessions.map((s) => s.id as string));
+    const clubIds = new Set(clubs.map((c) => c.id as string));
+    for (const shot of shots) {
+      if (shot.sessionId && !sessionIds.has(shot.sessionId as string)) {
+        return res.status(400).json({ error: 'Shot references a session not in this backup' });
+      }
+      if (shot.clubId && !clubIds.has(shot.clubId as string)) {
+        return res.status(400).json({ error: 'Shot references a club not in this backup' });
+      }
+    }
+
     await withTransaction(async (client) => {
       // Clear current user's data only
       await client.query('DELETE FROM shots WHERE user_id = $1', [userId]);

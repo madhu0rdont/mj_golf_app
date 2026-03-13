@@ -12,20 +12,26 @@ function interpolate(points: KnownPoint[], targetLoft: number): number {
 
   if (targetLoft <= points[0].loft) {
     const [p0, p1] = points;
-    const slope = (p1.value - p0.value) / (p1.loft - p0.loft);
+    const denom = p1.loft - p0.loft;
+    if (Math.abs(denom) < 1e-10) return p0.value;
+    const slope = (p1.value - p0.value) / denom;
     return p0.value + slope * (targetLoft - p0.loft);
   }
 
   if (targetLoft >= points[points.length - 1].loft) {
     const p0 = points[points.length - 2];
     const p1 = points[points.length - 1];
-    const slope = (p1.value - p0.value) / (p1.loft - p0.loft);
+    const denom = p1.loft - p0.loft;
+    if (Math.abs(denom) < 1e-10) return p1.value;
+    const slope = (p1.value - p0.value) / denom;
     return p1.value + slope * (targetLoft - p1.loft);
   }
 
   for (let i = 0; i < points.length - 1; i++) {
     if (targetLoft >= points[i].loft && targetLoft <= points[i + 1].loft) {
-      const t = (targetLoft - points[i].loft) / (points[i + 1].loft - points[i].loft);
+      const denom = points[i + 1].loft - points[i].loft;
+      if (Math.abs(denom) < 1e-10) return points[i].value;
+      const t = (targetLoft - points[i].loft) / denom;
       return points[i].value + t * (points[i + 1].value - points[i].value);
     }
   }

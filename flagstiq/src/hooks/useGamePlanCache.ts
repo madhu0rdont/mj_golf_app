@@ -119,7 +119,7 @@ export function useGamePlanCache(
       if (cacheKey) {
         await globalMutate(cacheKey);
       }
-      globalMutate('/api/game-plans/handicap');
+      await globalMutate('/api/game-plans/handicap');
     } finally {
       setIsGenerating(false);
       setProgress(null);
@@ -142,7 +142,7 @@ export function useGamePlanCache(
       await globalMutate(cacheKey);
     }
     // Also invalidate the per-hole strategy cache so sim view picks up new data
-    globalMutate(
+    await globalMutate(
       (key: string) => typeof key === 'string' && key.startsWith(`strategy:${course.id}:${holeNumber}:`),
       undefined,
       { revalidate: true },

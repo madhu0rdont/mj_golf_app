@@ -41,13 +41,13 @@ describe('shots routes', () => {
       );
     });
 
-    it('uses default limit of 10000 when none provided', async () => {
+    it('uses default limit of 5000 when none provided', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
       await request(app).get('/');
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('LIMIT $2'),
-        [TEST_USER_ID, 10000],
+        [TEST_USER_ID, 5000],
       );
     });
 
@@ -59,7 +59,7 @@ describe('shots routes', () => {
       const sql = mockQuery.mock.calls[0][0] as string;
       expect(sql).toContain('JOIN sessions s ON s.id = shots.session_id');
       expect(sql).toContain('s.date >= $2');
-      expect(mockQuery.mock.calls[0][1]).toEqual([TEST_USER_ID, 1700000000, 10000]);
+      expect(mockQuery.mock.calls[0][1]).toEqual([TEST_USER_ID, 1700000000, 5000]);
     });
 
     it('skips session JOIN when since is not provided', async () => {

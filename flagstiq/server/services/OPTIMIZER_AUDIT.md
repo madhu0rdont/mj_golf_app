@@ -86,106 +86,88 @@ Added `saveError` state with coral error banner displayed below save button.
 
 ## INPUT VALIDATION
 
-### V1. Backup import lacks referential integrity checks
+### ~~V1. Backup import lacks referential integrity checks~~ DONE
 **Severity:** MEDIUM
 **File:** `routes/backup.ts:39-93`
 
-Schema validates structure but not that shots reference valid sessions, or that numeric fields are in range.
+Added pre-insert validation that shots reference sessions and clubs present in the import.
 
-**Fix:** Validate foreign key references and numeric bounds before insert.
-
-### V2. Strategy constants update accepts arbitrary keys/values
+### ~~V2. Strategy constants update accepts arbitrary keys/values~~ DONE
 **Severity:** MEDIUM
 **File:** `routes/admin/strategy.ts:20-33`
 
-No validation that `key` is a known constant or that `value` is in a reasonable range. Accepts `Infinity`, negative values, etc.
+Added `VALID_CONSTANT_KEYS` allowlist and range validation (finite, 0–100000).
 
-**Fix:** Whitelist known keys; validate value ranges.
-
-### V3. Hazard penalty update accepts invalid values
+### ~~V3. Hazard penalty update accepts invalid values~~ DONE
 **Severity:** MEDIUM
 **File:** `routes/admin/hazards.ts:20-30`
 
-No check that `penalty >= 0` or `type` is a known hazard type. Negative penalties break optimizer math.
+Added `VALID_HAZARD_TYPES` allowlist and range validation (0–10).
 
-**Fix:** Validate `0 <= penalty <= 10` and type against known hazard types.
-
-### V4. Shots query default limit is 10,000
+### ~~V4. Shots query default limit is 10,000~~ DONE
 **Severity:** LOW
 **File:** `routes/shots.ts:42`
 
-Default `limit = 10000` could return excessive data for prolific users.
-
-**Fix:** Cap at 5,000; consider pagination.
+Default reduced to 5,000; hard cap at 5,000 regardless of query param.
 
 ---
 
 ## LOGIC / CORRECTNESS
 
-### L1. `impute.ts` division by zero on identical lofts
+### ~~L1. `impute.ts` division by zero on identical lofts~~ DONE
 **Severity:** MEDIUM
 **File:** `services/impute.ts:15, 22, 28`
 
-`(p1.loft - p0.loft)` in denominator has no guard. Two tour reference points with identical lofts → `Infinity`/`NaN` propagates through club imputation.
+Added `Math.abs(denom) < 1e-10` guard at all three interpolation branches.
 
-**Fix:** Guard with `if (Math.abs(p1.loft - p0.loft) < 1e-10) return p0.value;`
-
-### L2. `bearingStepForDistance` returns 2° for par 5s (same as par 3s)
+### L2. `bearingStepForDistance` returns 2° for par 5s (same as par 3s) — REVIEWED, NO ACTION
 **Severity:** LOW
 **File:** `services/dp-optimizer.ts:548-551`
 
-Par 5s (>350y) get the same fine 2° resolution as par 3s. This may be intentional but doubles computation vs a coarser step. Worth reviewing.
+Intentional: par 5 tee shots need fine bearing resolution for the DP optimizer to find safe windows. The computation cost is acceptable.
 
-### L3. `normalizeAngle` returns [-180, 180] but callers use [0, 360]
+### L3. `normalizeAngle` returns [-180, 180] but callers use [0, 360] — REVIEWED, NO ACTION
 **Severity:** LOW
 **File:** `services/strategy-optimizer.ts:654-659`
 
-`normalizeAngle` and `bearingBetween` use different angle ranges. No current bug but fragile for future bearing arithmetic.
+Correct design: `normalizeAngle` is used for relative bearing differences (where [-180, 180] is appropriate), while `bearingBetween` returns absolute bearings [0, 360]. No inconsistency.
 
 ---
 
 ## CLIENT-SIDE
 
-### C1. Unguarded setTimeout in SettingsPage
+### ~~C1. Unguarded setTimeout in SettingsPage~~ DONE
 **Severity:** MEDIUM
 **File:** `src/pages/SettingsPage.tsx:115`
 
-`setTimeout(() => setProfileStatus(''), 2000)` — no cleanup on unmount. React state update on unmounted component.
+Timer stored in ref, cleared on unmount via useEffect cleanup.
 
-**Fix:** Store timer in ref, clear in useEffect cleanup.
-
-### C2. `globalMutate` calls not awaited in useGamePlanCache
+### ~~C2. `globalMutate` calls not awaited in useGamePlanCache~~ DONE
 **Severity:** MEDIUM
 **File:** `src/hooks/useGamePlanCache.ts:118, 141-145`
 
-Cache invalidation not awaited → stale data may persist.
+All `globalMutate` calls now awaited.
 
-**Fix:** `await globalMutate(...)`.
-
-### C3. Stale closure in SettingsContext setHandedness
+### ~~C3. Stale closure in SettingsContext setHandedness~~ DONE
 **Severity:** MEDIUM
 **File:** `src/context/SettingsContext.tsx:38`
 
-Error revert uses `user?.handedness` from stale closure — not in dependency array.
+Capture `previousHandedness` before async call; added `user` to dependency array.
 
-**Fix:** Add `user` to deps or use functional state update.
-
-### C4. No AbortController on long-running fetches
+### C4. No AbortController on long-running fetches — NO ACTION
 **Severity:** LOW
 **File:** `src/hooks/useGamePlanCache.ts:81`, `src/pages/SessionPhotoPage.tsx:67`
 
-Plan generation and photo extraction fetches not aborted on unmount → wasted resources.
+User-initiated actions (not effects), and SSE stream is now protected by E5's try-catch. Acceptable risk.
 
-### C5. Chart components not memoized
+### ~~C5. Chart components not memoized~~ DONE
 **Severity:** LOW
-**Files:** `src/components/flight/DispersionChart.tsx`, `TrajectoryChart.tsx`, `MultiClub*`
+**Files:** `src/components/flight/DispersionChart.tsx`, `TrajectoryChart.tsx`
 
-Expensive SVG renders re-execute even when props unchanged.
+Wrapped with `React.memo()`. No MultiClub components found in codebase.
 
-**Fix:** Wrap exports with `React.memo()`.
-
-### C6. ErrorBoundary silent in production
+### ~~C6. ErrorBoundary silent in production~~ DONE
 **Severity:** LOW
 **File:** `src/components/ui/ErrorBoundary.tsx:20-22`
 
-`componentDidCatch` only logs in DEV. Production errors invisible.
+Removed DEV-only gate; errors now logged in all environments.

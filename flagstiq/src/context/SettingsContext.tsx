@@ -25,6 +25,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [user?.handedness]);
 
   const setHandedness = useCallback(async (h: Handedness) => {
+    const previousHandedness = user?.handedness || 'left';
     setHandednessState(h);
     updateUser({ handedness: h });
 
@@ -37,9 +38,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       });
     } catch {
       // Revert on failure
-      setHandednessState(user?.handedness || 'left');
+      setHandednessState(previousHandedness);
     }
-  }, [updateUser, user?.handedness]);
+  }, [updateUser, user]);
 
   return (
     <SettingsContext.Provider value={{ handedness, setHandedness }}>

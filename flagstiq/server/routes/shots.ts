@@ -39,7 +39,7 @@ router.get('/', async (req, res) => {
     }
 
     const where = `WHERE ${conditions.join(' AND ')}`;
-    const limit = queryLimit ?? 10000;
+    const limit = Math.min(queryLimit ?? 5000, 5000);
     values.push(limit);
 
     const join = needsSessionJoin ? 'JOIN sessions s ON s.id = shots.session_id' : '';

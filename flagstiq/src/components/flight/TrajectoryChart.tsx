@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import type { Shot } from '../../models/session';
 import type { AxisScale } from './flight-math';
 import { computeFlightArc, flightArcToPolyline } from './flight-math';
@@ -18,7 +18,7 @@ const MARGIN = { top: 10, right: 10, bottom: 24, left: 10 };
 const PLOT_W = WIDTH - MARGIN.left - MARGIN.right;
 const PLOT_H = HEIGHT - MARGIN.top - MARGIN.bottom;
 
-export function TrajectoryChart({
+export const TrajectoryChart = memo(function TrajectoryChart({
   shots,
   highlightedShotId,
   onShotTap,
@@ -155,4 +155,4 @@ export function TrajectoryChart({
       })}
     </svg>
   );
-}
+});

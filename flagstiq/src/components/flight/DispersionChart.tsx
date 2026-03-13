@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import type { Shot } from '../../models/session';
 import type { AxisScale } from './flight-math';
 import { computeLandingDots, computeDispersionEllipse } from './flight-math';
@@ -18,7 +18,7 @@ const MARGIN = { top: 8, right: 10, bottom: 8, left: 10 };
 const PLOT_W = WIDTH - MARGIN.left - MARGIN.right;
 const PLOT_H = HEIGHT - MARGIN.top - MARGIN.bottom;
 
-export function DispersionChart({
+export const DispersionChart = memo(function DispersionChart({
   shots,
   highlightedShotId,
   onShotTap,
@@ -181,4 +181,4 @@ export function DispersionChart({
       )}
     </svg>
   );
-}
+});

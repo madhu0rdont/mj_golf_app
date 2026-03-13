@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Download, Upload, LogOut, Loader2, Camera, X } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { Button } from '../components/ui/Button';
@@ -57,6 +57,7 @@ export function SettingsPage() {
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pictureInputRef = useRef<HTMLInputElement>(null);
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Profile editing state
   const [displayName, setDisplayName] = useState(user?.displayName || '');
@@ -65,6 +66,9 @@ export function SettingsPage() {
   const [profilePreview, setProfilePreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [profileStatus, setProfileStatus] = useState('');
+
+  // Clean up status timer on unmount
+  useEffect(() => () => clearTimeout(statusTimerRef.current), []);
 
   const hasProfileChanges =
     displayName !== (user?.displayName || '') ||
@@ -112,7 +116,8 @@ export function SettingsPage() {
       updateUser(result);
       setProfilePreview(null);
       setProfileStatus('Saved');
-      setTimeout(() => setProfileStatus(''), 2000);
+      clearTimeout(statusTimerRef.current);
+      statusTimerRef.current = setTimeout(() => setProfileStatus(''), 2000);
     } catch (err) {
       setProfileStatus(err instanceof Error ? err.message : 'Save failed');
     } finally {

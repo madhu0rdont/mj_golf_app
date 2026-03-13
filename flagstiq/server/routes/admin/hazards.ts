@@ -17,10 +17,23 @@ router.get('/hazard-penalties', async (_req, res) => {
 });
 
 // PUT /api/admin/hazard-penalties — update global hazard penalties
+const VALID_HAZARD_TYPES = new Set([
+  'water', 'ob', 'fairway_bunker', 'greenside_bunker', 'trees', 'rough',
+]);
+
 router.put('/hazard-penalties', async (req, res) => {
   const { penalties } = req.body as { penalties: { type: string; penalty: number }[] };
   if (!Array.isArray(penalties) || penalties.length === 0) {
     return res.status(400).json({ error: 'penalties array is required' });
+  }
+
+  for (const { type, penalty } of penalties) {
+    if (!VALID_HAZARD_TYPES.has(type)) {
+      return res.status(400).json({ error: `Unknown hazard type: ${type}` });
+    }
+    if (typeof penalty !== 'number' || !Number.isFinite(penalty) || penalty < 0 || penalty > 10) {
+      return res.status(400).json({ error: `Invalid penalty for ${type}: must be between 0 and 10` });
+    }
   }
 
   const client = await pool.connect();
