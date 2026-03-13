@@ -43,55 +43,60 @@ const registerLimiter = rateLimit({
 
 // POST /api/auth/login — email or username + password
 router.post('/login', loginLimiter, async (req, res) => {
-  const { identifier, password } = req.body;
+  try {
+    const { identifier, password } = req.body;
 
-  if (!identifier || !password) {
-    return res.status(400).json({ error: 'Email/username and password are required' });
-  }
+    if (!identifier || !password) {
+      return res.status(400).json({ error: 'Email/username and password are required' });
+    }
 
-  const { rows } = await query(
-    'SELECT * FROM users WHERE lower(username) = lower($1) OR lower(email) = lower($1)',
-    [identifier],
-  );
-  if (rows.length === 0) {
-    return res.status(401).json({ error: 'Invalid credentials' });
-  }
+    const { rows } = await query(
+      'SELECT * FROM users WHERE lower(username) = lower($1) OR lower(email) = lower($1)',
+      [identifier],
+    );
+    if (rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
-  const user = rows[0];
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) {
-    return res.status(401).json({ error: 'Invalid credentials' });
-  }
+    const user = rows[0];
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
-  // Check user status
-  if (user.status === 'pending') {
-    return res.status(403).json({ error: 'Account pending approval' });
-  }
-  if (user.status === 'rejected') {
-    return res.status(403).json({ error: 'Account has been rejected' });
-  }
+    // Check user status
+    if (user.status === 'pending') {
+      return res.status(403).json({ error: 'Account pending approval' });
+    }
+    if (user.status === 'rejected') {
+      return res.status(403).json({ error: 'Account has been rejected' });
+    }
 
-  req.session.authenticated = true;
-  req.session.userId = user.id;
-  req.session.username = user.username;
-  req.session.role = user.role;
-  req.session.save((err) => {
-    if (err) return res.status(500).json({ error: 'Session save failed' });
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        username: user.username,
-        displayName: user.display_name,
-        email: user.email || undefined,
-        profilePicture: user.profile_picture || undefined,
-        role: user.role,
-        handedness: user.handedness,
-        status: user.status,
-        homeCourseId: user.home_course_id || undefined,
-      },
+    req.session.authenticated = true;
+    req.session.userId = user.id;
+    req.session.username = user.username;
+    req.session.role = user.role;
+    req.session.save((err) => {
+      if (err) return res.status(500).json({ error: 'Session save failed' });
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          displayName: user.display_name,
+          email: user.email || undefined,
+          profilePicture: user.profile_picture || undefined,
+          role: user.role,
+          handedness: user.handedness,
+          status: user.status,
+          homeCourseId: user.home_course_id || undefined,
+        },
+      });
     });
-  });
+  } catch (err) {
+    logger.error('Login failed', { error: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // POST /api/auth/logout

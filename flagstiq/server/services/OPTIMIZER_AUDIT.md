@@ -26,12 +26,12 @@
 
 **Fixed:** Clamped `u1` to `Math.max(1e-10, Math.random())`.
 
-### 4. `findNearestAnchor` + `find` double O(n) scan
+### ~~4. `findNearestAnchor` + `find` double O(n) scan~~ DONE
 **File:** `dp-optimizer.ts:1294, 1320, 1445`
 
-`findNearestAnchor` returns an id, then callers do `anchors.find(a => a.id === id)`. Called ~16k times per simulation (8 shots x 2000 trials), each scanning ~100 anchors twice.
+~~`findNearestAnchor` returns an id, then callers do `anchors.find(a => a.id === id)`. Called ~16k times per simulation (8 shots x 2000 trials), each scanning ~100 anchors twice.~~
 
-**Fix:** Return the anchor object directly, or use `anchors[id]` since ids are sequential indices.
+**Fixed:** Changed `findNearestAnchor` to return `AnchorState` directly. Updated all 4 callers to eliminate `.find()` double-scan.
 
 ### ~~5. `projectToHoleFrame` inconsistent perpDist for `along <= 0`~~ DONE
 **File:** `dp-optimizer.ts:253-256`
@@ -45,12 +45,12 @@ DP path uses `HAZARD_DROP_PENALTY` (0.15), legacy `simulateHoleGPS` uses `roughP
 
 **Fix:** Align to one value. If 0.15 is intentional (lie multiplier also penalizes rough), adjust the legacy path to match.
 
-### 8. Greedy loop missing lie multiplier for non-tree lies
+### ~~8. Greedy loop missing lie multiplier for non-tree lies~~ DONE
 **File:** `dp-optimizer.ts:1458-1461`
 
-Policy loop applies `LIE_MULTIPLIER[currentAnchor.lie]` for rough/bunker. Greedy loop only checks `lastHitTree` and defaults to `1.0` — shots from rough/bunker get no lie penalty.
+~~Policy loop applies `LIE_MULTIPLIER[currentAnchor.lie]` for rough/bunker. Greedy loop only checks `lastHitTree` and defaults to `1.0` — shots from rough/bunker get no lie penalty.~~
 
-**Fix:** Classify lie at `currentPos` in the greedy loop and apply appropriate multiplier.
+**Fixed:** Added `classifyLie(currentPos, ...)` call in greedy loop to apply correct lie multiplier for rough/bunker positions.
 
 ### 10. Diversity enforcement over-constrains `excludeClubs`
 **File:** `dp-optimizer.ts:1649-1666`
@@ -59,12 +59,12 @@ Policy loop applies `LIE_MULTIPLIER[currentAnchor.lie]` for rough/bunker. Greedy
 
 **Fix:** Only exclude the club that caused the duplicate sequence, not all previously used first clubs.
 
-### 11. Elevation lookup uses anchor `distFromTee` instead of actual position
+### ~~11. Elevation lookup uses anchor `distFromTee` instead of actual position~~ DONE
 **File:** `dp-optimizer.ts:1405-1409`
 
-Policy loop uses `currentAnchor.distFromTee` for elevation, but `currentPos` may be up to 10y from the anchor. Greedy loop handles this correctly via `projectToHoleFrame`. On steep courses, this shifts carry by several yards.
+~~Policy loop uses `currentAnchor.distFromTee` for elevation, but `currentPos` may be up to 10y from the anchor. Greedy loop handles this correctly via `projectToHoleFrame`. On steep courses, this shifts carry by several yards.~~
 
-**Fix:** Use `projectToHoleFrame(currentPos, ...)` in the policy loop, like the greedy loop does.
+**Fixed:** Policy loop now uses `projectToHoleFrame(currentPos, ...)` for elevation, consistent with the greedy loop.
 
 ## LOW (5)
 
@@ -165,13 +165,13 @@ Tree hits add `+0.5` strokes, but `computeScoreDistribution` uses `Math.round(s)
 ### ~~E2. `polygonCentroid` divides by zero on empty polygon~~ DONE
 **Fixed:** Added empty-array guard.
 
-### E3. `auth/login` has no try/catch
+### ~~E3. `auth/login` has no try/catch~~ DONE
 **Severity:** MEDIUM
 **File:** `auth.ts:45-95`
 
-DB query and bcrypt compare are unguarded. DB failure → unhandled rejection → raw Express 500.
+~~DB query and bcrypt compare are unguarded. DB failure → unhandled rejection → raw Express 500.~~
 
-**Fix:** Wrap in try/catch with proper 500 response.
+**Fixed:** Wrapped in try/catch with `logger.error` and proper 500 response.
 
 ### ~~E4. `auth/check` has no try/catch~~ DONE
 **Fixed:** Wrapped in try/catch.

@@ -511,17 +511,17 @@ function synthesizeCenterLine(
 function findNearestAnchor(
   point: { lat: number; lng: number },
   anchors: AnchorState[],
-): number {
-  let bestId = 0;
+): AnchorState {
+  let best = anchors[0];
   let bestDist = Infinity;
   for (const a of anchors) {
     const d = haversineYards(point, a.position);
     if (d < bestDist) {
       bestDist = d;
-      bestId = a.id;
+      best = a;
     }
   }
-  return bestId;
+  return best;
 }
 
 // ---------------------------------------------------------------------------
@@ -1281,7 +1281,7 @@ function extractPlan(
     if (landingDist < CHIP_RANGE) break;
 
     if (landingDist <= approachThreshold) {
-      const nextAnchorForElev = anchors.find((a) => a.id === findNearestAnchor(landing, anchors));
+      const nextAnchorForElev = findNearestAnchor(landing, anchors);
       const approachElevAdj = nextAnchorForElev
         ? (pinElev - nextAnchorForElev.elevation) * ELEV_YARDS_PER_METER
         : 0;
@@ -1295,9 +1295,8 @@ function extractPlan(
       break;
     }
 
-    const nextAnchorId = findNearestAnchor(landing, anchors);
-    const nextAnchor = anchors.find((a) => a.id === nextAnchorId);
-    if (!nextAnchor || nextAnchor.isTerminal) break;
+    const nextAnchor = findNearestAnchor(landing, anchors);
+    if (nextAnchor.isTerminal) break;
 
     currentAnchor = nextAnchor;
   }
@@ -1307,7 +1306,7 @@ function extractPlan(
     const lastShot = shots[shots.length - 1];
     const lastLandingDist = haversineYards(lastShot.aimPoint, pin);
     if (lastLandingDist >= CHIP_RANGE && lastLandingDist <= approachThreshold) {
-      const postAnchorForElev = anchors.find((a) => a.id === findNearestAnchor(lastShot.aimPoint, anchors));
+      const postAnchorForElev = findNearestAnchor(lastShot.aimPoint, anchors);
       const postElevAdj = postAnchorForElev
         ? (pinElev - postAnchorForElev.elevation) * ELEV_YARDS_PER_METER
         : 0;
@@ -1392,10 +1391,13 @@ function simulateWithPolicy(
       const carry = gaussianSample(club.meanCarry, club.stdCarry * lieMultiplier);
       const offline = gaussianSample(club.meanOffline, club.stdOffline * lieMultiplier);
 
-      // Elevation-adjusted ground carry
-      const policyLandingDist = currentAnchor.distFromTee + carry;
+      // Elevation-adjusted ground carry (use actual position, not anchor distFromTee)
+      const policyFrame = projectToHoleFrame(currentPos, centerLine, tee, heading);
+      const policyDistFromTee = Math.max(0, policyFrame.s);
+      const policyCurrentElev = getProfileElevation(elevProfile, policyDistFromTee);
+      const policyLandingDist = policyDistFromTee + carry;
       const policyLandingElev = getProfileElevation(elevProfile, policyLandingDist);
-      const policyElevDelta = policyLandingElev - currentAnchor.elevation;
+      const policyElevDelta = policyLandingElev - policyCurrentElev;
       const policyAdjCarry = Math.max(0, carry - policyElevDelta * ELEV_YARDS_PER_METER);
 
       let landing = projectPoint(currentPos, shotBearing, policyAdjCarry);
@@ -1432,7 +1434,7 @@ function simulateWithPolicy(
       }
 
       currentPos = landing;
-      currentAnchorId = findNearestAnchor(landing, anchors);
+      currentAnchorId = findNearestAnchor(landing, anchors).id;
     }
 
     // Greedy approach if still far
@@ -1445,8 +1447,11 @@ function simulateWithPolicy(
       const playsLikeDist = distToPin + greedyElevAdj;
       const club = greedyClub(playsLikeDist, distributions);
 
-      // Use recovery lie if previous shot hit trees
-      const greedyLieMultiplier = lastHitTree ? LIE_MULTIPLIER['recovery'] : 1.0;
+      // Classify lie at current position (policy loop uses currentAnchor.lie; greedy must classify directly)
+      const greedyLie = lastHitTree
+        ? 'recovery' as LieClass
+        : classifyLie(currentPos, hole.fairway ?? [], hole.green ?? [], hole.hazards);
+      const greedyLieMultiplier = LIE_MULTIPLIER[greedyLie];
       const carry = gaussianSample(club.meanCarry, club.stdCarry * greedyLieMultiplier);
       const offline = gaussianSample(club.meanOffline, club.stdOffline * greedyLieMultiplier);
       const shotBearing = bearingBetween(currentPos, pin);
