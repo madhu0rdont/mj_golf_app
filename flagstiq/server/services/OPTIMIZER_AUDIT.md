@@ -104,21 +104,21 @@ Tree hits add `+0.5` strokes, but `computeScoreDistribution` uses `Math.round(s)
 
 ## SECURITY
 
-### S1. Debug endpoints exposed in production without authentication
+### ~~S1. Debug endpoints exposed in production without authentication~~ DONE
 **Severity:** HIGH
 **File:** `index.ts:55-292`
 
-9 `/debug/*` routes are registered before `requireAuth` middleware and outside the `/api` prefix — they bypass auth entirely. `/debug/fix-elevations/:courseId` is especially dangerous: it **writes to the database** (updates `course_holes`, marks plans stale) with zero auth and zero rate limiting.
+~~9 `/debug/*` routes are registered before `requireAuth` middleware and outside the `/api` prefix — they bypass auth entirely. `/debug/fix-elevations/:courseId` is especially dangerous: it **writes to the database** (updates `course_holes`, marks plans stale) with zero auth and zero rate limiting.~~
 
-**Fix:** Move all debug endpoints behind `requireAuth` + `requireAdmin`, or remove them from production builds.
+**Fixed:** Extracted all 9 debug endpoints to `routes/debug.ts` behind `requireAdmin`, mounted at `/api/debug` (after `requireAuth` middleware).
 
-### S2. `parseInt` on route params without NaN guard
+### ~~S2. `parseInt` on route params without NaN guard~~ DONE
 **Severity:** MEDIUM
 **File:** `index.ts:89, 146, 172, 246, 300`
 
-Debug endpoints use `parseInt(req.params.holeNumber)` without checking for `NaN`. Value is passed to SQL queries — parameterized queries prevent injection, but `NaN` → `NULL` silently returns empty results.
+~~Debug endpoints use `parseInt(req.params.holeNumber)` without checking for `NaN`. Value is passed to SQL queries — parameterized queries prevent injection, but `NaN` → `NULL` silently returns empty results.~~
 
-**Fix:** Add `if (isNaN(n)) return res.status(400).json({ error: '...' });` before use.
+**Fixed:** Added `isNaN` guards with 400 response to all 4 endpoints using `parseInt(req.params.holeNumber)` in `routes/debug.ts`.
 
 ### ~~S3. Railway project ID hardcoded in source~~ DONE
 **Severity:** LOW
@@ -195,13 +195,13 @@ Two nearly identical simulation loops (~60 lines each): policy-following loop an
 
 **Fix:** Extract `simulateSingleShot(pos, club, bearing, ...)` and call from all three loops.
 
-### SP2. `index.ts` — 566 lines mixing debug routes with server setup
+### ~~SP2. `index.ts` — 566 lines mixing debug routes with server setup~~ DONE
 **Severity:** HIGH
 **File:** `index.ts:55-353`
 
-9 inline debug handlers (~300 lines) with their own DB queries, dynamic imports, and data transformation mixed with startup logic and server lifecycle.
+~~9 inline debug handlers (~300 lines) with their own DB queries, dynamic imports, and data transformation mixed with startup logic and server lifecycle.~~
 
-**Fix:** Move debug endpoints to `routes/debug.ts` behind `requireAdmin`. Move startup logic to `startup.ts`.
+**Fixed:** Extracted all 9 debug endpoints to `routes/debug.ts`. `index.ts` reduced from 567 to 268 lines.
 
 ### SP3. `extractPlan` — 148 lines with interleaved concerns
 **Severity:** MEDIUM
@@ -219,13 +219,13 @@ Simultaneously handles plan construction, OB avoidance, approach insertion, elev
 
 **Fix:** Use separate variables for expanded results instead of reassigning.
 
-### SP5. Manual snake_case → camelCase conversion duplicated
+### ~~SP5. Manual snake_case → camelCase conversion duplicated~~ DONE
 **Severity:** LOW
 **File:** `index.ts:257-265, 314-320`
 
-Debug endpoints manually convert DB rows instead of using existing `toCamel` utility.
+~~Debug endpoints manually convert DB rows instead of using existing `toCamel` utility.~~
 
-**Fix:** Use `toCamel(row)`.
+**Fixed:** Replaced manual conversion with `toCamel(row)` in `routes/debug.ts` anchors + tee-actions endpoints.
 
 ### SP6. `admin.ts` — 868-line monolith
 **Severity:** LOW
