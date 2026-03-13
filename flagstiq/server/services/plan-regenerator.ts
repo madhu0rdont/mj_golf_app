@@ -107,7 +107,7 @@ export async function regenerateStalePlans() {
               [historyId, courseId, teeBox, mode, plan.totalExpected, JSON.stringify(plan), staleReason, userId, now],
             );
 
-            logger.info(`${course.name} (${teeBox}/${mode}): ${plan.totalExpected.toFixed(1)} xS`, { component: 'plan-regen' });
+            logger.info(`${course.name} (${teeBox}/${mode}): ${(plan.totalExpected ?? 0).toFixed(1)} xS`, { component: 'plan-regen' });
           }),
         );
 

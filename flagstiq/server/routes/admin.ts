@@ -436,8 +436,13 @@ router.post('/courses/:id/scorecard', async (req, res) => {
 
 // GET /api/admin/hazard-penalties — return global hazard penalties
 router.get('/hazard-penalties', async (_req, res) => {
-  const { rows } = await query('SELECT type, penalty FROM hazard_penalties ORDER BY type');
-  res.json(rows);
+  try {
+    const { rows } = await query('SELECT type, penalty FROM hazard_penalties ORDER BY type');
+    res.json(rows);
+  } catch (err) {
+    logger.error('Failed to fetch hazard penalties', { error: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // PUT /api/admin/hazard-penalties — update global hazard penalties
