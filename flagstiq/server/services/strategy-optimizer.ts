@@ -112,7 +112,7 @@ export let BALL_APEX_YARDS = 28;   // ~84 feet — reasonable average across all
 // ---------------------------------------------------------------------------
 
 export function gaussianSample(mu: number, sigma: number): number {
-  const u1 = Math.random();
+  const u1 = Math.max(1e-10, Math.random());
   const u2 = Math.random();
   const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   return mu + sigma * z;
@@ -214,6 +214,7 @@ export function getProfileSlope(profile: ElevationProfile, distFromTee: number):
 
 /** O(1) lookup into pre-computed elevation profile. */
 export function getProfileElevation(profile: ElevationProfile, distFromTee: number): number {
+  if (profile.samples.length === 0) return 0;
   const clamped = Math.max(0, Math.min(distFromTee, profile.totalDist));
   const idx = clamped / ELEV_PROFILE_STEP;
   const lo = Math.floor(idx);
@@ -589,6 +590,7 @@ export function computeScoreDistribution(scores: number[], par: number): ScoreDi
 // ---------------------------------------------------------------------------
 
 export function polygonCentroid(poly: { lat: number; lng: number }[]): { lat: number; lng: number } {
+  if (poly.length === 0) return { lat: 0, lng: 0 };
   let lat = 0, lng = 0;
   for (const p of poly) { lat += p.lat; lng += p.lng; }
   return { lat: lat / poly.length, lng: lng / poly.length };

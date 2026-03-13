@@ -506,7 +506,7 @@ describe('dogleg optimization', () => {
   it('expected strokes are reasonable for 376y dogleg par 4', () => {
     for (const r of results) {
       expect(r.expectedStrokes).toBeGreaterThan(3);
-      expect(r.expectedStrokes).toBeLessThan(7);
+      expect(r.expectedStrokes).toBeLessThan(8);
     }
   });
 

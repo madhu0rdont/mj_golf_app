@@ -251,7 +251,7 @@ function projectToHoleFrame(
     let projU: number;
 
     if (along <= 0) {
-      perpDist = dAP;
+      perpDist = Math.abs(cross);
       projS = cumDist;
       projU = cross;
     } else if (along >= segLen) {
