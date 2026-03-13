@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, toCamel } from '../db.js';
 import { logger } from '../logger.js';
+import { loadCourseHoles, loadSingleHole } from '../services/hole-loader.js';
 
 const router = Router();
 
@@ -26,14 +27,11 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Course not found' });
     }
 
-    const { rows: holeRows } = await query(
-      'SELECT * FROM course_holes WHERE course_id = $1 ORDER BY hole_number',
-      [req.params.id],
-    );
+    const holes = await loadCourseHoles(req.params.id);
 
     res.json({
       ...toCamel(courseRows[0]),
-      holes: holeRows.map(toCamel),
+      holes,
     });
   } catch (err) {
     logger.error('Failed to get course', { error: String(err) });
@@ -49,14 +47,11 @@ router.get('/:id/holes/:number', async (req, res) => {
       return res.status(400).json({ error: 'Hole number must be a valid number' });
     }
 
-    const { rows } = await query(
-      'SELECT * FROM course_holes WHERE course_id = $1 AND hole_number = $2',
-      [req.params.id, holeNumber],
-    );
-    if (rows.length === 0) {
+    const hole = await loadSingleHole(req.params.id, holeNumber);
+    if (!hole) {
       return res.status(404).json({ error: 'Hole not found' });
     }
-    res.json(toCamel(rows[0]));
+    res.json(hole);
   } catch (err) {
     logger.error('Failed to get hole', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });

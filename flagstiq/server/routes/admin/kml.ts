@@ -8,6 +8,7 @@ import {
   playsLikeYards,
   computeTargetDistances,
 } from '../../services/geo-utils.js';
+import { loadCourseHoles } from '../../services/hole-loader.js';
 
 const router = Router();
 
@@ -124,7 +125,7 @@ router.post('/import-kml/confirm', async (req, res) => {
       cVals,
     );
 
-    // Insert holes
+    // Insert holes into normalized tables
     for (const h of parsedHoles) {
       const teeElev = getElev(h.tee);
       const pinElev = getElev(h.pin);
@@ -132,12 +133,6 @@ router.post('/import-kml/confirm', async (req, res) => {
 
       // Scorecard yardages for this hole (from user input)
       const teeBoxYardages = scorecard?.[h.holeNumber] ?? {};
-
-      // Compute plays-like yardages per tee box
-      const playsLike: Record<string, number> = {};
-      for (const [color, yards] of Object.entries(teeBoxYardages)) {
-        playsLike[color] = playsLikeYards(yards, elevDelta);
-      }
 
       // Enrich targets with elevation and distances
       const enrichedTargets = computeTargetDistances(
@@ -160,42 +155,39 @@ router.post('/import-kml/confirm', async (req, res) => {
         elevation: getElev(c),
       }));
 
-      const holeSnake = toSnake({
-        id: crypto.randomUUID(),
-        courseId,
-        holeNumber: h.holeNumber,
-        par: h.par,
-        heading: h.heading,
-        notes: null,
-      });
-
-      // JSONB fields must be stringified explicitly
-      const allKeys = [
-        ...Object.keys(holeSnake),
-        'yardages',
-        'tee',
-        'pin',
-        'targets',
-        'center_line',
-        'hazards',
-        'fairway',
-        'plays_like_yards',
-      ];
-      const allVals = [
-        ...Object.values(holeSnake),
-        JSON.stringify(teeBoxYardages),
-        JSON.stringify({ lat: h.tee.lat, lng: h.tee.lng, elevation: teeElev }),
-        JSON.stringify({ lat: h.pin.lat, lng: h.pin.lng, elevation: pinElev }),
-        JSON.stringify(enrichedTargets),
-        JSON.stringify(enrichedCenterLine),
-        JSON.stringify([]),
-        JSON.stringify([]),
-        JSON.stringify(playsLike),
-      ];
-      const hPlaceholders = allKeys.map((_, i) => `$${i + 1}`);
+      // 1. Insert into holes table
+      const holeId = crypto.randomUUID();
       await client.query(
-        `INSERT INTO course_holes (${allKeys.join(', ')}) VALUES (${hPlaceholders.join(', ')})`,
-        allVals,
+        `INSERT INTO holes (id, course_id, hole_number, par, handicap, heading, notes, center_line, targets, fairway, green)
+         VALUES ($1, $2, $3, $4, NULL, $5, NULL, $6, $7, '[]'::jsonb, '[]'::jsonb)`,
+        [holeId, courseId, h.holeNumber, h.par, h.heading, JSON.stringify(enrichedCenterLine), JSON.stringify(enrichedTargets)],
+      );
+
+      // 2. Insert hole_tees (one per tee box from scorecard)
+      const entries = Object.entries(teeBoxYardages);
+      if (entries.length > 0) {
+        for (const [teeName, yards] of entries) {
+          const ply = playsLikeYards(yards, elevDelta);
+          await client.query(
+            `INSERT INTO hole_tees (id, hole_id, tee_name, lat, lng, elevation, yardage, plays_like_yardage)
+             VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7)`,
+            [holeId, teeName, h.tee.lat, h.tee.lng, teeElev, yards, ply],
+          );
+        }
+      } else {
+        // No scorecard yardages — create a default tee entry
+        await client.query(
+          `INSERT INTO hole_tees (id, hole_id, tee_name, lat, lng, elevation, yardage)
+           VALUES (gen_random_uuid()::text, $1, 'default', $2, $3, $4, 0)`,
+          [holeId, h.tee.lat, h.tee.lng, teeElev],
+        );
+      }
+
+      // 3. Insert default pin
+      await client.query(
+        `INSERT INTO hole_pins (id, hole_id, pin_name, lat, lng, elevation, is_default)
+         VALUES (gen_random_uuid()::text, $1, 'default', $2, $3, $4, true)`,
+        [holeId, h.pin.lat, h.pin.lng, pinElev],
       );
     }
 
@@ -206,14 +198,11 @@ router.post('/import-kml/confirm', async (req, res) => {
       'SELECT * FROM courses WHERE id = $1',
       [courseId],
     );
-    const { rows: holeResults } = await query(
-      'SELECT * FROM course_holes WHERE course_id = $1 ORDER BY hole_number',
-      [courseId],
-    );
+    const holes = await loadCourseHoles(courseId);
 
     res.status(201).json({
       ...toCamel(courseResult[0]),
-      holes: holeResults.map(toCamel),
+      holes,
     });
   } catch (err) {
     await client.query('ROLLBACK');

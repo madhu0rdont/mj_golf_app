@@ -55,28 +55,12 @@ router.put('/hazard-penalties', async (req, res) => {
     // 2. Build penalty map for bulk-updating course hazards
     const penaltyMap = new Map(penalties.map((p) => [p.type, p.penalty]));
 
-    // 3. Update all course_holes hazard objects with new penalty values
-    const { rows: holeRows } = await client.query('SELECT id, hazards FROM course_holes WHERE hazards IS NOT NULL');
-    for (const row of holeRows) {
-      const hazards = row.hazards as { type: string; penalty: number }[];
-      if (!Array.isArray(hazards) || hazards.length === 0) continue;
-
-      let changed = false;
-      const updated = hazards.map((h) => {
-        const newPenalty = penaltyMap.get(h.type);
-        if (newPenalty !== undefined && newPenalty !== h.penalty) {
-          changed = true;
-          return { ...h, penalty: newPenalty };
-        }
-        return h;
-      });
-
-      if (changed) {
-        await client.query('UPDATE course_holes SET hazards = $1 WHERE id = $2', [
-          JSON.stringify(updated),
-          row.id,
-        ]);
-      }
+    // 3. Update all hole_hazards rows with new penalty values
+    for (const [type, penalty] of penaltyMap) {
+      await client.query(
+        'UPDATE hole_hazards SET penalty = $1 WHERE hazard_type = $2',
+        [penalty, type],
+      );
     }
 
     await client.query('COMMIT');

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pool, toCamel } from '../db.js';
 import { logger } from '../logger.js';
 import { requireAdmin } from '../middleware/auth.js';
+import { loadSingleHole } from '../services/hole-loader.js';
 
 const router = Router();
 
@@ -64,8 +65,10 @@ router.get('/plan-qc/:courseId', async (req, res) => {
 router.get('/tee-keys/:courseId', async (req, res) => {
   try {
     const cid = req.params.courseId;
-    const { rows: holes } = await pool.query(
-      'SELECT hole_number, yardages FROM course_holes WHERE course_id = $1 ORDER BY hole_number LIMIT 1',
+    const { rows: teeRows } = await pool.query(
+      `SELECT DISTINCT ht.tee_name FROM hole_tees ht
+       JOIN holes h ON h.id = ht.hole_id
+       WHERE h.course_id = $1 ORDER BY ht.tee_name`,
       [cid],
     );
     const { rows: plans } = await pool.query(
@@ -73,7 +76,7 @@ router.get('/tee-keys/:courseId', async (req, res) => {
       [cid],
     );
     res.json({
-      yardageKeys: holes[0] ? Object.keys(holes[0].yardages) : [],
+      yardageKeys: teeRows.map((r: { tee_name: string }) => r.tee_name),
       cachedPlans: plans.map((p: Record<string, unknown>) => ({ teeBox: p.tee_box, mode: p.mode })),
     });
   } catch (err) {
@@ -87,8 +90,8 @@ router.get('/courses', async (_req, res) => {
   try {
     const { rows } = await pool.query(`
       SELECT c.id, c.name, c.par, c.slope, c.rating, c.tee_sets IS NOT NULL as has_tee_sets,
-        (SELECT COUNT(*)::int FROM course_holes ch WHERE ch.course_id = c.id AND ch.handicap IS NOT NULL) as holes_with_hcp,
-        (SELECT COUNT(*)::int FROM course_holes ch WHERE ch.course_id = c.id) as total_holes
+        (SELECT COUNT(*)::int FROM holes h WHERE h.course_id = c.id AND h.handicap IS NOT NULL) as holes_with_hcp,
+        (SELECT COUNT(*)::int FROM holes h WHERE h.course_id = c.id) as total_holes
       FROM courses c ORDER BY c.name
     `);
     res.json(rows);
@@ -105,7 +108,7 @@ router.get('/hole-green/:courseId/:holeNumber', async (req, res) => {
     if (isNaN(holeNumber)) return res.status(400).json({ error: 'Hole number must be a valid number' });
 
     const { rows } = await pool.query(
-      'SELECT hole_number, green, fairway FROM course_holes WHERE course_id = $1 AND hole_number = $2',
+      'SELECT hole_number, green, fairway FROM holes WHERE course_id = $1 AND hole_number = $2',
       [req.params.courseId, holeNumber],
     );
     if (rows.length === 0) return res.json({ error: 'not found' });
@@ -132,25 +135,39 @@ router.get('/hole-hazards/:courseId/:holeNumber', async (req, res) => {
     const holeNumber = parseInt(req.params.holeNumber);
     if (isNaN(holeNumber)) return res.status(400).json({ error: 'Hole number must be a valid number' });
 
-    const { rows } = await pool.query(
-      'SELECT hole_number, hazards, tee, pin, notes FROM course_holes WHERE course_id = $1 AND hole_number = $2',
+    const { rows: holeRows } = await pool.query(
+      'SELECT id, hole_number, notes, center_line FROM holes WHERE course_id = $1 AND hole_number = $2',
       [req.params.courseId, holeNumber],
     );
-    if (rows.length === 0) return res.json({ error: 'not found' });
-    const hole = rows[0];
-    const hazards = (hole.hazards ?? []) as { name: string; type: string; penalty: number; polygon: { lat: number; lng: number }[] }[];
+    if (holeRows.length === 0) return res.json({ error: 'not found' });
+    const hole = holeRows[0];
+    const holeId = hole.id as string;
+
+    const { rows: teeRows } = await pool.query(
+      'SELECT tee_name, lat, lng, elevation FROM hole_tees WHERE hole_id = $1 LIMIT 1',
+      [holeId],
+    );
+    const { rows: pinRows } = await pool.query(
+      'SELECT lat, lng, elevation FROM hole_pins WHERE hole_id = $1 AND is_default = true',
+      [holeId],
+    );
+    const { rows: hazardRows } = await pool.query(
+      'SELECT hazard_type, name, penalty, polygon FROM hole_hazards WHERE hole_id = $1',
+      [holeId],
+    );
+
     const full = req.query.full === '1';
     const centerLine = hole.center_line as { lat: number; lng: number }[] | null;
     res.json({
       holeNumber: hole.hole_number,
-      tee: hole.tee,
-      pin: hole.pin,
+      tee: teeRows[0] ? { lat: teeRows[0].lat, lng: teeRows[0].lng, elevation: teeRows[0].elevation } : null,
+      pin: pinRows[0] ? { lat: pinRows[0].lat, lng: pinRows[0].lng, elevation: pinRows[0].elevation } : null,
       notes: hole.notes,
       centerLinePoints: centerLine?.length ?? 0,
-      hazardCount: hazards.length,
-      hazards: hazards.map((h) => ({
+      hazardCount: hazardRows.length,
+      hazards: hazardRows.map((h) => ({
         name: h.name,
-        type: h.type,
+        type: h.hazard_type,
         penalty: h.penalty,
         polygonPoints: h.polygon?.length ?? 0,
         ...(full && { polygon: h.polygon }),
@@ -167,30 +184,37 @@ router.get('/fix-elevations/:courseId', async (req, res) => {
   try {
     const { fetchElevations } = await import('../services/elevation.js');
     const courseId = req.params.courseId;
-    const { rows } = await pool.query(
-      'SELECT id, hole_number, tee, pin FROM course_holes WHERE course_id = $1 ORDER BY hole_number',
+
+    // Find tees and pins missing elevation
+    const { rows: teeRows } = await pool.query(
+      `SELECT ht.id, ht.lat, ht.lng FROM hole_tees ht
+       JOIN holes h ON h.id = ht.hole_id
+       WHERE h.course_id = $1 AND (ht.elevation IS NULL OR ht.elevation = 0)`,
       [courseId],
     );
+    const { rows: pinRows } = await pool.query(
+      `SELECT hp.id, hp.lat, hp.lng FROM hole_pins hp
+       JOIN holes h ON h.id = hp.hole_id
+       WHERE h.course_id = $1 AND (hp.elevation IS NULL OR hp.elevation = 0)`,
+      [courseId],
+    );
+
     const coords: { lat: number; lng: number }[] = [];
-    const holeMap: { holeId: string; field: string; idx: number }[] = [];
-    for (const row of rows) {
-      const tee = row.tee as { lat: number; lng: number; elevation?: number };
-      const pin = row.pin as { lat: number; lng: number; elevation?: number };
-      if (tee.elevation == null) {
-        holeMap.push({ holeId: row.id, field: 'tee', idx: coords.length });
-        coords.push({ lat: Number(tee.lat), lng: Number(tee.lng) });
-      }
-      if (pin.elevation == null) {
-        holeMap.push({ holeId: row.id, field: 'pin', idx: coords.length });
-        coords.push({ lat: Number(pin.lat), lng: Number(pin.lng) });
-      }
+    const updateMap: { id: string; table: string; idx: number }[] = [];
+    for (const row of teeRows) {
+      updateMap.push({ id: row.id, table: 'hole_tees', idx: coords.length });
+      coords.push({ lat: Number(row.lat), lng: Number(row.lng) });
+    }
+    for (const row of pinRows) {
+      updateMap.push({ id: row.id, table: 'hole_pins', idx: coords.length });
+      coords.push({ lat: Number(row.lat), lng: Number(row.lng) });
     }
     if (coords.length === 0) return res.json({ fixed: 0 });
     const elevResults = await fetchElevations(coords);
-    for (const entry of holeMap) {
+    for (const entry of updateMap) {
       await pool.query(
-        `UPDATE course_holes SET ${entry.field} = jsonb_set(${entry.field}::jsonb, '{elevation}', $1::jsonb) WHERE id = $2`,
-        [JSON.stringify(elevResults[entry.idx].elevation), entry.holeId],
+        `UPDATE ${entry.table} SET elevation = $1 WHERE id = $2`,
+        [elevResults[entry.idx].elevation, entry.id],
       );
     }
     // Mark plans stale so they regenerate with correct elevation
@@ -215,13 +239,9 @@ router.get('/anchors/:courseId/:holeNumber', async (req, res) => {
     const courseId = req.params.courseId;
     const teeBox = (req.query.tee as string) || 'blue';
 
-    const { rows } = await pool.query(
-      'SELECT * FROM course_holes WHERE course_id = $1 AND hole_number = $2',
-      [courseId, holeNumber],
-    );
-    if (rows.length === 0) return res.json({ error: 'not found' });
+    const hole = await loadSingleHole(courseId, holeNumber, teeBox);
+    if (!hole) return res.json({ error: 'not found' });
 
-    const hole = toCamel(rows[0]);
     const { anchors, centerLine } = discretizeHole(hole as never, teeBox);
 
     const anchorSummary = anchors.map((a: { id: number; position: { lat: number; lng: number }; lie: string; distToPin: number; distFromTee: number; localBearing: number }) => ({
@@ -267,13 +287,8 @@ router.get('/tee-actions/:courseId/:holeNumber', async (req, res) => {
     const topN = parseInt(req.query.top as string) || 20;
 
     // Load hole
-    const { rows: holeRows } = await pool.query(
-      'SELECT * FROM course_holes WHERE course_id = $1 AND hole_number = $2',
-      [courseId, holeNumber],
-    );
-    if (holeRows.length === 0) return res.json({ error: 'hole not found' });
-
-    const hole = toCamel(holeRows[0]);
+    const hole = await loadSingleHole(courseId, holeNumber, teeBox);
+    if (!hole) return res.json({ error: 'hole not found' });
 
     // Load clubs/shots for distributions
     const { rows: clubRows } = await pool.query('SELECT * FROM clubs ORDER BY loft ASC');

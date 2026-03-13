@@ -11,7 +11,8 @@ import { computeClubShotGroups } from '../services/club-shot-groups.js';
 import { buildDistributions } from '../services/monte-carlo.js';
 import { assembleGamePlan } from '../services/game-plan.js';
 import type { GamePlan } from '../services/game-plan.js';
-import type { Club, Shot, CourseWithHoles, CourseHole } from '../models/types.js';
+import { loadCourseHoles, loadSingleHole } from '../services/hole-loader.js';
+import type { Club, Shot, CourseWithHoles } from '../models/types.js';
 
 const router = Router();
 
@@ -180,11 +181,7 @@ router.post('/:courseId/:teeBox/:mode/generate', async (req, res) => {
     }
     const course = toCamel<CourseWithHoles>(courseRows[0]);
 
-    const { rows: holeRows } = await query(
-      'SELECT * FROM course_holes WHERE course_id = $1 ORDER BY hole_number',
-      [courseId],
-    );
-    course.holes = holeRows.map(toCamel<CourseHole>);
+    course.holes = await loadCourseHoles(courseId, teeBox);
 
     if (course.holes.length === 0) {
       return res.status(400).json({ error: 'Course has no holes' });
@@ -276,14 +273,10 @@ router.post('/:courseId/:teeBox/:mode/generate/:holeNumber', async (req, res) =>
     const cachedPlan = toCamel<{ plan: GamePlan }>(cacheRows[0]).plan;
 
     // Load the specific hole
-    const { rows: holeRows } = await query(
-      'SELECT * FROM course_holes WHERE course_id = $1 AND hole_number = $2',
-      [courseId, holeNumber],
-    );
-    if (holeRows.length === 0) {
+    const hole = await loadSingleHole(courseId, holeNumber, teeBox);
+    if (!hole) {
       return res.status(404).json({ error: 'Hole not found' });
     }
-    const hole = toCamel<CourseHole>(holeRows[0]);
 
     // Load user's club/shot data and build distributions
     const { rows: clubRows } = await query('SELECT * FROM clubs WHERE user_id = $1 ORDER BY sort_order', [userId]);

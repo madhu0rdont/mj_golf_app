@@ -841,6 +841,135 @@ export async function migrate() {
     );
   }
 
+  // ── Phase 1: Split course_holes into normalized tables ──
+  await query(`
+    CREATE TABLE IF NOT EXISTS holes (
+      id           TEXT PRIMARY KEY,
+      course_id    TEXT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+      hole_number  INTEGER NOT NULL,
+      par          INTEGER NOT NULL,
+      handicap     INTEGER,
+      heading      NUMERIC(6,2),
+      notes        TEXT,
+      center_line  JSONB DEFAULT '[]',
+      targets      JSONB DEFAULT '[]',
+      fairway      JSONB DEFAULT '[]',
+      green        JSONB DEFAULT '[]',
+      UNIQUE(course_id, hole_number)
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_holes_course ON holes(course_id)`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS hole_tees (
+      id                  TEXT PRIMARY KEY,
+      hole_id             TEXT NOT NULL REFERENCES holes(id) ON DELETE CASCADE,
+      tee_name            TEXT NOT NULL,
+      lat                 REAL NOT NULL,
+      lng                 REAL NOT NULL,
+      elevation           REAL DEFAULT 0,
+      yardage             INTEGER NOT NULL,
+      plays_like_yardage  INTEGER,
+      UNIQUE(hole_id, tee_name)
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_hole_tees_hole ON hole_tees(hole_id)`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS hole_pins (
+      id          TEXT PRIMARY KEY,
+      hole_id     TEXT NOT NULL REFERENCES holes(id) ON DELETE CASCADE,
+      pin_name    TEXT NOT NULL DEFAULT 'default',
+      lat         REAL NOT NULL,
+      lng         REAL NOT NULL,
+      elevation   REAL DEFAULT 0,
+      is_default  BOOLEAN DEFAULT true,
+      UNIQUE(hole_id, pin_name)
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_hole_pins_hole ON hole_pins(hole_id)`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS hole_hazards (
+      id          TEXT PRIMARY KEY,
+      hole_id     TEXT NOT NULL REFERENCES holes(id) ON DELETE CASCADE,
+      hazard_type TEXT NOT NULL,
+      name        TEXT,
+      penalty     REAL NOT NULL DEFAULT 1.0,
+      confidence  TEXT DEFAULT 'high',
+      source      TEXT DEFAULT 'manual',
+      polygon     JSONB NOT NULL,
+      status      TEXT DEFAULT 'accepted'
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_hole_hazards_hole ON hole_hazards(hole_id)`);
+
+  // Migrate data from course_holes → new tables (idempotent, one-time)
+  const HOLES_SPLIT_FLAG = 'holes_split_v1';
+  const { rows: holesSplitFlag } = await query('SELECT 1 FROM _migration_flags WHERE flag = $1', [HOLES_SPLIT_FLAG]);
+  if (holesSplitFlag.length === 0) {
+    // 1. Copy scalar + geometry data to holes table
+    await query(`
+      INSERT INTO holes (id, course_id, hole_number, par, handicap, heading, notes, center_line, targets, fairway, green)
+      SELECT id, course_id, hole_number, par, handicap, heading, notes,
+             COALESCE(center_line, '[]'::jsonb), COALESCE(targets, '[]'::jsonb),
+             COALESCE(fairway, '[]'::jsonb), COALESCE(green, '[]'::jsonb)
+      FROM course_holes
+      ON CONFLICT DO NOTHING
+    `);
+
+    // 2. Create one hole_tees row per yardage key per hole (all share the single tee position)
+    await query(`
+      INSERT INTO hole_tees (id, hole_id, tee_name, lat, lng, elevation, yardage, plays_like_yardage)
+      SELECT
+        gen_random_uuid()::text,
+        ch.id,
+        kv.key,
+        (ch.tee->>'lat')::real,
+        (ch.tee->>'lng')::real,
+        COALESCE((ch.tee->>'elevation')::real, 0),
+        (kv.value)::integer,
+        (ch.plays_like_yards->>kv.key)::integer
+      FROM course_holes ch, jsonb_each_text(ch.yardages) kv
+      ON CONFLICT DO NOTHING
+    `);
+
+    // 3. Create one default pin per hole
+    await query(`
+      INSERT INTO hole_pins (id, hole_id, pin_name, lat, lng, elevation, is_default)
+      SELECT
+        gen_random_uuid()::text,
+        ch.id,
+        'default',
+        (ch.pin->>'lat')::real,
+        (ch.pin->>'lng')::real,
+        COALESCE((ch.pin->>'elevation')::real, 0),
+        true
+      FROM course_holes ch
+      ON CONFLICT DO NOTHING
+    `);
+
+    // 4. Create one hole_hazards row per hazard array element
+    await query(`
+      INSERT INTO hole_hazards (id, hole_id, hazard_type, name, penalty, confidence, source, polygon, status)
+      SELECT
+        gen_random_uuid()::text,
+        ch.id,
+        COALESCE(h.value->>'type', 'bunker'),
+        h.value->>'name',
+        COALESCE((h.value->>'penalty')::real, 1.0),
+        COALESCE(h.value->>'confidence', 'high'),
+        COALESCE(h.value->>'source', 'manual'),
+        COALESCE(h.value->'polygon', '[]'::jsonb),
+        COALESCE(h.value->>'status', 'accepted')
+      FROM course_holes ch, jsonb_array_elements(ch.hazards) h(value)
+      WHERE jsonb_array_length(COALESCE(ch.hazards, '[]'::jsonb)) > 0
+    `);
+
+    await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [HOLES_SPLIT_FLAG, Date.now()]);
+    logger.info('Migrated course_holes data to normalized hole tables');
+  }
+
   // ── S1: Update wedge_overrides unique constraint to include user_id ──
   // Original PK was (club_id, position) without user_id, allowing cross-user overwrites
   await query(`

@@ -1,6 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import { createTestApp, mockQuery, mockDbModule, resetMocks } from '../helpers/setup.js';
+
+const mockLoadCourseHoles = vi.hoisted(() => vi.fn().mockResolvedValue([]));
+const mockLoadSingleHole = vi.hoisted(() => vi.fn().mockResolvedValue(null));
+
+vi.mock('../../services/hole-loader.js', () => ({
+  loadCourseHoles: mockLoadCourseHoles,
+  loadSingleHole: mockLoadSingleHole,
+}));
 
 // Mock the db module before importing the router
 mockDbModule();
@@ -13,6 +21,8 @@ const app = createTestApp(coursesRouter);
 describe('courses routes', () => {
   beforeEach(() => {
     resetMocks();
+    mockLoadCourseHoles.mockReset().mockResolvedValue([]);
+    mockLoadSingleHole.mockReset().mockResolvedValue(null);
   });
 
   // ── GET / ──────────────────────────────────────────────────────────
@@ -41,29 +51,27 @@ describe('courses routes', () => {
   // ── GET /:id ───────────────────────────────────────────────────────
   describe('GET /:id', () => {
     it('returns full course with holes', async () => {
-      // First query: course
+      // Course query
       mockQuery.mockResolvedValueOnce({
         rows: [{ id: 'c1', name: 'Pebble Beach', par: 72 }],
       });
-      // Second query: holes
-      mockQuery.mockResolvedValueOnce({
-        rows: [
-          { id: 'h1', course_id: 'c1', hole_number: 1, par: 4, yards: 380 },
-          { id: 'h2', course_id: 'c1', hole_number: 2, par: 5, yards: 520 },
-        ],
-      });
+      // loadCourseHoles returns assembled holes
+      mockLoadCourseHoles.mockResolvedValueOnce([
+        { id: 'h1', courseId: 'c1', holeNumber: 1, par: 4, yardages: { blue: 380 } },
+        { id: 'h2', courseId: 'c1', holeNumber: 2, par: 5, yardages: { blue: 520 } },
+      ]);
 
       const res = await request(app).get('/c1');
       expect(res.status).toBe(200);
       expect(res.body.name).toBe('Pebble Beach');
       expect(res.body.holes).toHaveLength(2);
-      expect(res.body.holes[0]).toEqual({
+      expect(res.body.holes[0]).toMatchObject({
         id: 'h1',
         courseId: 'c1',
         holeNumber: 1,
         par: 4,
-        yards: 380,
       });
+      expect(mockLoadCourseHoles).toHaveBeenCalledWith('c1');
     });
 
     it('returns 404 when course not found', async () => {
@@ -78,18 +86,19 @@ describe('courses routes', () => {
   // ── GET /:id/holes/:number ─────────────────────────────────────────
   describe('GET /:id/holes/:number', () => {
     it('returns a single hole', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'h1', course_id: 'c1', hole_number: 7, par: 3, yards: 185 }],
+      mockLoadSingleHole.mockResolvedValueOnce({
+        id: 'h1', courseId: 'c1', holeNumber: 7, par: 3, yardages: { blue: 185 },
       });
 
       const res = await request(app).get('/c1/holes/7');
       expect(res.status).toBe(200);
       expect(res.body.holeNumber).toBe(7);
       expect(res.body.par).toBe(3);
+      expect(mockLoadSingleHole).toHaveBeenCalledWith('c1', 7);
     });
 
     it('returns 404 when hole not found', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [] });
+      mockLoadSingleHole.mockResolvedValueOnce(null);
 
       const res = await request(app).get('/c1/holes/99');
       expect(res.status).toBe(404);

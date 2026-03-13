@@ -3,8 +3,9 @@ import { query, toCamel } from '../db.js';
 import { logger } from '../logger.js';
 import { loadStrategyConstants } from './strategy-optimizer.js';
 import { generatePlanParallel, isPlanGenerationActive } from './plan-worker-pool.js';
+import { loadCourseHoles } from './hole-loader.js';
 import type { ScoringMode } from './dp-optimizer.js';
-import type { Club, Shot, CourseWithHoles, CourseHole } from '../models/types.js';
+import type { Club, Shot, CourseWithHoles } from '../models/types.js';
 
 // PostgreSQL advisory lock ID for plan regeneration
 const REGEN_LOCK_ID = 1337;
@@ -57,11 +58,7 @@ export async function regenerateStalePlans() {
         const { rows: courseRows } = await query('SELECT * FROM courses WHERE id = $1', [courseId]);
         if (courseRows.length === 0) continue;
         const course = toCamel<CourseWithHoles>(courseRows[0]);
-        const { rows: holeRows } = await query(
-          'SELECT * FROM course_holes WHERE course_id = $1 ORDER BY hole_number',
-          [courseId],
-        );
-        course.holes = holeRows.map(toCamel<CourseHole>);
+        course.holes = await loadCourseHoles(courseId);
         if (course.holes.length > 0) courseMap.set(courseId, course);
       }
 

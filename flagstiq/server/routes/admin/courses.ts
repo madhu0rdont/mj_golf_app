@@ -4,6 +4,7 @@ import { logger } from '../../logger.js';
 import { markPlansStale } from '../game-plans.js';
 import { fetchElevations } from '../../services/elevation.js';
 import { playsLikeYards } from '../../services/geo-utils.js';
+import { loadCourseHoles } from '../../services/hole-loader.js';
 
 const router = Router();
 
@@ -12,37 +13,53 @@ router.post('/courses/:id/refresh-elevation', async (req, res) => {
   try {
     const courseId = req.params.id;
 
-    // 1. Fetch all holes for the course
+    // 1. Load holes (for targets + center_line) and tees/pins (for positions)
     const { rows: holeRows } = await query(
-      'SELECT * FROM course_holes WHERE course_id = $1 ORDER BY hole_number',
+      'SELECT id, hole_number, targets, center_line FROM holes WHERE course_id = $1 ORDER BY hole_number',
       [courseId],
     );
     if (holeRows.length === 0) {
       return res.status(404).json({ error: 'Course not found or has no holes' });
     }
 
-    const holes = holeRows.map(toCamel) as {
-      id: string;
-      holeNumber: number;
-      tee: { lat: number; lng: number; elevation: number };
-      pin: { lat: number; lng: number; elevation: number };
-      targets: { index: number; coordinate: { lat: number; lng: number; elevation: number } }[];
-      centerLine: { lat: number; lng: number; elevation: number }[];
-      yardages: Record<string, number>;
-      playsLikeYards: Record<string, number> | null;
-    }[];
+    const holeIds = holeRows.map((r: { id: string }) => r.id);
+    const { rows: teeRows } = await query(
+      'SELECT id, hole_id, tee_name, lat, lng, elevation, yardage, plays_like_yardage FROM hole_tees WHERE hole_id = ANY($1)',
+      [holeIds],
+    );
+    const { rows: pinRows } = await query(
+      'SELECT id, hole_id, lat, lng, elevation FROM hole_pins WHERE hole_id = ANY($1) AND is_default = true',
+      [holeIds],
+    );
 
-    // 2. Collect all coordinates
+    // Group by hole_id
+    const teesByHole = new Map<string, typeof teeRows>();
+    for (const t of teeRows) {
+      const list = teesByHole.get(t.hole_id as string) || [];
+      list.push(t);
+      teesByHole.set(t.hole_id as string, list);
+    }
+    const pinByHole = new Map<string, (typeof pinRows)[0]>();
+    for (const p of pinRows) pinByHole.set(p.hole_id as string, p);
+
+    // 2. Collect all coordinates for elevation lookup
     const allCoords: { lat: number; lng: number }[] = [];
-    for (const h of holes) {
-      allCoords.push({ lat: h.tee.lat, lng: h.tee.lng });
-      allCoords.push({ lat: h.pin.lat, lng: h.pin.lng });
-      for (const t of h.targets) {
-        allCoords.push({ lat: t.coordinate.lat, lng: t.coordinate.lng });
-      }
-      for (const c of h.centerLine) {
-        allCoords.push({ lat: c.lat, lng: c.lng });
-      }
+    for (const h of holeRows) {
+      // Tee positions (use first tee per hole for coordinate — all tees currently share position)
+      const tees = teesByHole.get(h.id as string) || [];
+      if (tees.length > 0) allCoords.push({ lat: Number(tees[0].lat), lng: Number(tees[0].lng) });
+
+      // Pin position
+      const pin = pinByHole.get(h.id as string);
+      if (pin) allCoords.push({ lat: Number(pin.lat), lng: Number(pin.lng) });
+
+      // Targets
+      const targets = h.targets as { index: number; coordinate: { lat: number; lng: number } }[] ?? [];
+      for (const t of targets) allCoords.push({ lat: t.coordinate.lat, lng: t.coordinate.lng });
+
+      // Center line
+      const centerLine = h.center_line as { lat: number; lng: number }[] ?? [];
+      for (const c of centerLine) allCoords.push({ lat: c.lat, lng: c.lng });
     }
 
     // 3. Fetch elevations
@@ -61,50 +78,61 @@ router.post('/courses/:id/refresh-elevation', async (req, res) => {
     const getElev = (coord: { lat: number; lng: number }) =>
       elevMap.get(`${coord.lat},${coord.lng}`) ?? 0;
 
-    // 4. Update each hole
+    // 4. Update each hole's data
     const comparison: { holeNumber: number; before: Record<string, number> | null; after: Record<string, number> }[] = [];
 
-    for (const h of holes) {
-      const beforePlaysLike = h.playsLikeYards;
-      const newTeeElev = getElev(h.tee);
-      const newPinElev = getElev(h.pin);
-      const elevDelta = newPinElev - newTeeElev;
+    for (const h of holeRows) {
+      const holeId = h.id as string;
+      const tees = teesByHole.get(holeId) || [];
+      const pin = pinByHole.get(holeId);
 
-      // Recompute plays-like per tee box
-      const newPlaysLike: Record<string, number> = {};
-      for (const [color, yards] of Object.entries(h.yardages)) {
-        newPlaysLike[color] = playsLikeYards(yards, elevDelta);
+      // Build before playsLike
+      const beforePlaysLike: Record<string, number> = {};
+      for (const t of tees) {
+        if (t.plays_like_yardage != null) beforePlaysLike[t.tee_name as string] = t.plays_like_yardage as number;
       }
 
-      // Update tee, pin elevation and plays_like_yards
-      const updatedTee = { ...h.tee, elevation: newTeeElev };
-      const updatedPin = { ...h.pin, elevation: newPinElev };
-      const updatedTargets = h.targets.map((t) => ({
+      // New elevations
+      const newTeeElev = tees.length > 0 ? getElev({ lat: Number(tees[0].lat), lng: Number(tees[0].lng) }) : 0;
+      const newPinElev = pin ? getElev({ lat: Number(pin.lat), lng: Number(pin.lng) }) : 0;
+      const elevDelta = newPinElev - newTeeElev;
+
+      // Update tee elevation + recompute plays_like per tee
+      const newPlaysLike: Record<string, number> = {};
+      for (const t of tees) {
+        const ply = playsLikeYards(t.yardage as number, elevDelta);
+        newPlaysLike[t.tee_name as string] = ply;
+        await query(
+          'UPDATE hole_tees SET elevation = $1, plays_like_yardage = $2 WHERE id = $3',
+          [newTeeElev, ply, t.id],
+        );
+      }
+
+      // Update pin elevation
+      if (pin) {
+        await query('UPDATE hole_pins SET elevation = $1 WHERE id = $2', [newPinElev, pin.id]);
+      }
+
+      // Update targets + center_line with new elevations
+      const targets = h.targets as { index: number; coordinate: { lat: number; lng: number; elevation: number } }[] ?? [];
+      const updatedTargets = targets.map((t) => ({
         ...t,
         coordinate: { ...t.coordinate, elevation: getElev(t.coordinate) },
       }));
-      const updatedCenterLine = h.centerLine.map((c) => ({
+      const centerLine = h.center_line as { lat: number; lng: number; elevation: number }[] ?? [];
+      const updatedCenterLine = centerLine.map((c) => ({
         ...c,
         elevation: getElev(c),
       }));
 
       await query(
-        `UPDATE course_holes
-         SET tee = $1, pin = $2, targets = $3, center_line = $4, plays_like_yards = $5
-         WHERE id = $6`,
-        [
-          JSON.stringify(updatedTee),
-          JSON.stringify(updatedPin),
-          JSON.stringify(updatedTargets),
-          JSON.stringify(updatedCenterLine),
-          JSON.stringify(newPlaysLike),
-          h.id,
-        ],
+        'UPDATE holes SET targets = $1, center_line = $2 WHERE id = $3',
+        [JSON.stringify(updatedTargets), JSON.stringify(updatedCenterLine), holeId],
       );
 
       comparison.push({
-        holeNumber: h.holeNumber,
-        before: beforePlaysLike,
+        holeNumber: h.hole_number as number,
+        before: Object.keys(beforePlaysLike).length > 0 ? beforePlaysLike : null,
         after: newPlaysLike,
       });
     }
@@ -148,59 +176,75 @@ router.post('/courses/:id/scorecard', async (req, res) => {
       }
     }
 
-    // Load all holes once for elevation data (avoid N+1 queries)
+    // Load holes and tees for elevation data
     const { rows: allHoleRows } = await client.query(
-      'SELECT hole_number, tee, pin FROM course_holes WHERE course_id = $1',
+      'SELECT id, hole_number FROM holes WHERE course_id = $1',
       [courseId],
     );
-    const holeElevMap = new Map(allHoleRows.map(r => [r.hole_number as number, r]));
+    const holeIdMap = new Map(allHoleRows.map(r => [r.hole_number as number, r.id as string]));
+    const holeIds = allHoleRows.map(r => r.id as string);
+
+    // Load tee + pin elevations for plays_like_yards calculation
+    const { rows: teeElevRows } = await client.query(
+      'SELECT hole_id, elevation FROM hole_tees WHERE hole_id = ANY($1) LIMIT 1',
+      [holeIds],
+    );
+    const { rows: pinElevRows } = await client.query(
+      'SELECT hole_id, elevation FROM hole_pins WHERE hole_id = ANY($1) AND is_default = true',
+      [holeIds],
+    );
+    const teeElevByHole = new Map(teeElevRows.map(r => [r.hole_id as string, (r.elevation as number) ?? 0]));
+    const pinElevByHole = new Map(pinElevRows.map(r => [r.hole_id as string, (r.elevation as number) ?? 0]));
 
     for (const h of holeData) {
-      const sets: string[] = [];
-      const vals: unknown[] = [];
+      const holeId = holeIdMap.get(h.holeNumber);
+      if (!holeId) continue;
 
-      vals.push(JSON.stringify(h.yardages));
-      sets.push(`yardages = $${vals.length}`);
-
+      // Update holes table (par, handicap)
+      const holeSets: string[] = [];
+      const holeVals: unknown[] = [];
       if (h.par != null) {
-        vals.push(h.par);
-        sets.push(`par = $${vals.length}`);
+        holeVals.push(h.par);
+        holeSets.push(`par = $${holeVals.length}`);
       }
       if (h.handicap != null) {
-        vals.push(h.handicap);
-        sets.push(`handicap = $${vals.length}`);
+        holeVals.push(h.handicap);
+        holeSets.push(`handicap = $${holeVals.length}`);
+      }
+      if (holeSets.length > 0) {
+        holeVals.push(holeId);
+        await client.query(`UPDATE holes SET ${holeSets.join(', ')} WHERE id = $${holeVals.length}`, holeVals);
       }
 
-      // Recompute plays_like_yards using elevation delta
-      const existingHole = holeElevMap.get(h.holeNumber);
-      if (existingHole) {
-        const teeData = existingHole.tee;
-        const pinData = existingHole.pin;
-        const elevDelta = (pinData?.elevation ?? 0) - (teeData?.elevation ?? 0);
-        const playsLike: Record<string, number> = {};
-        for (const [color, yards] of Object.entries(h.yardages)) {
-          playsLike[color] = playsLikeYards(yards, elevDelta);
-        }
-        vals.push(JSON.stringify(playsLike));
-        sets.push(`plays_like_yards = $${vals.length}`);
-      }
+      // Compute elevation delta for plays_like
+      const teeElev = teeElevByHole.get(holeId) ?? 0;
+      const pinElev = pinElevByHole.get(holeId) ?? 0;
+      const elevDelta = pinElev - teeElev;
 
-      vals.push(courseId);
-      vals.push(h.holeNumber);
-      await client.query(
-        `UPDATE course_holes SET ${sets.join(', ')} WHERE course_id = $${vals.length - 1} AND hole_number = $${vals.length}`,
-        vals,
+      // Upsert hole_tees (one per tee box)
+      // Get existing tee position for new entries
+      const { rows: existingTees } = await client.query(
+        'SELECT lat, lng, elevation FROM hole_tees WHERE hole_id = $1 LIMIT 1',
+        [holeId],
       );
+      const pos = existingTees[0] ?? { lat: 0, lng: 0, elevation: 0 };
+
+      for (const [teeName, yards] of Object.entries(h.yardages)) {
+        const ply = playsLikeYards(yards, elevDelta);
+        await client.query(
+          `INSERT INTO hole_tees (id, hole_id, tee_name, lat, lng, elevation, yardage, plays_like_yardage)
+           VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (hole_id, tee_name) DO UPDATE SET yardage = $6, plays_like_yardage = $7`,
+          [holeId, teeName, pos.lat, pos.lng, pos.elevation, yards, ply],
+        );
+      }
     }
 
     await client.query('COMMIT');
 
-    const { rows } = await query(
-      'SELECT * FROM course_holes WHERE course_id = $1 ORDER BY hole_number',
-      [courseId],
-    );
+    const holes = await loadCourseHoles(courseId);
     await markPlansStale('Scorecard updated', courseId);
-    res.json({ holes: rows.map(toCamel) });
+    res.json({ holes });
   } catch (err) {
     if (client) {
       try { await client.query('ROLLBACK'); } catch { /* rollback best-effort */ }
@@ -216,25 +260,35 @@ router.post('/courses/:id/scorecard', async (req, res) => {
 router.post('/courses/:id/fix-elevations', async (req, res) => {
   try {
     const courseId = req.params.id;
-    const { rows } = await query(
-      'SELECT id, hole_number, tee, pin FROM course_holes WHERE course_id = $1 ORDER BY hole_number',
+
+    // Find tees and pins missing elevation
+    const { rows: holeRows } = await query(
+      'SELECT id FROM holes WHERE course_id = $1',
       [courseId],
+    );
+    if (holeRows.length === 0) {
+      return res.status(404).json({ error: 'Course not found or has no holes' });
+    }
+    const holeIds = holeRows.map(r => r.id as string);
+
+    const { rows: teeRows } = await query(
+      'SELECT id, lat, lng FROM hole_tees WHERE hole_id = ANY($1) AND (elevation IS NULL OR elevation = 0)',
+      [holeIds],
+    );
+    const { rows: pinRows } = await query(
+      'SELECT id, lat, lng FROM hole_pins WHERE hole_id = ANY($1) AND (elevation IS NULL OR elevation = 0)',
+      [holeIds],
     );
 
     const coords: { lat: number; lng: number }[] = [];
-    const holeMap: { holeId: string; field: 'tee' | 'pin'; idx: number }[] = [];
-
-    for (const row of rows) {
-      const tee = row.tee as { lat: number; lng: number; elevation?: number };
-      const pin = row.pin as { lat: number; lng: number; elevation?: number };
-      if (tee.elevation == null) {
-        holeMap.push({ holeId: row.id, field: 'tee', idx: coords.length });
-        coords.push({ lat: Number(tee.lat), lng: Number(tee.lng) });
-      }
-      if (pin.elevation == null) {
-        holeMap.push({ holeId: row.id, field: 'pin', idx: coords.length });
-        coords.push({ lat: Number(pin.lat), lng: Number(pin.lng) });
-      }
+    const updateMap: { id: string; table: string; idx: number }[] = [];
+    for (const row of teeRows) {
+      updateMap.push({ id: row.id as string, table: 'hole_tees', idx: coords.length });
+      coords.push({ lat: Number(row.lat), lng: Number(row.lng) });
+    }
+    for (const row of pinRows) {
+      updateMap.push({ id: row.id as string, table: 'hole_pins', idx: coords.length });
+      coords.push({ lat: Number(row.lat), lng: Number(row.lng) });
     }
 
     if (coords.length === 0) {
@@ -243,11 +297,11 @@ router.post('/courses/:id/fix-elevations', async (req, res) => {
 
     const elevResults = await fetchElevations(coords);
 
-    for (const entry of holeMap) {
+    for (const entry of updateMap) {
       const elev = elevResults[entry.idx].elevation;
       await query(
-        `UPDATE course_holes SET ${entry.field} = jsonb_set(${entry.field}::jsonb, '{elevation}', $1::jsonb) WHERE id = $2`,
-        [JSON.stringify(elev), entry.holeId],
+        `UPDATE ${entry.table} SET elevation = $1 WHERE id = $2`,
+        [elev, entry.id],
       );
     }
 

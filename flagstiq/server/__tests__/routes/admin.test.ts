@@ -3,6 +3,8 @@ import request from 'supertest';
 import { createTestApp, mockQuery, mockClient, mockDbModule, resetMocks, mockPool } from '../helpers/setup.js';
 
 const mockMarkPlansStale = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const mockLoadSingleHole = vi.hoisted(() => vi.fn().mockResolvedValue(null));
+const mockLoadCourseHoles = vi.hoisted(() => vi.fn().mockResolvedValue([]));
 
 vi.mock('../../services/plan-regenerator.js', () => ({
   regenerateStalePlans: vi.fn().mockResolvedValue(undefined),
@@ -24,6 +26,11 @@ vi.mock('../../services/elevation.js', () => ({
   fetchElevations: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock('../../services/hole-loader.js', () => ({
+  loadSingleHole: mockLoadSingleHole,
+  loadCourseHoles: mockLoadCourseHoles,
+}));
+
 mockDbModule();
 
 import adminRouter from '../../routes/admin/index.js';
@@ -34,16 +41,20 @@ describe('admin routes', () => {
   beforeEach(() => {
     resetMocks();
     mockMarkPlansStale.mockReset().mockResolvedValue(undefined);
+    mockLoadSingleHole.mockReset().mockResolvedValue(null);
+    mockLoadCourseHoles.mockReset().mockResolvedValue([]);
   });
 
   // ── PATCH /:id/holes/:number ─────────────────────────────────────
   describe('PATCH /:id/holes/:number', () => {
     it('updates hole fields and returns updated hole', async () => {
-      // First query: UPDATE returns rowCount 1
+      // First query: SELECT id FROM holes (find hole)
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'h1' }] });
+      // Second query: UPDATE holes SET ...
       mockQuery.mockResolvedValueOnce({ rowCount: 1, rows: [] });
-      // Second query: SELECT returns updated hole
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'h1', course_id: 'c1', hole_number: 1, par: 4, handicap: 10, notes: 'test note' }],
+      // loadSingleHole returns updated hole
+      mockLoadSingleHole.mockResolvedValueOnce({
+        id: 'h1', courseId: 'c1', holeNumber: 1, par: 4, handicap: 10, notes: 'test note',
       });
 
       const res = await request(app)
@@ -56,6 +67,9 @@ describe('admin routes', () => {
     });
 
     it('returns 400 when no valid fields provided', async () => {
+      // First query: find hole
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'h1' }] });
+
       const res = await request(app)
         .patch('/c1/holes/1')
         .send({ invalidField: 'value' });
@@ -65,7 +79,7 @@ describe('admin routes', () => {
     });
 
     it('returns 404 when hole not found', async () => {
-      mockQuery.mockResolvedValueOnce({ rowCount: 0, rows: [] });
+      mockQuery.mockResolvedValueOnce({ rows: [] });
 
       const res = await request(app)
         .patch('/c1/holes/99')
@@ -76,9 +90,13 @@ describe('admin routes', () => {
     });
 
     it('filters out disallowed fields', async () => {
+      // Find hole
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'h1' }] });
+      // UPDATE holes
       mockQuery.mockResolvedValueOnce({ rowCount: 1, rows: [] });
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'h1', course_id: 'c1', hole_number: 1, par: 5 }],
+      // loadSingleHole
+      mockLoadSingleHole.mockResolvedValueOnce({
+        id: 'h1', courseId: 'c1', holeNumber: 1, par: 5,
       });
 
       const res = await request(app)
@@ -86,8 +104,8 @@ describe('admin routes', () => {
         .send({ par: 5, id: 'hacked', course_id: 'hacked' });
 
       expect(res.status).toBe(200);
-      // The UPDATE query should only set par, not inject id or course_id as SET clauses
-      const updateCall = mockQuery.mock.calls[0];
+      // The UPDATE query (second call) should only set par
+      const updateCall = mockQuery.mock.calls[1];
       const sql = updateCall[0] as string;
       const setClause = sql.substring(sql.indexOf('SET'), sql.indexOf('WHERE'));
       expect(setClause).toContain('par =');
@@ -98,7 +116,10 @@ describe('admin routes', () => {
   // ── DELETE /:id/holes/geofence ───────────────────────────────────
   describe('DELETE /:id/holes/geofence', () => {
     it('clears geofence data for hole range', async () => {
+      // UPDATE holes (clear geometry)
       mockQuery.mockResolvedValueOnce({ rowCount: 3, rows: [] });
+      // DELETE FROM hole_hazards
+      mockQuery.mockResolvedValueOnce({ rowCount: 0, rows: [] });
 
       const res = await request(app)
         .delete('/c1/holes/geofence?from=4&to=6');

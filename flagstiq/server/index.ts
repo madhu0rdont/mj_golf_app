@@ -174,30 +174,24 @@ async function start() {
   // Recompute playsLikeYards from current elevation data (fixes stale values
   // left over from before elevation data was corrected)
   try {
-    const { rows: holes } = await pool.query(`
-      SELECT id, yardages, plays_like_yards,
-             (tee->>'elevation')::float AS tee_elev,
-             (pin->>'elevation')::float AS pin_elev
-      FROM course_holes
-      WHERE tee->>'elevation' IS NOT NULL AND pin->>'elevation' IS NOT NULL
+    // Load tee data grouped by hole, with pin elevation for delta calculation
+    const { rows: teeRows } = await pool.query(`
+      SELECT ht.id, ht.hole_id, ht.tee_name, ht.yardage, ht.plays_like_yardage,
+             ht.elevation AS tee_elev, hp.elevation AS pin_elev
+      FROM hole_tees ht
+      JOIN hole_pins hp ON hp.hole_id = ht.hole_id AND hp.is_default = true
+      WHERE ht.elevation != 0 AND hp.elevation != 0
     `);
     let fixed = 0;
-    for (const h of holes) {
-      const elevDelta = h.pin_elev - h.tee_elev;
-      const yardages = h.yardages as Record<string, number>;
-      const stored = (h.plays_like_yards ?? {}) as Record<string, number>;
-      const correct: Record<string, number> = {};
-      let needsUpdate = false;
-      for (const [color, yards] of Object.entries(yardages)) {
-        correct[color] = yards + Math.round(elevDelta * 1.09);
-        if (stored[color] !== correct[color]) needsUpdate = true;
-      }
-      if (needsUpdate) {
-        await pool.query('UPDATE course_holes SET plays_like_yards = $1 WHERE id = $2', [JSON.stringify(correct), h.id]);
+    for (const t of teeRows) {
+      const elevDelta = t.pin_elev - t.tee_elev;
+      const correct = t.yardage + Math.round(elevDelta * 1.09);
+      if (t.plays_like_yardage !== correct) {
+        await pool.query('UPDATE hole_tees SET plays_like_yardage = $1 WHERE id = $2', [correct, t.id]);
         fixed++;
       }
     }
-    if (fixed > 0) logger.info(`Fixed playsLikeYards for ${fixed} holes`);
+    if (fixed > 0) logger.info(`Fixed playsLikeYards for ${fixed} tee entries`);
   } catch (err) {
     logger.warn('playsLikeYards recomputation skipped', { error: String(err) });
   }
