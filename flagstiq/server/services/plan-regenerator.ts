@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { query, toCamel } from '../db.js';
 import { logger } from '../logger.js';
-import { getRoughPenalty, loadStrategyConstants } from './strategy-optimizer.js';
+import { loadStrategyConstants } from './strategy-optimizer.js';
 import { generatePlanParallel, isPlanGenerationActive } from './plan-worker-pool.js';
 import type { ScoringMode } from './dp-optimizer.js';
 import type { Club, Shot, CourseWithHoles, CourseHole } from '../models/types.js';

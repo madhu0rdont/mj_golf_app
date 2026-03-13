@@ -34,8 +34,6 @@ For pushPull: positive = push (right), negative = pull (left).`;
 
 const USER_PROMPT = 'Extract all shot data from this Foresight GC4 session summary. Return only a JSON array of shot objects.';
 
-const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-
 // POST /api/extract — proxy image to Anthropic Claude Vision API
 router.post('/', extractLimiter, async (req, res) => {
   try {

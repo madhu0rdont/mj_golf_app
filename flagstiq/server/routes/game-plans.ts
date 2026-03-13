@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import { query, toCamel } from '../db.js';
 import { logger } from '../logger.js';
 import { regenerateStalePlans } from '../services/plan-regenerator.js';
-import { getRoughPenalty, loadStrategyConstants } from '../services/strategy-optimizer.js';
+import { loadStrategyConstants } from '../services/strategy-optimizer.js';
 import { generatePlanParallel } from '../services/plan-worker-pool.js';
 import { dpOptimizeHole } from '../services/dp-optimizer.js';
 import type { ScoringMode } from '../services/dp-optimizer.js';
