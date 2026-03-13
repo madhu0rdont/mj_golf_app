@@ -272,7 +272,7 @@ describe('auth routes', () => {
 
       const res = await request(app)
         .post('/reset-password')
-        .send({ token: 'a'.repeat(64), password: 'newpassword123' });
+        .send({ token: 'a'.repeat(64), password: 'Newpassword123' });
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Invalid or expired reset link');
@@ -284,7 +284,7 @@ describe('auth routes', () => {
         .send({ token: 'a'.repeat(64), password: 'short' });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('Password must be at least 8 characters');
+      expect(res.body.error).toBe('Password must be at least 8 characters with uppercase, lowercase, and a number');
     });
   });
 
@@ -298,7 +298,7 @@ describe('auth routes', () => {
         .send({
           username: 'newuser',
           email: 'new@example.com',
-          password: 'password123',
+          password: 'Password123',
           displayName: 'New User',
         });
 
@@ -322,7 +322,7 @@ describe('auth routes', () => {
         .send({
           username: 'newuser',
           email: 'new@example.com',
-          password: 'password123',
+          password: 'Password123',
         });
 
       expect(res.status).toBe(409);

@@ -841,5 +841,19 @@ export async function migrate() {
     );
   }
 
+  // ── S1: Update wedge_overrides unique constraint to include user_id ──
+  // Original PK was (club_id, position) without user_id, allowing cross-user overwrites
+  await query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'wedge_overrides_user_club_position_key'
+      ) THEN
+        ALTER TABLE wedge_overrides DROP CONSTRAINT IF EXISTS wedge_overrides_pkey;
+        ALTER TABLE wedge_overrides ADD CONSTRAINT wedge_overrides_user_club_position_key
+          UNIQUE(user_id, club_id, position);
+      END IF;
+    END $$
+  `);
+
   logger.info('Database migration complete');
 }

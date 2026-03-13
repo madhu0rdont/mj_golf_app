@@ -210,7 +210,7 @@ router.post('/reset-password', resetPasswordLimiter, async (req, res) => {
     }
 
     if (!isValidPassword(password)) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      return res.status(400).json({ error: 'Password must be at least 8 characters with uppercase, lowercase, and a number' });
     }
 
     // Validate token is 64 hex chars
@@ -256,7 +256,7 @@ router.post('/register', registerLimiter, async (req, res) => {
   }
 
   if (!isValidPassword(password)) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    return res.status(400).json({ error: 'Password must be at least 8 characters with uppercase, lowercase, and a number' });
   }
 
   if (username.length < 3 || username.length > 30) {

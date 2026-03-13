@@ -44,7 +44,7 @@ app.use(helmet({
 // Response compression
 app.use(compression());
 
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '5mb' }));
 
 // CSRF protection — require custom header on mutating requests
 app.use(csrfCheck);

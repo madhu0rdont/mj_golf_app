@@ -76,7 +76,7 @@ describe('users routes', () => {
 
       const res = await request(adminApp)
         .post('/')
-        .send({ username: 'NewUser', password: 'secret123', email: 'new@test.com' });
+        .send({ username: 'NewUser', password: 'Secret123', email: 'new@test.com' });
 
       expect(res.status).toBe(201);
       expect(res.body.username).toBe('newuser'); // lowercased
@@ -89,7 +89,7 @@ describe('users routes', () => {
     it('returns 400 when username missing', async () => {
       const res = await request(adminApp)
         .post('/')
-        .send({ password: 'secret123' });
+        .send({ password: 'Secret123' });
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Username and password are required');
@@ -107,7 +107,7 @@ describe('users routes', () => {
     it('returns 400 for invalid role', async () => {
       const res = await request(adminApp)
         .post('/')
-        .send({ username: 'newuser', password: 'secret123', role: 'superadmin' });
+        .send({ username: 'newuser', password: 'Secret123', role: 'superadmin' });
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Role must be admin or player');
@@ -116,7 +116,7 @@ describe('users routes', () => {
     it('returns 400 for invalid handedness', async () => {
       const res = await request(adminApp)
         .post('/')
-        .send({ username: 'newuser', password: 'secret123', handedness: 'ambidextrous' });
+        .send({ username: 'newuser', password: 'Secret123', handedness: 'ambidextrous' });
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Handedness must be left or right');
@@ -126,7 +126,7 @@ describe('users routes', () => {
     it('returns 400 for invalid email', async () => {
       const res = await request(adminApp)
         .post('/')
-        .send({ username: 'newuser', password: 'secret123', email: 'notanemail' });
+        .send({ username: 'newuser', password: 'Secret123', email: 'notanemail' });
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Invalid email format');
@@ -135,7 +135,7 @@ describe('users routes', () => {
     it('rejects email with single-char TLD', async () => {
       const res = await request(adminApp)
         .post('/')
-        .send({ username: 'newuser', password: 'secret123', email: 'user@example.c' });
+        .send({ username: 'newuser', password: 'Secret123', email: 'user@example.c' });
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Invalid email format');
@@ -146,7 +146,7 @@ describe('users routes', () => {
 
       const res = await request(adminApp)
         .post('/')
-        .send({ username: 'newuser', password: 'secret123', email: 'user@example.co' });
+        .send({ username: 'newuser', password: 'Secret123', email: 'user@example.co' });
 
       expect(res.status).toBe(201);
     });
@@ -160,7 +160,7 @@ describe('users routes', () => {
 
       const res = await request(adminApp)
         .post('/')
-        .send({ username: 'newuser', password: 'secret123' });
+        .send({ username: 'newuser', password: 'Secret123' });
 
       expect(res.status).toBe(409);
       expect(res.body.error).toBe('Username already exists');
@@ -174,7 +174,7 @@ describe('users routes', () => {
 
       const res = await request(adminApp)
         .post('/')
-        .send({ username: 'newuser', password: 'secret123', email: 'test@example.com' });
+        .send({ username: 'newuser', password: 'Secret123', email: 'test@example.com' });
 
       expect(res.status).toBe(409);
       expect(res.body.error).toBe('Email already in use');
@@ -188,7 +188,7 @@ describe('users routes', () => {
 
       const res = await request(adminApp)
         .post('/')
-        .send({ username: 'newuser', password: 'secret123' });
+        .send({ username: 'newuser', password: 'Secret123' });
 
       expect(res.status).toBe(409);
       expect(res.body.error).toBe('Duplicate entry');
@@ -199,7 +199,7 @@ describe('users routes', () => {
 
       const res = await request(adminApp)
         .post('/')
-        .send({ username: 'newuser', password: 'secret123' });
+        .send({ username: 'newuser', password: 'Secret123' });
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe('Internal server error');
@@ -208,7 +208,7 @@ describe('users routes', () => {
     it('returns 403 for non-admin', async () => {
       const res = await request(playerApp)
         .post('/')
-        .send({ username: 'newuser', password: 'secret123' });
+        .send({ username: 'newuser', password: 'Secret123' });
 
       expect(res.status).toBe(403);
     });
@@ -291,7 +291,7 @@ describe('users routes', () => {
         .send({ profilePicture: 'not-a-data-url' });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('Profile picture must be a data:image URL');
+      expect(res.body.error).toBe('Profile picture must be a valid base64 data:image URL (jpeg, png, gif, or webp)');
     });
 
     it('returns 400 for oversized profile picture', async () => {

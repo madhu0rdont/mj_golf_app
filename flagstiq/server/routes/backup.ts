@@ -87,8 +87,7 @@ router.post('/import', async (req, res) => {
     });
   } catch (err) {
     logger.error('Import failed', { error: String(err) });
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    res.status(500).json({ error: `Import failed: ${message}` });
+    res.status(500).json({ error: 'Import failed' });
   }
 });
 

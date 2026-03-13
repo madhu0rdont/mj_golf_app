@@ -154,8 +154,11 @@ router.put('/me', async (req, res) => {
         values.push(null);
         sets.push(`profile_picture = $${values.length}`);
       } else {
-        if (typeof profilePicture !== 'string' || !profilePicture.startsWith('data:image/')) {
-          return res.status(400).json({ error: 'Profile picture must be a data:image URL' });
+        if (
+          typeof profilePicture !== 'string' ||
+          !/^data:image\/(jpeg|png|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(profilePicture)
+        ) {
+          return res.status(400).json({ error: 'Profile picture must be a valid base64 data:image URL (jpeg, png, gif, or webp)' });
         }
         if (profilePicture.length > 200_000) {
           return res.status(400).json({ error: 'Profile picture too large (max ~150KB)' });

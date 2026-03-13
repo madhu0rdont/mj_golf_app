@@ -36,8 +36,8 @@ router.put('/', async (req, res) => {
     await query(
       `INSERT INTO wedge_overrides (club_id, position, carry, user_id)
        VALUES ($1, $2, $3, $4)
-       ON CONFLICT (club_id, position)
-       DO UPDATE SET carry = $3`,
+       ON CONFLICT (user_id, club_id, position)
+       DO UPDATE SET carry = EXCLUDED.carry`,
       [clubId, position, carry, userId]
     );
     res.json({ ok: true });
