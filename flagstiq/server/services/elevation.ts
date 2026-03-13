@@ -40,6 +40,12 @@ export async function fetchElevations(
       throw new Error(`Elevation API error: ${data.status} — ${data.error_message || ''}`);
     }
 
+    if (!data.results || data.results.length !== batch.length) {
+      throw new Error(
+        `Elevation API returned ${data.results?.length ?? 0} results, expected ${batch.length}`,
+      );
+    }
+
     for (let j = 0; j < batch.length; j++) {
       results.push({
         lat: batch[j].lat,

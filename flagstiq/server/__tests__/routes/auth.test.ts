@@ -196,6 +196,13 @@ describe('auth routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.authenticated).toBe(false);
     });
+
+    it('returns 500 when count query returns empty rows', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const res = await request(app).get('/check');
+      expect(res.status).toBe(500);
+    });
   });
 
   // ── POST /setup ──────────────────────────────────────────────────
@@ -213,6 +220,60 @@ describe('auth routes', () => {
         });
 
       expect(res.status).toBe(403);
+    });
+
+    it('returns 500 when count query returns empty rows', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const res = await request(app)
+        .post('/setup')
+        .send({
+          adminUsername: 'admin',
+          adminPassword: 'adminpass',
+          playerUsername: 'mj',
+          playerPassword: 'mjpass',
+        });
+
+      expect(res.status).toBe(500);
+    });
+
+    it('returns 500 on DB error during setup', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ count: '0' }] })
+        .mockRejectedValueOnce(new Error('connection lost'));
+
+      const res = await request(app)
+        .post('/setup')
+        .send({
+          adminUsername: 'admin',
+          adminPassword: 'adminpass',
+          playerUsername: 'mj',
+          playerPassword: 'mjpass',
+        });
+
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe('Internal server error');
+    });
+
+    it('returns 409 on duplicate username during setup', async () => {
+      const dbError = new Error('duplicate key') as any;
+      dbError.code = '23505';
+      dbError.detail = 'Key (username)=(admin) already exists.';
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ count: '0' }] })
+        .mockRejectedValueOnce(dbError);
+
+      const res = await request(app)
+        .post('/setup')
+        .send({
+          adminUsername: 'admin',
+          adminPassword: 'adminpass',
+          playerUsername: 'mj',
+          playerPassword: 'mjpass',
+        });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toContain('Username');
     });
 
     it('creates admin and player accounts when no users exist', async () => {

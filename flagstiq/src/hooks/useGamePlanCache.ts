@@ -91,23 +91,27 @@ export function useGamePlanCache(
       let buffer = '';
 
       if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
 
-          // Parse SSE lines
-          const lines = buffer.split('\n');
-          buffer = lines.pop() ?? '';
-          for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            try {
-              const msg = JSON.parse(line.slice(6));
-              if (msg.type === 'progress') {
-                setProgress({ current: msg.completed, total: msg.total });
-              }
-            } catch { /* skip malformed */ }
+            // Parse SSE lines
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              try {
+                const msg = JSON.parse(line.slice(6));
+                if (msg.type === 'progress') {
+                  setProgress({ current: msg.completed, total: msg.total });
+                }
+              } catch { /* skip malformed */ }
+            }
           }
+        } catch (streamErr) {
+          console.error('SSE stream interrupted', streamErr);
         }
       }
 

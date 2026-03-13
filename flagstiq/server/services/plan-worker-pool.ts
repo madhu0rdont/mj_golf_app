@@ -91,6 +91,10 @@ function runHolesWorker(
         onProgress?.(msg.holeNumber!);
         return;
       }
+      if (msg.type === 'warning') {
+        logger.warn(`Hole ${msg.holeNumber} optimization failed`, { error: msg.error });
+        return;
+      }
       worker.terminate();
       if (msg.ok && msg.results) {
         resolve(msg.results);

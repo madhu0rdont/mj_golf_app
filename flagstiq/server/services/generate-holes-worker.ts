@@ -14,10 +14,18 @@ parentPort?.on('message', (msg) => {
     const results: Array<{ holeNumber: number; strategies: unknown[] }> = [];
 
     for (const hole of holes) {
-      const strategies = dpOptimizeHole(hole, teeBox, distributions, constants);
-      results.push({ holeNumber: hole.holeNumber, strategies });
+      try {
+        const strategies = dpOptimizeHole(hole, teeBox, distributions, constants);
+        results.push({ holeNumber: hole.holeNumber, strategies });
+      } catch (holeErr) {
+        results.push({ holeNumber: hole.holeNumber, strategies: [] });
+        parentPort?.postMessage({
+          type: 'warning',
+          holeNumber: hole.holeNumber,
+          error: String(holeErr),
+        });
+      }
 
-      // Report per-hole progress
       parentPort?.postMessage({ type: 'progress', holeNumber: hole.holeNumber });
     }
 

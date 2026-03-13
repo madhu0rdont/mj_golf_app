@@ -115,6 +115,9 @@ router.get('/check', async (req, res) => {
   try {
     // Check if setup is needed (no users exist)
     const { rows: countRows } = await query('SELECT count(*) FROM users');
+    if (countRows.length === 0) {
+      return res.status(500).json({ error: 'Internal server error' });
+    }
     const userCount = parseInt(countRows[0].count);
 
     if (userCount === 0) {
@@ -305,64 +308,79 @@ router.post('/register', registerLimiter, async (req, res) => {
 
 // POST /api/auth/setup — create first accounts (only works when no users exist)
 router.post('/setup', async (req, res) => {
-  const { rows: countRows } = await query('SELECT count(*) FROM users');
-  if (parseInt(countRows[0].count) > 0) {
-    return res.status(403).json({ error: 'Setup already completed' });
-  }
+  try {
+    const { rows: countRows } = await query('SELECT count(*) FROM users');
+    if (countRows.length === 0) {
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    if (parseInt(countRows[0].count) > 0) {
+      return res.status(403).json({ error: 'Setup already completed' });
+    }
 
-  const { adminUsername, adminPassword, playerUsername, playerPassword, playerDisplayName } = req.body;
+    const { adminUsername, adminPassword, playerUsername, playerPassword, playerDisplayName } = req.body;
 
-  if (!adminUsername || !adminPassword || !playerUsername || !playerPassword) {
-    return res.status(400).json({ error: 'Admin and player credentials are required' });
-  }
+    if (!adminUsername || !adminPassword || !playerUsername || !playerPassword) {
+      return res.status(400).json({ error: 'Admin and player credentials are required' });
+    }
 
-  const now = Date.now();
+    const now = Date.now();
 
-  // Create admin account
-  const adminId = crypto.randomUUID();
-  const adminHash = await bcrypt.hash(adminPassword, 12);
-  await query(
-    `INSERT INTO users (id, username, password, display_name, role, handedness, created_at, updated_at)
-     VALUES ($1, $2, $3, 'Admin', 'admin', 'right', $4, $4)`,
-    [adminId, adminUsername.toLowerCase(), adminHash, now],
-  );
+    // Create admin account
+    const adminId = crypto.randomUUID();
+    const adminHash = await bcrypt.hash(adminPassword, 12);
+    await query(
+      `INSERT INTO users (id, username, password, display_name, role, handedness, created_at, updated_at)
+       VALUES ($1, $2, $3, 'Admin', 'admin', 'right', $4, $4)`,
+      [adminId, adminUsername.toLowerCase(), adminHash, now],
+    );
 
-  // Create player account
-  const playerId = crypto.randomUUID();
-  const playerHash = await bcrypt.hash(playerPassword, 12);
-  const playerHandedness = req.body.playerHandedness || 'right';
-  await query(
-    `INSERT INTO users (id, username, password, display_name, role, handedness, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, 'player', $5, $6, $6)`,
-    [playerId, playerUsername.toLowerCase(), playerHash, playerDisplayName || playerUsername, playerHandedness, now],
-  );
+    // Create player account
+    const playerId = crypto.randomUUID();
+    const playerHash = await bcrypt.hash(playerPassword, 12);
+    const playerHandedness = req.body.playerHandedness || 'right';
+    await query(
+      `INSERT INTO users (id, username, password, display_name, role, handedness, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, 'player', $5, $6, $6)`,
+      [playerId, playerUsername.toLowerCase(), playerHash, playerDisplayName || playerUsername, playerHandedness, now],
+    );
 
-  // Assign any existing data to the new player account
-  await query('UPDATE clubs SET user_id = $1 WHERE user_id IS NULL', [playerId]);
-  await query('UPDATE sessions SET user_id = $1 WHERE user_id IS NULL', [playerId]);
-  await query('UPDATE shots SET user_id = $1 WHERE user_id IS NULL', [playerId]);
-  await query('UPDATE wedge_overrides SET user_id = $1 WHERE user_id IS NULL', [playerId]);
-  await query('UPDATE game_plan_cache SET user_id = $1 WHERE user_id IS NULL', [playerId]);
-  await query('UPDATE game_plan_history SET user_id = $1 WHERE user_id IS NULL', [playerId]);
+    // Assign any existing data to the new player account
+    await query('UPDATE clubs SET user_id = $1 WHERE user_id IS NULL', [playerId]);
+    await query('UPDATE sessions SET user_id = $1 WHERE user_id IS NULL', [playerId]);
+    await query('UPDATE shots SET user_id = $1 WHERE user_id IS NULL', [playerId]);
+    await query('UPDATE wedge_overrides SET user_id = $1 WHERE user_id IS NULL', [playerId]);
+    await query('UPDATE game_plan_cache SET user_id = $1 WHERE user_id IS NULL', [playerId]);
+    await query('UPDATE game_plan_history SET user_id = $1 WHERE user_id IS NULL', [playerId]);
 
-  // Auto-login the player account
-  req.session.authenticated = true;
-  req.session.userId = playerId;
-  req.session.username = playerUsername.toLowerCase();
-  req.session.role = 'player';
-  req.session.save((err) => {
-    if (err) return res.status(500).json({ error: 'Session save failed' });
-    res.status(201).json({
-      success: true,
-      user: {
-        id: playerId,
-        username: playerUsername.toLowerCase(),
-        displayName: playerDisplayName || playerUsername,
-        role: 'player',
-        handedness: playerHandedness,
-      },
+    // Auto-login the player account
+    req.session.authenticated = true;
+    req.session.userId = playerId;
+    req.session.username = playerUsername.toLowerCase();
+    req.session.role = 'player';
+    req.session.save((err) => {
+      if (err) return res.status(500).json({ error: 'Session save failed' });
+      res.status(201).json({
+        success: true,
+        user: {
+          id: playerId,
+          username: playerUsername.toLowerCase(),
+          displayName: playerDisplayName || playerUsername,
+          role: 'player',
+          handedness: playerHandedness,
+        },
+      });
     });
-  });
+  } catch (err: unknown) {
+    if (typeof err === 'object' && err !== null && 'code' in err && (err as { code: string }).code === '23505') {
+      const detail = String((err as { detail?: string }).detail || '');
+      if (detail.includes('username')) {
+        return res.status(409).json({ error: 'Username already taken' });
+      }
+      return res.status(409).json({ error: 'Account already exists' });
+    }
+    logger.error('Setup failed', { error: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 export default router;

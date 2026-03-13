@@ -46,53 +46,41 @@ Now requires uppercase, lowercase, and a number in addition to >= 8 chars.
 
 ## ERROR HANDLING
 
-### E1. `/setup` route has no try-catch
+### ~~E1. `/setup` route has no try-catch~~ DONE
 **Severity:** HIGH
 **File:** `routes/auth.ts:307-366`
 
-Only auth route without error handling. DB failure → unhandled rejection → server crash.
+Wrapped in try-catch with duplicate key handling (23505) and generic 500 fallback.
 
-**Fix:** Wrap in try-catch.
-
-### E2. Worker fails entire batch on single hole error
+### ~~E2. Worker fails entire batch on single hole error~~ DONE
 **Severity:** HIGH
 **File:** `services/generate-holes-worker.ts:11-28`
 
-If `dpOptimizeHole` throws for one hole, the catch block returns `ok: false` for the entire batch. All other holes are lost.
+Per-hole try-catch; pushes empty strategies on failure, sends `warning` message, continues processing. Pool handler logs warnings.
 
-**Fix:** Per-hole try-catch; push empty strategies array on failure, continue processing.
-
-### E3. Elevation API result count not validated
+### ~~E3. Elevation API result count not validated~~ DONE
 **Severity:** MEDIUM
 **File:** `services/elevation.ts:43`
 
-`data.results[j]` assumes API returned exactly `batch.length` results. If fewer are returned, undefined access → silent NaN elevations.
+Added `data.results.length !== batch.length` guard before iterating.
 
-**Fix:** Check `data.results.length === batch.length` before iterating.
-
-### E4. Unchecked `rows[0]` after queries in auth routes
+### ~~E4. Unchecked `rows[0]` after queries in auth routes~~ DONE
 **Severity:** MEDIUM
-**File:** `routes/auth.ts:118, 221, 309`
+**File:** `routes/auth.ts:118, 309`
 
-Multiple `rows[0]` accesses without length checks. If query returns 0 rows → `TypeError`.
+Added `countRows.length === 0` guards at both locations.
 
-**Fix:** Guard with `if (rows.length === 0)` before access.
-
-### E5. SSE stream reader has no error handling
+### ~~E5. SSE stream reader has no error handling~~ DONE
 **Severity:** MEDIUM
 **File:** `src/hooks/useGamePlanCache.ts:89-112`
 
-`reader.read()` in the while loop has no try-catch. Network drop mid-stream → unhandled rejection.
+Inner try-catch around SSE reader loop; logs error and continues to cache revalidation.
 
-**Fix:** Wrap in try-catch, set `isGenerating = false` on error.
-
-### E6. WedgePracticePage save error not shown to user
+### ~~E6. WedgePracticePage save error not shown to user~~ DONE
 **Severity:** MEDIUM
 **File:** `src/pages/WedgePracticePage.tsx:196`
 
-Catch block logs to console but never sets an error state. User thinks save succeeded.
-
-**Fix:** Add error state and display to user.
+Added `saveError` state with coral error banner displayed below save button.
 
 ---
 

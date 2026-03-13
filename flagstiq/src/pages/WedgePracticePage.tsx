@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Check } from 'lucide-react';
+import { Check, AlertCircle } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -47,6 +47,7 @@ export function WedgePracticePage() {
   const [activeCell, setActiveCell] = useState<CellKey | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const blurTimeoutRef = useRef<number>(0);
 
@@ -153,6 +154,7 @@ export function WedgePracticePage() {
   const handleSaveSession = async () => {
     if (totalShotCount === 0) return;
     setSaving(true);
+    setSaveError(null);
 
     try {
       const allShots: {
@@ -194,6 +196,7 @@ export function WedgePracticePage() {
       navigate(`/session/${sessionId}`);
     } catch (err) {
       console.error('Failed to save wedge practice session', err);
+      setSaveError('Failed to save session. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -358,6 +361,12 @@ export function WedgePracticePage() {
             <Check size={18} />
             {saving ? 'Saving...' : `Save Session (${totalShotCount} shots)`}
           </Button>
+          {saveError && (
+            <div className="mt-3 flex items-start gap-2 rounded-sm border border-coral/30 bg-coral/5 px-3 py-2">
+              <AlertCircle size={16} className="mt-0.5 flex-shrink-0 text-coral" />
+              <p className="text-xs text-coral">{saveError}</p>
+            </div>
+          )}
         </div>
       </div>
     </>
