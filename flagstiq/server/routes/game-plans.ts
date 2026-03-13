@@ -301,7 +301,7 @@ router.post('/:courseId/:teeBox/:mode/generate/:holeNumber', async (req, res) =>
     // Run DP optimizer for this single hole (runs synchronously, ~15-20s for one hole)
     const singleHoleConstants = await loadStrategyConstants();
     const roughPenalty = singleHoleConstants.hazard_drop_penalty;
-    const strategies = dpOptimizeHole(hole, teeBox, distributions, roughPenalty, singleHoleConstants);
+    const strategies = dpOptimizeHole(hole, teeBox, distributions, singleHoleConstants);
 
     if (strategies.length === 0) {
       return res.status(400).json({ error: 'Optimizer returned no strategies for this hole' });

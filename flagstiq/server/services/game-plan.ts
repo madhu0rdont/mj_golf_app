@@ -144,7 +144,7 @@ export function generateGamePlan(
   const allStrategies = new Map<number, OptimizedStrategy[]>();
 
   for (const hole of course.holes) {
-    let strategies = dpOptimizeHole(hole, teeBox, distributions, roughPenalty, constants);
+    let strategies = dpOptimizeHole(hole, teeBox, distributions, constants);
 
     // Fallback to template-based optimizer if DP returns nothing
     if (strategies.length === 0) {

@@ -1026,7 +1026,6 @@ function valueIteration(
   anchors: AnchorState[],
   outcomeTable: ActionOutcomes[],
   mode: ScoringMode,
-  _par: number,
   distributions: ClubDistribution[],
   spatialIndex: SpatialIndex,
 ): ValueIterationResult {
@@ -1113,7 +1112,6 @@ function valueIteration(
       }
 
       if (bestEntry) {
-        const oldV = V.get(anchor.id) ?? 10;
         const oldModeV = modeV.get(anchor.id) ?? 10;
         V.set(anchor.id, bestMeanQ);
         modeV.set(anchor.id, bestModeValue);
@@ -1144,9 +1142,7 @@ function findAlternativeTeeAction(
   outcomeTable: ActionOutcomes[],
   values: Map<number, number>,
   mode: ScoringMode,
-  _par: number,
   excludeClubs: Set<string>,
-  _distributions: ClubDistribution[],
   spatialIndex: SpatialIndex,
 ): { clubIdx: number; bearing: number } | null {
   const teeAnchor = anchors[0];
@@ -1573,7 +1569,6 @@ export function dpOptimizeHole(
   hole: CourseHole,
   teeBox: string,
   distributions: ClubDistribution[],
-  _roughPenalty: number = 0.3,
   constants: StrategyConstants = DEFAULT_STRATEGY_CONSTANTS,
 ): OptimizedStrategy[] {
   if (distributions.length === 0) return [];
@@ -1605,7 +1600,7 @@ export function dpOptimizeHole(
 
   // 4. Value iteration for all modes
   for (const mode of modes) {
-    const { policy, values } = valueIteration(anchors, outcomeTable, mode, hole.par, distributions, spatialIndex);
+    const { policy, values } = valueIteration(anchors, outcomeTable, mode, distributions, spatialIndex);
     policies.push(policy);
     allValues.push(values);
   }
@@ -1625,7 +1620,7 @@ export function dpOptimizeHole(
       policies = [];
       allValues = [];
       for (const mode of modes) {
-        const { policy, values } = valueIteration(anchors, outcomeTable, mode, hole.par, distributions, spatialIndex);
+        const { policy, values } = valueIteration(anchors, outcomeTable, mode, distributions, spatialIndex);
         policies.push(policy);
         allValues.push(values);
       }
@@ -1654,8 +1649,8 @@ export function dpOptimizeHole(
     if (usedKeys.has(key)) {
       // Full sequence is identical — try alternative tee club
       const alt = findAlternativeTeeAction(
-        anchors, outcomeTable, allValues[i], modes[i], hole.par,
-        usedFirstClubs, distributions, spatialIndex,
+        anchors, outcomeTable, allValues[i], modes[i],
+        usedFirstClubs, spatialIndex,
       );
       if (alt) {
         plans[i] = extractPlan(anchors, policies[i], distributions, hole, teeBox, modes[i], elevProfile, alt);
@@ -1740,7 +1735,7 @@ export function debugTeeActions(
   const spatialIndex = buildSpatialIndex(anchors);
 
   // Run value iteration to get converged values
-  const { values: V } = valueIteration(anchors, outcomeTable, 'scoring', hole.par, distributions, spatialIndex);
+  const { values: V } = valueIteration(anchors, outcomeTable, 'scoring', distributions, spatialIndex);
 
   // Now trace all tee anchor (id=0) actions
   const teeAnchor = anchors[0];

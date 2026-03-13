@@ -61,7 +61,7 @@ router.post('/hole', async (req, res) => {
 
     // No cache or no allStrategies — compute fresh
     const roughPenalty = await getRoughPenalty();
-    const strategies = dpOptimizeHole(hole, teeBox, distributions, roughPenalty);
+    const strategies = dpOptimizeHole(hole, teeBox, distributions);
 
     res.json({ strategies, distributions });
   } catch (err) {

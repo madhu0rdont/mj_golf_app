@@ -15,7 +15,7 @@ parentPort?.on('message', (msg) => {
     const results: Array<{ holeNumber: number; strategies: unknown[] }> = [];
 
     for (const hole of holes) {
-      let strategies = dpOptimizeHole(hole, teeBox, distributions, roughPenalty, constants);
+      let strategies = dpOptimizeHole(hole, teeBox, distributions, constants);
 
       // Fallback to template-based optimizer if DP returns nothing
       if (strategies.length === 0) {
