@@ -22,6 +22,7 @@ import {
   ELEV_YARDS_PER_METER,
   DEFAULT_STRATEGY_CONSTANTS,
   applyStrategyConstants,
+  polygonCentroid,
 } from './strategy-optimizer.js';
 import type { OptimizedStrategy, NamedStrategyPlan, AimPoint, ElevationProfile } from './strategy-optimizer.js';
 
@@ -542,15 +543,7 @@ function getEligibleClubs(
   });
 }
 
-function polygonCentroid(polygon: { lat: number; lng: number }[]): { lat: number; lng: number } {
-  const n = polygon.length;
-  if (n === 0) return { lat: 0, lng: 0 };
-  const sum = polygon.reduce(
-    (acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }),
-    { lat: 0, lng: 0 },
-  );
-  return { lat: sum.lat / n, lng: sum.lng / n };
-}
+
 
 function bearingStepForDistance(yardage: number): number {
   if (yardage < 180) return 2; // par 3s need fine resolution — safe windows are narrow
