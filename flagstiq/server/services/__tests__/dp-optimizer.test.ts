@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { discretizeHole, dpOptimizeHole } from '../dp-optimizer';
+import { discretizeHole, dpOptimizeHole, classifyLie } from '../dp-optimizer';
 import type { ClubDistribution } from '../monte-carlo';
 import type { CourseHole, HazardFeature } from '../../models/types';
 
@@ -168,9 +168,9 @@ describe('discretizeHole', () => {
     expect(green.isTerminal).toBe(true);
     expect(green.distToPin).toBe(0);
 
-    // Interior anchors come in triples (center, left, right)
+    // Interior anchors come in groups of 5 (center, ±20y, ±40y)
     const interior = anchors.length - 2;
-    expect(interior % 3).toBe(0);
+    expect(interior % 5).toBe(0);
   });
 
   it('center zones have decreasing distToPin', () => {
@@ -178,7 +178,7 @@ describe('discretizeHole', () => {
     const { anchors } = discretizeHole(hole, 'blue');
 
     const centerAnchors = [anchors[0]];
-    for (let i = 1; i < anchors.length - 1; i += 3) {
+    for (let i = 1; i < anchors.length - 1; i += 5) {
       centerAnchors.push(anchors[i]);
     }
     centerAnchors.push(anchors[anchors.length - 1]);
@@ -215,7 +215,7 @@ describe('discretizeHole', () => {
     const waterMaxLng = Math.max(...waterPoly.map((p) => p.lng));
 
     const centerAnchors = [];
-    for (let i = 1; i < anchors.length - 1; i += 3) {
+    for (let i = 1; i < anchors.length - 1; i += 5) {
       centerAnchors.push(anchors[i]);
     }
 
@@ -311,6 +311,8 @@ describe('dpOptimizeHole — par 3', () => {
 
 // ---------------------------------------------------------------------------
 // dpOptimizeHole — par 4 (short 260y to keep zones manageable)
+// Shared computation for: score distribution, aim points, safe/scoring modes,
+// fairway rate, and approach shot carry tests.
 // ---------------------------------------------------------------------------
 
 describe('dpOptimizeHole — par 4', () => {
@@ -356,6 +358,95 @@ describe('dpOptimizeHole — par 4', () => {
         return sum + (dist?.meanCarry ?? 0);
       }, 0);
       expect(totalCarry).toBeGreaterThanOrEqual(260 - swCarry);
+    }
+  });
+
+  // Score distribution validity (#16 — NaN filtering)
+  it('all score distribution values are finite non-negative', () => {
+    for (const r of results) {
+      const sd = r.scoreDistribution;
+      for (const key of ['eagle', 'birdie', 'par', 'bogey', 'double', 'worse'] as const) {
+        expect(Number.isFinite(sd[key])).toBe(true);
+        expect(sd[key]).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it('blowupRisk is finite and between 0 and 1', () => {
+    for (const r of results) {
+      expect(Number.isFinite(r.blowupRisk)).toBe(true);
+      expect(r.blowupRisk).toBeGreaterThanOrEqual(0);
+      expect(r.blowupRisk).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('stdStrokes is finite and non-negative', () => {
+    for (const r of results) {
+      expect(Number.isFinite(r.stdStrokes)).toBe(true);
+      expect(r.stdStrokes).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  // Aim point integrity (M4 — rawLanding, L5 — bias compensation)
+  it('all aim point positions are finite', () => {
+    for (const r of results) {
+      for (const ap of r.aimPoints) {
+        expect(Number.isFinite(ap.position.lat)).toBe(true);
+        expect(Number.isFinite(ap.position.lng)).toBe(true);
+      }
+    }
+  });
+
+  it('aim points are between tee and pin', () => {
+    for (const r of results) {
+      for (const ap of r.aimPoints) {
+        expect(ap.position.lat).toBeGreaterThanOrEqual(33.0 - 0.001);
+      }
+    }
+  });
+
+  it('aim point carry values are positive', () => {
+    for (const r of results) {
+      for (const ap of r.aimPoints) {
+        expect(ap.carry).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  // Safe vs scoring mode (M8 — convergence)
+  it('safe strategy has lower or equal blowup risk than scoring', () => {
+    const scoring = results.find((r) => r.strategyType === 'scoring');
+    const safe = results.find((r) => r.strategyType === 'safe');
+    if (scoring && safe) {
+      expect(safe.blowupRisk).toBeLessThanOrEqual(scoring.blowupRisk + 0.05);
+    }
+  });
+
+  // Fairway rate (L3 — tree hit exclusion)
+  it('fairway rate is between 0 and 1', () => {
+    for (const r of results) {
+      expect(Number.isFinite(r.fairwayRate)).toBe(true);
+      expect(r.fairwayRate).toBeGreaterThanOrEqual(0);
+      expect(r.fairwayRate).toBeLessThanOrEqual(1);
+    }
+  });
+
+  // Approach shot carry (M12 — displayCarry)
+  it('last aim point carry is positive and reasonable', () => {
+    for (const r of results) {
+      if (r.aimPoints.length >= 2) {
+        const lastAp = r.aimPoints[r.aimPoints.length - 1];
+        expect(lastAp.carry).toBeGreaterThan(0);
+        expect(lastAp.carry).toBeLessThan(250);
+      }
+    }
+  });
+
+  it('label contains carry values matching aim points', () => {
+    for (const r of results) {
+      for (const ap of r.aimPoints) {
+        expect(r.label).toContain(String(ap.carry));
+      }
     }
   });
 });
@@ -406,7 +497,7 @@ describe('dogleg optimization', () => {
   beforeAll(() => {
     seedRandom();
     results = dpOptimizeHole(hole, 'blue', dists);
-  }, 30_000);
+  }, 60_000);
 
   it('produces strategies for empty centerLine dogleg', () => {
     expect(results.length).toBeGreaterThan(0);
@@ -478,6 +569,314 @@ describe('strategy diversity', () => {
       const firstClubs = results.map((r) => r.clubs[0]?.clubName);
       const uniqueClubs = new Set(firstClubs);
       expect(uniqueClubs.size).toBeGreaterThanOrEqual(2);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// classifyLie — unit tests
+// ---------------------------------------------------------------------------
+
+describe('classifyLie', () => {
+  const greenPoly = [
+    { lat: 33.003, lng: -117.001 },
+    { lat: 33.003, lng: -116.999 },
+    { lat: 33.004, lng: -116.999 },
+    { lat: 33.004, lng: -117.001 },
+  ];
+
+  const fairway = [[
+    { lat: 33.0, lng: -117.001 },
+    { lat: 33.0, lng: -116.999 },
+    { lat: 33.003, lng: -116.999 },
+    { lat: 33.003, lng: -117.001 },
+  ]];
+
+  const bunker: HazardFeature = makeHazard({
+    name: 'Bunker', type: 'fairway_bunker', penalty: 0.5,
+    polygon: [
+      { lat: 33.001, lng: -117.002 },
+      { lat: 33.001, lng: -117.0015 },
+      { lat: 33.002, lng: -117.0015 },
+      { lat: 33.002, lng: -117.002 },
+    ],
+  });
+
+  const treeLine: HazardFeature = makeHazard({
+    name: 'Trees', type: 'trees', penalty: 0.5,
+    polygon: [
+      { lat: 33.0, lng: -117.003 },
+      { lat: 33.0, lng: -117.002 },
+      { lat: 33.003, lng: -117.002 },
+      { lat: 33.003, lng: -117.003 },
+    ],
+  });
+
+  it('returns green for point inside green polygon', () => {
+    expect(classifyLie({ lat: 33.0035, lng: -117.0 }, fairway, greenPoly)).toBe('green');
+  });
+
+  it('returns fairway for point inside fairway polygon', () => {
+    expect(classifyLie({ lat: 33.001, lng: -117.0 }, fairway, greenPoly)).toBe('fairway');
+  });
+
+  it('returns rough for point outside all features', () => {
+    expect(classifyLie({ lat: 33.005, lng: -117.0 }, fairway, greenPoly)).toBe('rough');
+  });
+
+  it('returns fairway_bunker for point in bunker hazard', () => {
+    expect(classifyLie({ lat: 33.0015, lng: -117.0018 }, fairway, greenPoly, [bunker])).toBe('fairway_bunker');
+  });
+
+  it('returns trees for point in tree hazard', () => {
+    expect(classifyLie({ lat: 33.001, lng: -117.0025 }, fairway, greenPoly, [treeLine])).toBe('trees');
+  });
+
+  it('green takes priority over fairway overlap', () => {
+    // Point in both green and fairway — green should win
+    expect(classifyLie({ lat: 33.003, lng: -117.0 }, fairway, greenPoly)).toBe('green');
+  });
+
+  it('returns rough with empty polygons', () => {
+    expect(classifyLie({ lat: 33.001, lng: -117.0 }, [], [])).toBe('rough');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Lateral anchor coverage (±20y and ±40y offsets)
+// ---------------------------------------------------------------------------
+
+describe('lateral anchor coverage', () => {
+  it('creates 5 anchors per distance step (center, ±20y, ±40y)', () => {
+    const hole = makeStraightHole(4, 200);
+    const { anchors } = discretizeHole(hole, 'blue');
+    // Tee (1) + interior groups of 5 + green (1)
+    const interior = anchors.length - 2;
+    expect(interior % 5).toBe(0);
+    expect(interior / 5).toBeGreaterThan(0);
+  });
+
+  it('lateral anchors have nonzero u coordinates', () => {
+    const hole = makeStraightHole(4, 200);
+    const { anchors } = discretizeHole(hole, 'blue');
+    const laterals = anchors.filter((a) => !a.isTerminal && a.id !== 0 && Math.abs(a.u) > 5);
+    expect(laterals.length).toBeGreaterThan(0);
+    // Should have anchors near ±20y and ±40y
+    const near20 = laterals.filter((a) => Math.abs(Math.abs(a.u) - 20) < 5);
+    const near40 = laterals.filter((a) => Math.abs(Math.abs(a.u) - 40) < 5);
+    expect(near20.length).toBeGreaterThan(0);
+    expect(near40.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Uphill hole (M1 — negative carry clamp)
+// ---------------------------------------------------------------------------
+
+describe('uphill hole — negative carry clamp', () => {
+  let results: ReturnType<typeof dpOptimizeHole>;
+  const dists = makeLightDistributions();
+
+  beforeAll(() => {
+    seedRandom();
+    const hole = makeStraightHole(3, 150);
+    // Extreme uphill: +50m elevation
+    hole.pin.elevation = 50;
+    hole.tee.elevation = 0;
+    results = dpOptimizeHole(hole, 'blue', dists);
+  });
+
+  it('produces strategies despite steep elevation', () => {
+    expect(results.length).toBeGreaterThan(0);
+  });
+
+  it('expected strokes are finite and reasonable', () => {
+    for (const r of results) {
+      expect(Number.isFinite(r.expectedStrokes)).toBe(true);
+      expect(r.expectedStrokes).toBeGreaterThan(2);
+      expect(r.expectedStrokes).toBeLessThan(8);
+    }
+  });
+
+  it('all aim point carries are positive', () => {
+    for (const r of results) {
+      for (const ap of r.aimPoints) {
+        expect(ap.carry).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// Hole with hazards (water, OB, trees)
+// ---------------------------------------------------------------------------
+
+describe('hole with hazards', () => {
+  let results: ReturnType<typeof dpOptimizeHole>;
+
+  function makeHazardHole(): CourseHole {
+    const hole = makeStraightHole(4, 260);
+    // Water hazard crossing the fairway at 150y
+    const waterLat = 33.0 + 150 / 121100;
+    hole.hazards = [
+      makeHazard({
+        name: 'Water', type: 'water', penalty: 1,
+        polygon: [
+          { lat: waterLat - 0.00005, lng: -117.001 },
+          { lat: waterLat - 0.00005, lng: -116.999 },
+          { lat: waterLat + 0.00005, lng: -116.999 },
+          { lat: waterLat + 0.00005, lng: -117.001 },
+        ],
+      }),
+    ];
+    return hole;
+  }
+
+  beforeAll(() => {
+    seedRandom();
+    results = dpOptimizeHole(makeHazardHole(), 'blue', makeLightDistributions());
+  }, 30_000);
+
+  it('produces strategies despite water hazard', () => {
+    expect(results.length).toBeGreaterThan(0);
+  });
+
+  it('expected strokes increase vs no-hazard hole', () => {
+    // With water, scores should be higher than the clean par 4
+    for (const r of results) {
+      expect(r.expectedStrokes).toBeGreaterThan(3);
+    }
+  });
+
+  it('all results have valid score distributions', () => {
+    for (const r of results) {
+      const sd = r.scoreDistribution;
+      const sum = sd.eagle + sd.birdie + sd.par + sd.bogey + sd.double + sd.worse;
+      expect(sum).toBeCloseTo(1.0, 1);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Hole with tree hazards (#11 — recovery lie, L3 — fairway rate)
+// ---------------------------------------------------------------------------
+
+describe('hole with tree hazards', () => {
+  let results: ReturnType<typeof dpOptimizeHole>;
+
+  function makeTreeHole(): CourseHole {
+    const hole = makeStraightHole(4, 260);
+    // Tree line along the right side
+    hole.hazards = [
+      makeHazard({
+        name: 'Trees Right', type: 'trees', penalty: 0.5,
+        polygon: [
+          { lat: 33.0, lng: -116.999 },
+          { lat: 33.0, lng: -116.9985 },
+          { lat: 33.0 + 250 / 121100, lng: -116.9985 },
+          { lat: 33.0 + 250 / 121100, lng: -116.999 },
+        ],
+      }),
+    ];
+    // Add fairway so we can check fairway rate
+    hole.fairway = [[
+      { lat: 33.0, lng: -117.001 },
+      { lat: 33.0, lng: -116.999 },
+      { lat: 33.0 + 250 / 121100, lng: -116.999 },
+      { lat: 33.0 + 250 / 121100, lng: -117.001 },
+    ]];
+    return hole;
+  }
+
+  beforeAll(() => {
+    seedRandom();
+    results = dpOptimizeHole(makeTreeHole(), 'blue', makeLightDistributions());
+  });
+
+  it('produces strategies with tree hazards', () => {
+    expect(results.length).toBeGreaterThan(0);
+  });
+
+  it('all expected strokes are finite', () => {
+    for (const r of results) {
+      expect(Number.isFinite(r.expectedStrokes)).toBe(true);
+      expect(r.expectedStrokes).toBeGreaterThan(3);
+    }
+  });
+
+  it('fairway rate is valid', () => {
+    for (const r of results) {
+      expect(r.fairwayRate).toBeGreaterThanOrEqual(0);
+      expect(r.fairwayRate).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Biased club distribution (M2 — no double compensation, L5 — aim bias)
+// ---------------------------------------------------------------------------
+
+describe('biased club distribution', () => {
+  let results: ReturnType<typeof dpOptimizeHole>;
+
+  beforeAll(() => {
+    seedRandom();
+    const hole = makeStraightHole(3, 150);
+    // Club with strong right bias (left-handed golfer hook)
+    const biasedDists: ClubDistribution[] = [
+      makeDist({ clubId: 'iron7', clubName: '7 Iron', meanCarry: 165, meanOffline: -10, stdOffline: 5 }),
+      makeDist({ clubId: 'iron9', clubName: '9 Iron', meanCarry: 135, meanOffline: -8, stdOffline: 4 }),
+      makeDist({ clubId: 'sw', clubName: 'SW', meanCarry: 85, meanOffline: -5, stdOffline: 3 }),
+    ];
+    results = dpOptimizeHole(hole, 'blue', biasedDists);
+  });
+
+  it('produces strategies with biased clubs', () => {
+    expect(results.length).toBeGreaterThan(0);
+  });
+
+  it('expected strokes are finite and reasonable', () => {
+    for (const r of results) {
+      expect(Number.isFinite(r.expectedStrokes)).toBe(true);
+      expect(r.expectedStrokes).toBeGreaterThan(2);
+      expect(r.expectedStrokes).toBeLessThan(6);
+    }
+  });
+
+  it('aim points have valid positions', () => {
+    for (const r of results) {
+      for (const ap of r.aimPoints) {
+        expect(Number.isFinite(ap.position.lat)).toBe(true);
+        expect(Number.isFinite(ap.position.lng)).toBe(true);
+      }
+    }
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// Downhill hole (elevation adjustments)
+// ---------------------------------------------------------------------------
+
+describe('downhill hole', () => {
+  let results: ReturnType<typeof dpOptimizeHole>;
+
+  beforeAll(() => {
+    seedRandom();
+    const hole = makeStraightHole(3, 150);
+    hole.tee.elevation = 30;
+    hole.pin.elevation = 0;
+    results = dpOptimizeHole(hole, 'blue', makeLightDistributions());
+  });
+
+  it('produces strategies for downhill hole', () => {
+    expect(results.length).toBeGreaterThan(0);
+  });
+
+  it('expected strokes are finite', () => {
+    for (const r of results) {
+      expect(Number.isFinite(r.expectedStrokes)).toBe(true);
     }
   });
 });

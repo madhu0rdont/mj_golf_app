@@ -18,7 +18,7 @@ export function haversineYards(
     sinLat * sinLat +
     Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinLng * sinLng;
   const meters = 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h));
-  return Math.round(meters * METERS_TO_YARDS);
+  return meters * METERS_TO_YARDS;
 }
 
 /**

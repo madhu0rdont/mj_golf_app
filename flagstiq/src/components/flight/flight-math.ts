@@ -152,7 +152,7 @@ export function computeLandingDots(shots: Shot[]): LandingDot[] {
 
 /**
  * Compute dispersion ellipse from landing dots.
- * Sized to contain all dots with a small padding.
+ * Uses 1σ standard deviation for radius (contains ~68% of shots).
  * Returns null if fewer than 3 dots.
  */
 export function computeDispersionEllipse(dots: LandingDot[]): DispersionEllipse | null {
@@ -164,9 +164,8 @@ export function computeDispersionEllipse(dots: LandingDot[]): DispersionEllipse 
   const cx = xs.reduce((a, b) => a + b, 0) / xs.length;
   const cy = ys.reduce((a, b) => a + b, 0) / ys.length;
 
-  // Use max distance from center so the ellipse contains every dot
-  const rx = Math.max(...xs.map((x) => Math.abs(x - cx))) * 1.15;
-  const ry = Math.max(...ys.map((y) => Math.abs(y - cy))) * 1.15;
+  const stdX = Math.sqrt(xs.reduce((s, x) => s + (x - cx) ** 2, 0) / xs.length);
+  const stdY = Math.sqrt(ys.reduce((s, y) => s + (y - cy) ** 2, 0) / ys.length);
 
-  return { cx, cy, rx: Math.max(rx, 3), ry: Math.max(ry, 2) };
+  return { cx, cy, rx: Math.max(stdX, 3), ry: Math.max(stdY, 2) };
 }

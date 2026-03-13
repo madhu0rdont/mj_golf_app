@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { migrate } from './migrate.js';
 import { seed } from './seed.js';
-import { pool } from './db.js';
+import { pool, toCamel } from './db.js';
 import { logger } from './logger.js';
 import { logApiUsage } from './services/usage.js';
 import { requireAuth, requirePlayer } from './middleware/auth.js';
@@ -51,6 +51,30 @@ app.use(csrfCheck);
 // Health checks (unauthenticated)
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
+// Temporary debug — list all clubs used across the plan
+app.get('/debug/plan-clubs/:courseId', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT plan FROM game_plan_cache WHERE course_id = $1 AND stale = false LIMIT 1`,
+      [req.params.courseId],
+    );
+    if (rows.length === 0) return res.json({ error: 'no plan' });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const plan = (rows[0] as any).plan;
+    const clubSet = new Set<string>();
+    for (const hole of plan?.holes ?? []) {
+      for (const strat of hole?.allStrategies ?? []) {
+        for (const ap of strat?.aimPoints ?? []) {
+          clubSet.add(`${ap.clubName} (${ap.carry}y)`);
+        }
+      }
+    }
+    res.json({ clubsUsed: [...clubSet].sort() });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // Temporary debug endpoint — raw plan structure for a specific hole
 app.get('/debug/plan-qc/:courseId', async (req, res) => {
   try {
@@ -61,8 +85,9 @@ app.get('/debug/plan-qc/:courseId', async (req, res) => {
     if (rows.length === 0) return res.json({ error: 'no plan' });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const plan = (rows[0] as any).plan;
-    // Show structure of first hole and keys
-    const hole3 = plan?.holes?.[2];
+    // Show structure of requested hole (default hole 3)
+    const holeIdx = parseInt(req.query.hole as string || '3') - 1;
+    const hole3 = plan?.holes?.[holeIdx];
     res.json({
       totalExpected: plan?.totalExpected,
       holeCount: plan?.holes?.length,
@@ -131,6 +156,7 @@ app.get('/debug/hole-green/:courseId/:holeNumber', async (req, res) => {
       green: green,
       fairwayPolygons: fairway?.length ?? 0,
       fairwayPointCounts: fairway?.map((f: { lat: number; lng: number }[]) => f.length) ?? [],
+      fairway: fairway,
     });
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -148,11 +174,13 @@ app.get('/debug/hole-hazards/:courseId/:holeNumber', async (req, res) => {
     const hole = rows[0];
     const hazards = (hole.hazards ?? []) as { name: string; type: string; penalty: number; polygon: { lat: number; lng: number }[] }[];
     const full = req.query.full === '1';
+    const centerLine = hole.center_line as { lat: number; lng: number }[] | null;
     res.json({
       holeNumber: hole.hole_number,
       tee: hole.tee,
       pin: hole.pin,
       notes: hole.notes,
+      centerLinePoints: centerLine?.length ?? 0,
       hazardCount: hazards.length,
       hazards: hazards.map((h) => ({
         name: h.name,
@@ -205,6 +233,120 @@ app.get('/debug/fix-elevations/:courseId', async (_req, res) => {
       [courseId],
     );
     res.json({ fixed: coords.length });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// Temporary debug — show anchor positions and lies for a hole
+app.get('/debug/anchors/:courseId/:holeNumber', async (req, res) => {
+  try {
+    const { discretizeHole } = await import('./services/dp-optimizer.js');
+    const courseId = req.params.courseId;
+    const holeNumber = parseInt(req.params.holeNumber);
+    const teeBox = (req.query.tee as string) || 'blue';
+
+    const { rows } = await pool.query(
+      'SELECT * FROM course_holes WHERE course_id = $1 AND hole_number = $2',
+      [courseId, holeNumber],
+    );
+    if (rows.length === 0) return res.json({ error: 'not found' });
+
+    // Convert snake_case to camelCase for the hole object
+    const row = rows[0];
+    const hole = {
+      id: row.id, courseId: row.course_id, holeNumber: row.hole_number,
+      par: row.par, handicap: row.handicap, yardages: row.yardages,
+      playsLikeYards: row.plays_like_yards, tee: row.tee, pin: row.pin,
+      green: row.green, fairway: row.fairway, hazards: row.hazards,
+      centerLine: row.center_line, notes: row.notes,
+    };
+
+    const { anchors, centerLine } = discretizeHole(hole as never, teeBox);
+
+    const anchorSummary = anchors.map((a: { id: number; position: { lat: number; lng: number }; lie: string; distToPin: number; distFromTee: number; localBearing: number }) => ({
+      id: a.id,
+      lat: a.position.lat.toFixed(6),
+      lng: a.position.lng.toFixed(6),
+      lie: a.lie,
+      distToPin: Math.round(a.distToPin),
+      distFromTee: a.distFromTee,
+      localBearing: a.localBearing.toFixed(1),
+    }));
+
+    // Count lies
+    const lieCounts: Record<string, number> = {};
+    for (const a of anchors) {
+      lieCounts[(a as { lie: string }).lie] = (lieCounts[(a as { lie: string }).lie] || 0) + 1;
+    }
+
+    res.json({
+      totalAnchors: anchors.length,
+      centerLinePoints: centerLine.length,
+      lieCounts,
+      anchors: anchorSummary,
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// Debug — trace tee anchor Q-values for each action on a specific hole
+app.get('/debug/tee-actions/:courseId/:holeNumber', async (req, res) => {
+  try {
+    const { debugTeeActions } = await import('./services/dp-optimizer.js');
+    const { buildDistributions } = await import('./services/monte-carlo.js');
+    const { computeClubShotGroups } = await import('./services/club-shot-groups.js');
+
+    const courseId = req.params.courseId;
+    const holeNumber = parseInt(req.params.holeNumber);
+    const teeBox = (req.query.tee as string) || 'blue';
+    const topN = parseInt(req.query.top as string) || 20;
+
+    // Load hole
+    const { rows: holeRows } = await pool.query(
+      'SELECT * FROM course_holes WHERE course_id = $1 AND hole_number = $2',
+      [courseId, holeNumber],
+    );
+    if (holeRows.length === 0) return res.json({ error: 'hole not found' });
+
+    const row = holeRows[0];
+    const hole = {
+      id: row.id, courseId: row.course_id, holeNumber: row.hole_number,
+      par: row.par, handicap: row.handicap, yardages: row.yardages,
+      playsLikeYards: row.plays_like_yards, tee: row.tee, pin: row.pin,
+      green: row.green, fairway: row.fairway, hazards: row.hazards,
+      centerLine: row.center_line, notes: row.notes,
+    };
+
+    // Load clubs/shots for distributions (use toCamel like strategy route does)
+    const { rows: clubRows } = await pool.query('SELECT * FROM clubs ORDER BY loft ASC');
+    const { rows: shotRows } = await pool.query('SELECT * FROM shots');
+    const clubs = clubRows.map(r => toCamel(r));
+    const shots = shotRows.map(r => toCamel(r));
+    const groups = computeClubShotGroups(clubs as never[], shots as never[]);
+    const distributions = buildDistributions(groups);
+
+    const traces = debugTeeActions(hole as never, teeBox, distributions);
+
+    // Return top N by meanQ, plus summary
+    const topTraces = traces.slice(0, topN).map((t) => ({
+      clubName: t.clubName,
+      bearing: t.bearing,
+      meanQ: t.meanQ,
+      pFairway: t.pFairway,
+      pGreen: t.pGreen,
+      outcomes: {
+        total: t.outcomeSummary.length,
+        shortGameCount: t.outcomeSummary.filter((o) => o.usedShortGame).length,
+        avgDistToPin: Math.round(t.outcomeSummary.reduce((s, o) => s + o.distToPin, 0) / t.outcomeSummary.length * 10) / 10,
+        avgContV: Math.round(t.outcomeSummary.reduce((s, o) => s + o.contV, 0) / t.outcomeSummary.length * 1000) / 1000,
+        avgPenalty: Math.round(t.outcomeSummary.reduce((s, o) => s + o.penalty, 0) / t.outcomeSummary.length * 1000) / 1000,
+        lieCounts: t.outcomeSummary.reduce((acc, o) => { acc[o.lie] = (acc[o.lie] || 0) + 1; return acc; }, {} as Record<string, number>),
+      },
+    }));
+
+    res.json({ topActions: topTraces, totalActions: traces.length });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -363,7 +505,7 @@ async function start() {
   // IMPORTANT: Only bump OPTIMIZER_VERSION when the DP optimizer / MC simulation
   // / game-plan logic actually changes. Package version bumps alone should NOT
   // trigger costly regeneration that blocks the event loop for minutes.
-  const OPTIMIZER_VERSION = '1.7.5'; // fix stale playsLikeYards + green-first hazard check
+  const OPTIMIZER_VERSION = '2.0.0'; // comprehensive audit fixes: carry clamp, bias consistency, convergence, elevation lookup, carry notes, rough penalty
   try {
     const { rows } = await pool.query(
       `SELECT value FROM app_settings WHERE key = 'optimizer_version'`,

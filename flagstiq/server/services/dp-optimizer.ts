@@ -109,7 +109,7 @@ let CONVERGENCE_THRESHOLD = 0.001;
 let MIN_CARRY_RATIO = 0.5;     // club carry must be ≥ 50% of dist to pin
 let MAX_CARRY_RATIO = 1.10;    // club carry must be ≤ 110% of dist to pin
 let CHIP_RANGE = 30;           // within this distance, treat as near-green (chip/putt)
-let HAZARD_DROP_PENALTY = 0.3; // penalty passed to resolveHazardDrop
+let HAZARD_DROP_PENALTY = 0.15; // penalty passed to resolveHazardDrop (reduced — lie multiplier also penalizes rough)
 
 // Interpolation constants
 let K_NEIGHBORS = 6;
@@ -332,10 +332,13 @@ export function discretizeHole(
       ? bearingBetween(centerPos, interpolateCenterLine(centerLine, tee, heading, d + ZONE_INTERVAL))
       : heading;
 
-    for (const lateralDir of [0, -1, 1]) {
+    for (const lateralDir of [0, -1, 1, -2, 2]) {
+      const lateralDist = Math.abs(lateralDir) <= 1
+        ? lateralDir * LATERAL_OFFSET
+        : Math.sign(lateralDir) * LATERAL_OFFSET * 2;
       const pos = lateralDir === 0
         ? centerPos
-        : projectPoint(centerPos, localBearing + 90, lateralDir * LATERAL_OFFSET);
+        : projectPoint(centerPos, localBearing + 90, lateralDist);
 
       const lie = classifyLie(pos, fairwayPolygons, greenPoly, hole.hazards);
       const distToPin = haversineYards(pos, pin);
@@ -539,6 +542,16 @@ function getEligibleClubs(
   });
 }
 
+function polygonCentroid(polygon: { lat: number; lng: number }[]): { lat: number; lng: number } {
+  const n = polygon.length;
+  if (n === 0) return { lat: 0, lng: 0 };
+  const sum = polygon.reduce(
+    (acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }),
+    { lat: 0, lng: 0 },
+  );
+  return { lat: sum.lat / n, lng: sum.lng / n };
+}
+
 function bearingStepForDistance(yardage: number): number {
   if (yardage < 180) return 2; // par 3s need fine resolution — safe windows are narrow
   if (yardage <= 350) return 3;
@@ -550,6 +563,7 @@ function getAimBearings(
   _pin: { lat: number; lng: number },
   bearingStep: number,
   pinBearing?: number,
+  extraBearings?: number[],
 ): number[] {
   const center = anchor.localBearing;
   const bearings: number[] = [];
@@ -566,6 +580,18 @@ function getAimBearings(
     });
     if (!hasPinBearing) {
       bearings.push((pinBearing + 360) % 360);
+    }
+  }
+
+  // Inject additional forced bearings (e.g. fairway centroid) if not already covered
+  if (extraBearings) {
+    for (const eb of extraBearings) {
+      const normalizedEB = (eb + 360) % 360;
+      const alreadyPresent = bearings.some((b) => {
+        const diff = Math.abs(((b - normalizedEB + 540) % 360) - 180);
+        return diff < 1;
+      });
+      if (!alreadyPresent) bearings.push(normalizedEB);
     }
   }
 
@@ -634,7 +660,7 @@ function sampleOutcomes(
     const landingDistFromTee = anchor.distFromTee + carry;
     const landingElev = getProfileElevation(elevProfile, landingDistFromTee);
     const elevDelta = landingElev - anchor.elevation;
-    const adjustedCarry = carry - elevDelta * ELEV_YARDS_PER_METER;
+    const adjustedCarry = Math.max(0, carry - elevDelta * ELEV_YARDS_PER_METER);
 
     let landing = projectPoint(anchor.position, bearing, adjustedCarry);
     if (Math.abs(offline) > 0.5) {
@@ -722,7 +748,15 @@ function buildOutcomeTable(
     const clubs = getEligibleClubs(anchor, distributions, pinElev);
     // Pass pin bearing for tee anchor so the direct-to-pin angle is always evaluated
     const teePinBearing = anchor.id === 0 ? heading : undefined;
-    const bearings = getAimBearings(anchor, pin, bearingStep, teePinBearing);
+    // For tee anchor, also include bearing(s) to fairway centroid(s)
+    let fairwayBearings: number[] | undefined;
+    if (anchor.id === 0) {
+      const fairways = hole.fairway ?? [];
+      if (fairways.length > 0) {
+        fairwayBearings = fairways.map((poly) => bearingBetween(tee, polygonCentroid(poly)));
+      }
+    }
+    const bearings = getAimBearings(anchor, pin, bearingStep, teePinBearing, fairwayBearings);
     const sampleCount = samplesForAnchor(anchor, maxCarry, hole.hazards);
 
     for (let ci = 0; ci < clubs.length; ci++) {
@@ -853,7 +887,7 @@ function findKNearestCompatible(
   u: number,
   lie: LieClass,
   index: SpatialIndex,
-): { anchor: AnchorState; weight: number }[] {
+): { anchor: AnchorState; weight: number; minLateralDist: number }[] {
   const group = getLieGroup(lie);
   let candidates = index[group];
 
@@ -874,7 +908,7 @@ function findKNearestCompatible(
   }
 
   // Scan outward from lo to find k nearest in (s, u) space
-  const scored: { anchor: AnchorState; dist: number; weight: number }[] = [];
+  const scored: { anchor: AnchorState; dist: number; absU: number; weight: number }[] = [];
   const scanRadius = Math.max(K_NEIGHBORS * 3, 20);
   const startIdx = Math.max(0, lo - scanRadius);
   const endIdx = Math.min(candidates.length, lo + scanRadius);
@@ -886,8 +920,9 @@ function findKNearestCompatible(
     if (Math.abs(ds) > KERNEL_H_S * 3 && scored.length >= K_NEIGHBORS) continue;
 
     const dist = Math.sqrt(ds * ds + du * du);
+    const absU = Math.abs(du);
     const weight = Math.exp(-(ds * ds) / (2 * KERNEL_H_S * KERNEL_H_S) - (du * du) / (2 * KERNEL_H_U * KERNEL_H_U));
-    scored.push({ anchor: a, dist, weight });
+    scored.push({ anchor: a, dist, absU, weight });
   }
 
   // Sort by distance and take k nearest
@@ -896,15 +931,18 @@ function findKNearestCompatible(
 
   if (selected.length === 0) return [];
 
+  // Track minimum lateral distance to any selected anchor
+  const minLateralDist = Math.min(...selected.map(item => item.absU));
+
   // Normalize weights
   const totalWeight = selected.reduce((acc, item) => acc + item.weight, 0);
   if (totalWeight < 1e-10) {
     // All weights near zero — use uniform over nearest
     const uniform = 1 / selected.length;
-    return selected.map(item => ({ anchor: item.anchor, weight: uniform }));
+    return selected.map(item => ({ anchor: item.anchor, weight: uniform, minLateralDist }));
   }
 
-  return selected.map(item => ({ anchor: item.anchor, weight: item.weight / totalWeight }));
+  return selected.map(item => ({ anchor: item.anchor, weight: item.weight / totalWeight, minLateralDist }));
 }
 
 function interpolateValue(
@@ -924,6 +962,17 @@ function interpolateValue(
   for (const { anchor, weight } of neighbors) {
     value += weight * (V.get(anchor.id) ?? 10);
   }
+
+  // Extrapolation penalty: when the ball lands far outside the anchor grid
+  // laterally, the Gaussian kernel gives near-zero weights and falls back to
+  // uniform, making extreme offline positions look as good as on-target ones.
+  // Only penalize the lateral (u) component — being far ahead/behind on the
+  // centerline is handled by the s-direction kernel and anchor coverage.
+  const minLateralDist = neighbors[0].minLateralDist;
+  if (minLateralDist > KERNEL_H_U) {
+    value += (minLateralDist - KERNEL_H_U) * 0.05;
+  }
+
   return value;
 }
 
@@ -994,6 +1043,7 @@ function valueIteration(
   }
 
   const policy = new Map<number, PolicyEntry>();
+  const modeV = new Map<number, number>(V);
 
   // Group table entries by anchor for fast lookup
   const byAnchor = new Map<number, ActionOutcomes[]>();
@@ -1064,9 +1114,11 @@ function valueIteration(
 
       if (bestEntry) {
         const oldV = V.get(anchor.id) ?? 10;
-        // V stores actual expected strokes (meanQ), not mode-adjusted
-        maxDelta = Math.max(maxDelta, Math.abs(bestMeanQ - oldV));
+        const oldModeV = modeV.get(anchor.id) ?? 10;
         V.set(anchor.id, bestMeanQ);
+        modeV.set(anchor.id, bestModeValue);
+        // Convergence tracks mode-adjusted values so safe/aggressive don't terminate early
+        maxDelta = Math.max(maxDelta, Math.abs(bestModeValue - oldModeV));
 
         policy.set(anchor.id, {
           clubIdx: bestEntry.key.clubIdx,
@@ -1226,9 +1278,11 @@ function extractPlan(
     }
 
     const landing = hazDrop.landing;
-    const aimPoint = hazDrop.penalty > 0 ? landing : rawLanding;
+    const aimPoint = rawLanding;
 
-    shots.push({ clubDist: club, aimPoint });
+    // Slope-adjusted carry: how far the club effectively covers on this terrain
+    const adjustedCarry = Math.round(club.meanCarry - elevDelta * ELEV_YARDS_PER_METER);
+    shots.push({ clubDist: { ...club, meanCarry: adjustedCarry }, aimPoint });
 
     const landingDist = haversineYards(landing, pin);
 
@@ -1241,10 +1295,12 @@ function extractPlan(
       const approachElevAdj = nextAnchorForElev
         ? (pinElev - nextAnchorForElev.elevation) * ELEV_YARDS_PER_METER
         : 0;
-      const approachClub = greedyClub(landingDist + approachElevAdj, distributions);
+      const playsLikeDist = Math.round(landingDist + approachElevAdj);
+      const approachClub = greedyClub(playsLikeDist, distributions);
       shots.push({
-        clubDist: { ...approachClub, meanCarry: landingDist },
+        clubDist: approachClub,
         aimPoint: pin,
+        displayCarry: playsLikeDist,
       });
       break;
     }
@@ -1265,10 +1321,12 @@ function extractPlan(
       const postElevAdj = postAnchorForElev
         ? (pinElev - postAnchorForElev.elevation) * ELEV_YARDS_PER_METER
         : 0;
-      const approachClub = greedyClub(lastLandingDist + postElevAdj, distributions);
+      const postPlaysLike = Math.round(lastLandingDist + postElevAdj);
+      const approachClub = greedyClub(postPlaysLike, distributions);
       shots.push({
-        clubDist: { ...approachClub, meanCarry: lastLandingDist },
+        clubDist: approachClub,
         aimPoint: pin,
+        displayCarry: postPlaysLike,
       });
     }
   }
@@ -1296,6 +1354,8 @@ function simulateWithPolicy(
   anchors: AnchorState[],
   policy: Map<number, PolicyEntry>,
   elevProfile: ElevationProfile,
+  centerLine: { lat: number; lng: number }[],
+  heading: number,
   trials: number = DEFAULT_TRIALS,
 ): OptimizedStrategy {
   const tee = { lat: hole.tee.lat, lng: hole.tee.lng };
@@ -1310,6 +1370,7 @@ function simulateWithPolicy(
     let currentPos = { lat: tee.lat, lng: tee.lng };
     let strokes = 0;
     let currentAnchorId = anchors[0].id;
+    let lastHitTree = false;
 
     for (let shotIdx = 0; shotIdx < MAX_SHOTS_PER_HOLE; shotIdx++) {
       const distToPin = haversineYards(currentPos, pin);
@@ -1327,17 +1388,16 @@ function simulateWithPolicy(
 
       if (entry && entry.clubIdx < clubs.length) {
         club = clubs[entry.clubIdx];
-        const aimPoint = projectPoint(currentAnchor.position, entry.bearing, club.meanCarry);
-        shotBearing = bearingBetween(currentPos, aimPoint);
+        shotBearing = entry.bearing;
       } else {
         const greedyElevAdj = (pinElev - currentAnchor.elevation) * ELEV_YARDS_PER_METER;
         club = greedyClub(distToPin + greedyElevAdj, distributions);
-        const rawBearing = bearingBetween(currentPos, pin);
-        const compensatedAim = compensateForBias(pin, rawBearing, club);
-        shotBearing = bearingBetween(currentPos, compensatedAim);
+        shotBearing = bearingBetween(currentPos, pin);
       }
 
-      const lieMultiplier = LIE_MULTIPLIER[currentAnchor.lie];
+      // Use recovery lie if previous shot hit trees (matches sampleOutcomes classification)
+      const effectiveLie = lastHitTree ? 'recovery' as LieClass : currentAnchor.lie;
+      const lieMultiplier = LIE_MULTIPLIER[effectiveLie];
 
       const carry = gaussianSample(club.meanCarry, club.stdCarry * lieMultiplier);
       const offline = gaussianSample(club.meanOffline, club.stdOffline * lieMultiplier);
@@ -1346,7 +1406,7 @@ function simulateWithPolicy(
       const policyLandingDist = currentAnchor.distFromTee + carry;
       const policyLandingElev = getProfileElevation(elevProfile, policyLandingDist);
       const policyElevDelta = policyLandingElev - currentAnchor.elevation;
-      const policyAdjCarry = carry - policyElevDelta * ELEV_YARDS_PER_METER;
+      const policyAdjCarry = Math.max(0, carry - policyElevDelta * ELEV_YARDS_PER_METER);
 
       let landing = projectPoint(currentPos, shotBearing, policyAdjCarry);
       if (Math.abs(offline) > 0.5) {
@@ -1354,6 +1414,7 @@ function simulateWithPolicy(
       }
 
       strokes++;
+      lastHitTree = false;
 
       const treeHit = checkTreeTrajectory(currentPos, shotBearing, carry, hole.hazards, club);
       if (treeHit.hitOB) {
@@ -1363,6 +1424,7 @@ function simulateWithPolicy(
       } else if (treeHit.hitTrees) {
         landing = projectPoint(currentPos, shotBearing, treeHit.hitDistance);
         strokes += 0.5;
+        lastHitTree = true;
       } else {
         const policySlope = getProfileSlope(elevProfile, policyLandingDist);
         const rollout = computeRollout(carry, club, landing, hole, policySlope);
@@ -1374,7 +1436,7 @@ function simulateWithPolicy(
         strokes += hazDrop.penalty;
         landing = hazDrop.landing;
 
-        if (shotIdx === 0 && hazDrop.penalty === 0) {
+        if (shotIdx === 0 && hazDrop.penalty === 0 && !lastHitTree) {
           fairwayHits++;
         }
       }
@@ -1386,22 +1448,23 @@ function simulateWithPolicy(
     // Greedy approach if still far
     let distToPin = haversineYards(currentPos, pin);
     while (distToPin > chipThreshold && strokes < MAX_SHOTS_PER_HOLE) {
-      const greedyDistFromTee = elevProfile.totalDist - distToPin;
+      const greedyFrame = projectToHoleFrame(currentPos, centerLine, tee, heading);
+      const greedyDistFromTee = Math.max(0, greedyFrame.s);
       const greedyElev = getProfileElevation(elevProfile, Math.max(0, greedyDistFromTee));
       const greedyElevAdj = (hole.pin.elevation - greedyElev) * ELEV_YARDS_PER_METER;
       const playsLikeDist = distToPin + greedyElevAdj;
       const club = greedyClub(playsLikeDist, distributions);
 
-      const carry = gaussianSample(club.meanCarry, club.stdCarry);
-      const offline = gaussianSample(club.meanOffline, club.stdOffline);
-      const greedyBearing = bearingBetween(currentPos, pin);
-      const compensatedGreedyAim = compensateForBias(pin, greedyBearing, club);
-      const shotBearing = bearingBetween(currentPos, compensatedGreedyAim);
+      // Use recovery lie if previous shot hit trees
+      const greedyLieMultiplier = lastHitTree ? LIE_MULTIPLIER['recovery'] : 1.0;
+      const carry = gaussianSample(club.meanCarry, club.stdCarry * greedyLieMultiplier);
+      const offline = gaussianSample(club.meanOffline, club.stdOffline * greedyLieMultiplier);
+      const shotBearing = bearingBetween(currentPos, pin);
 
       const greedyLandingDist = Math.max(0, greedyDistFromTee) + carry;
       const greedyLandingElev = getProfileElevation(elevProfile, greedyLandingDist);
       const greedyCarryElevDelta = greedyLandingElev - greedyElev;
-      const greedyAdjCarry = carry - greedyCarryElevDelta * ELEV_YARDS_PER_METER;
+      const greedyAdjCarry = Math.max(0, carry - greedyCarryElevDelta * ELEV_YARDS_PER_METER);
 
       let landing = projectPoint(currentPos, shotBearing, greedyAdjCarry);
       if (Math.abs(offline) > 0.5) {
@@ -1409,6 +1472,7 @@ function simulateWithPolicy(
       }
 
       strokes++;
+      lastHitTree = false;
 
       const greedyTreeHit = checkTreeTrajectory(currentPos, shotBearing, carry, hole.hazards, club);
       if (greedyTreeHit.hitOB) {
@@ -1418,6 +1482,7 @@ function simulateWithPolicy(
       } else if (greedyTreeHit.hitTrees) {
         landing = projectPoint(currentPos, shotBearing, greedyTreeHit.hitDistance);
         strokes += 0.5;
+        lastHitTree = true;
       } else {
         const greedySlope = getProfileSlope(elevProfile, greedyLandingDist);
         const rollout = computeRollout(carry, club, landing, hole, greedySlope);
@@ -1451,7 +1516,7 @@ function simulateWithPolicy(
     : hole.par + 1; // pessimistic fallback
   const variance = validScores.reduce((sum, s) => sum + (s - xS) ** 2, 0) / scoreCount;
   const stdStrokes = Math.sqrt(variance);
-  const scoreDist = computeScoreDistribution(trialScores, hole.par);
+  const scoreDist = computeScoreDistribution(validScores, hole.par);
   const blowupRisk = scoreDist.double + scoreDist.worse;
 
   const aimPoints: AimPoint[] = [];
@@ -1459,15 +1524,17 @@ function simulateWithPolicy(
   for (let i = 0; i < plan.shots.length; i++) {
     const s = plan.shots[i];
     const bearing = bearingBetween(aimFrom, s.aimPoint);
+    const compensatedPos = compensateForBias(s.aimPoint, bearing, s.clubDist);
     const expectedLanding = Math.abs(s.clubDist.meanOffline) > 0.5
       ? projectPoint(s.aimPoint, bearing + 90, s.clubDist.meanOffline)
       : s.aimPoint;
     const isApproach = i === plan.shots.length - 1;
+    const displayCarry = s.displayCarry ?? Math.round(s.clubDist.meanCarry);
     aimPoints.push({
-      position: s.aimPoint,
+      position: compensatedPos,
       clubName: s.clubDist.clubName,
       shotNumber: i + 1,
-      carry: Math.round(s.clubDist.meanCarry),
+      carry: displayCarry,
       carryNote: computeCarryNote(aimFrom, s.clubDist.meanCarry, bearing, hole.hazards),
       tip: generateCaddyTip(aimFrom, s.aimPoint, expectedLanding, s.clubDist, hole.hazards, isApproach),
     });
@@ -1475,7 +1542,7 @@ function simulateWithPolicy(
   }
 
   const label = plan.shots
-    .map((s) => `${s.clubDist.clubName} (${Math.round(s.clubDist.meanCarry)})`)
+    .map((s) => `${s.clubDist.clubName} (${s.displayCarry ?? Math.round(s.clubDist.meanCarry)})`)
     .join(' \u2192 ');
 
   return {
@@ -1602,7 +1669,7 @@ export function dpOptimizeHole(
   for (let i = 0; i < plans.length; i++) {
     if (policies[i].size === 0) continue;
 
-    const strategy = simulateWithPolicy(plans[i], hole, distributions, anchors, policies[i], elevProfile);
+    const strategy = simulateWithPolicy(plans[i], hole, distributions, anchors, policies[i], elevProfile, centerLine, heading);
     strategy.strategyName = plans[i].name;
     strategy.strategyType = plans[i].type;
     results.push(strategy);
@@ -1628,4 +1695,92 @@ export function dpOptimizeHole(
   });
 
   return unique;
+}
+
+// ---------------------------------------------------------------------------
+// Debug: Trace tee anchor Q-values for each action
+// ---------------------------------------------------------------------------
+
+export interface TeeActionTrace {
+  clubName: string;
+  bearing: number;
+  meanQ: number;
+  pFairway: number;
+  pGreen: number;
+  outcomeSummary: {
+    lie: LieClass;
+    distToPin: number;
+    penalty: number;
+    contV: number;
+    q: number;
+    usedShortGame: boolean;
+  }[];
+}
+
+export function debugTeeActions(
+  hole: CourseHole,
+  teeBox: string,
+  distributions: ClubDistribution[],
+  constants: StrategyConstants = DEFAULT_STRATEGY_CONSTANTS,
+): TeeActionTrace[] {
+  if (distributions.length === 0) return [];
+
+  applyConstants(constants);
+  applyStrategyConstants(constants);
+
+  const { anchors, elevProfile, centerLine } = discretizeHole(hole, teeBox);
+  if (anchors.length < 2) return [];
+
+  const tee = { lat: hole.tee.lat, lng: hole.tee.lng };
+  const heading = bearingBetween(tee, { lat: hole.pin.lat, lng: hole.pin.lng });
+  const yardage = hole.yardages[teeBox] ?? Object.values(hole.yardages)[0] ?? 400;
+  const bearingStep = bearingStepForDistance(yardage);
+  const outcomeTable = buildOutcomeTable(anchors, distributions, hole, bearingStep, elevProfile, centerLine, tee, heading);
+
+  const spatialIndex = buildSpatialIndex(anchors);
+
+  // Run value iteration to get converged values
+  const { values: V } = valueIteration(anchors, outcomeTable, 'scoring', hole.par, distributions, spatialIndex);
+
+  // Now trace all tee anchor (id=0) actions
+  const teeAnchor = anchors[0];
+  const pinElev = hole.pin.elevation;
+  const eligibleClubs = getEligibleClubs(teeAnchor, distributions, pinElev);
+  const teeActions = outcomeTable.filter((e) => e.key.anchorId === 0);
+  const traces: TeeActionTrace[] = [];
+
+  for (const entry of teeActions) {
+    const club = eligibleClubs[entry.key.clubIdx];
+    const outcomeSummary: TeeActionTrace['outcomeSummary'] = [];
+    let sumQ = 0;
+
+    for (const outcome of entry.outcomes) {
+      const usedShortGame = !outcome.isTerminal && outcome.distToPin <= SHORT_GAME_THRESHOLD;
+      const contV = evaluateOutcome(outcome, spatialIndex, V);
+      const q = 1 + outcome.penalty + contV;
+      sumQ += q;
+      outcomeSummary.push({
+        lie: outcome.lie,
+        distToPin: Math.round(outcome.distToPin * 10) / 10,
+        penalty: outcome.penalty,
+        contV: Math.round(contV * 1000) / 1000,
+        q: Math.round(q * 1000) / 1000,
+        usedShortGame,
+      });
+    }
+
+    traces.push({
+      clubName: club.clubName,
+      bearing: Math.round(entry.bearing * 10) / 10,
+      meanQ: Math.round((sumQ / entry.outcomes.length) * 1000) / 1000,
+      pFairway: Math.round(entry.pFairway * 1000) / 1000,
+      pGreen: Math.round(entry.pGreen * 1000) / 1000,
+      outcomeSummary,
+    });
+  }
+
+  // Sort by meanQ ascending
+  traces.sort((a, b) => a.meanQ - b.meanQ);
+
+  return traces;
 }

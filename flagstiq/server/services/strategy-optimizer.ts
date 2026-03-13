@@ -82,6 +82,7 @@ export interface NamedStrategyPlan {
   shots: {
     clubDist: ClubDistribution;
     aimPoint: { lat: number; lng: number };
+    displayCarry?: number;
   }[];
 }
 
@@ -1203,10 +1204,14 @@ export function simulateHoleGPS(
     }
   }
 
-  const xS = trialScores.reduce((a, b) => a + b, 0) / trialScores.length;
-  const variance = trialScores.reduce((sum, s) => sum + (s - xS) ** 2, 0) / trialScores.length;
+  const validScores = trialScores.filter((s) => Number.isFinite(s));
+  const scoreCount = validScores.length || 1;
+  const xS = validScores.length > 0
+    ? validScores.reduce((a, b) => a + b, 0) / scoreCount
+    : hole.par + 1;
+  const variance = validScores.reduce((sum, s) => sum + (s - xS) ** 2, 0) / scoreCount;
   const stdStrokes = Math.sqrt(variance);
-  const scoreDist = computeScoreDistribution(trialScores, hole.par);
+  const scoreDist = computeScoreDistribution(validScores, hole.par);
   const blowupRisk = scoreDist.double + scoreDist.worse;
 
   const aimPoints: AimPoint[] = [];
