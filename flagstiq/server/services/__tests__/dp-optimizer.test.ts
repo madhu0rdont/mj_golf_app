@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { discretizeHole, dpOptimizeHole, classifyLie } from '../dp-optimizer';
+import { DEFAULT_STRATEGY_CONSTANTS } from '../strategy-optimizer';
 import type { ClubDistribution } from '../monte-carlo';
 import type { CourseHole, HazardFeature } from '../../models/types';
 
@@ -879,4 +880,61 @@ describe('downhill hole', () => {
       expect(Number.isFinite(r.expectedStrokes)).toBe(true);
     }
   });
+});
+
+// ---------------------------------------------------------------------------
+// Constants consistency (#1 — default mismatch guard)
+// ---------------------------------------------------------------------------
+
+describe('constants consistency', () => {
+  it('dpOptimizeHole with default constants matches explicit DEFAULT_STRATEGY_CONSTANTS', () => {
+    seedRandom();
+    const hole = makeStraightHole(3, 150);
+    const dists = makeLightDistributions();
+    const implicitResults = dpOptimizeHole(hole, 'blue', dists);
+
+    seedRandom();
+    const explicitResults = dpOptimizeHole(hole, 'blue', dists, DEFAULT_STRATEGY_CONSTANTS);
+
+    expect(implicitResults.length).toBe(explicitResults.length);
+    for (let i = 0; i < implicitResults.length; i++) {
+      expect(implicitResults[i].expectedStrokes).toBe(explicitResults[i].expectedStrokes);
+    }
+  });
+
+  it('custom hazard_drop_penalty produces different results than default', () => {
+    const hole = makeStraightHole(3, 150);
+    // Add a water hazard so hazard_drop_penalty has an effect
+    const waterLat = 33.0 + 80 / 121100;
+    hole.hazards = [
+      makeHazard({
+        name: 'Water', type: 'water', penalty: 1,
+        polygon: [
+          { lat: waterLat - 0.00005, lng: -117.001 },
+          { lat: waterLat - 0.00005, lng: -116.999 },
+          { lat: waterLat + 0.00005, lng: -116.999 },
+          { lat: waterLat + 0.00005, lng: -117.001 },
+        ],
+      }),
+    ];
+    const dists = makeLightDistributions();
+
+    seedRandom();
+    const defaultResults = dpOptimizeHole(hole, 'blue', dists);
+
+    seedRandom();
+    const highPenalty = dpOptimizeHole(hole, 'blue', dists, {
+      ...DEFAULT_STRATEGY_CONSTANTS,
+      hazard_drop_penalty: 1.0,
+    });
+
+    // Both should produce strategies
+    expect(defaultResults.length).toBeGreaterThan(0);
+    expect(highPenalty.length).toBeGreaterThan(0);
+
+    // Higher penalty should produce higher (worse) expected strokes
+    const defaultBest = Math.min(...defaultResults.map(r => r.expectedStrokes));
+    const highBest = Math.min(...highPenalty.map(r => r.expectedStrokes));
+    expect(highBest).toBeGreaterThanOrEqual(defaultBest);
+  }, 30_000);
 });

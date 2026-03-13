@@ -5,12 +5,12 @@
 
 ## HIGH (2)
 
-### 1. Mutable global state + initial value mismatch
+### ~~1. Mutable global state + initial value mismatch~~ DONE
 **Files:** `dp-optimizer.ts:99-163`, `strategy-optimizer.ts:311-326`
 
-`applyConstants()` mutates module-level `let` variables (`ZONE_INTERVAL`, `LATERAL_OFFSET`, `LIE_MULTIPLIER`, etc.). Initial default `HAZARD_DROP_PENALTY = 0.15` doesn't match `DEFAULT_STRATEGY_CONSTANTS.hazard_drop_penalty = 0.3`. First run before `applyConstants` is ever called uses the wrong value.
+~~`applyConstants()` mutates module-level `let` variables (`ZONE_INTERVAL`, `LATERAL_OFFSET`, `LIE_MULTIPLIER`, etc.). Initial default `HAZARD_DROP_PENALTY = 0.15` doesn't match `DEFAULT_STRATEGY_CONSTANTS.hazard_drop_penalty = 0.3`. First run before `applyConstants` is ever called uses the wrong value.~~
 
-**Fix:** Pass constants through a context parameter instead of mutating globals. Short-term: ensure initial `let` defaults match `DEFAULT_STRATEGY_CONSTANTS`.
+**Fixed:** Aligned `HAZARD_DROP_PENALTY` default to `0.3`. Also fixed `strategy.ts` route to load constants from DB via `loadStrategyConstants()` and pass to `dpOptimizeHole` (was using hardcoded defaults). Added 2 tests for constants consistency.
 
 ### ~~2. `getProfileElevation` crashes on empty profile~~ DONE
 **File:** `strategy-optimizer.ts:216-224`

@@ -110,7 +110,7 @@ let CONVERGENCE_THRESHOLD = 0.001;
 let MIN_CARRY_RATIO = 0.5;     // club carry must be ≥ 50% of dist to pin
 let MAX_CARRY_RATIO = 1.10;    // club carry must be ≤ 110% of dist to pin
 let CHIP_RANGE = 30;           // within this distance, treat as near-green (chip/putt)
-let HAZARD_DROP_PENALTY = 0.15; // penalty passed to resolveHazardDrop (reduced — lie multiplier also penalizes rough)
+let HAZARD_DROP_PENALTY = 0.3;  // must match DEFAULT_STRATEGY_CONSTANTS.hazard_drop_penalty
 
 // Interpolation constants
 let K_NEIGHBORS = 6;
