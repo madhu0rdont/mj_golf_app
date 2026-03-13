@@ -107,115 +107,135 @@ router.post('/logout', (req, res) => {
 
 // GET /api/auth/check — returns user info if authenticated, or needsSetup flag
 router.get('/check', async (req, res) => {
-  // Check if setup is needed (no users exist)
-  const { rows: countRows } = await query('SELECT count(*) FROM users');
-  const userCount = parseInt(countRows[0].count);
+  try {
+    // Check if setup is needed (no users exist)
+    const { rows: countRows } = await query('SELECT count(*) FROM users');
+    const userCount = parseInt(countRows[0].count);
 
-  if (userCount === 0) {
-    return res.json({ authenticated: false, needsSetup: true });
+    if (userCount === 0) {
+      return res.json({ authenticated: false, needsSetup: true });
+    }
+
+    if (!req.session?.authenticated || !req.session.userId) {
+      return res.json({ authenticated: false, needsSetup: false });
+    }
+
+    // Fetch fresh user data
+    const { rows } = await query('SELECT * FROM users WHERE id = $1', [req.session.userId]);
+    if (rows.length === 0) {
+      return res.json({ authenticated: false, needsSetup: false });
+    }
+
+    const user = rows[0];
+    res.json({
+      authenticated: true,
+      needsSetup: false,
+      user: {
+        id: user.id,
+        username: user.username,
+        displayName: user.display_name,
+        email: user.email || undefined,
+        profilePicture: user.profile_picture || undefined,
+        role: user.role,
+        handedness: user.handedness,
+        status: user.status,
+        homeCourseId: user.home_course_id || undefined,
+      },
+    });
+  } catch (err) {
+    logger.error('Auth check failed', { error: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
   }
-
-  if (!req.session?.authenticated || !req.session.userId) {
-    return res.json({ authenticated: false, needsSetup: false });
-  }
-
-  // Fetch fresh user data
-  const { rows } = await query('SELECT * FROM users WHERE id = $1', [req.session.userId]);
-  if (rows.length === 0) {
-    return res.json({ authenticated: false, needsSetup: false });
-  }
-
-  const user = rows[0];
-  res.json({
-    authenticated: true,
-    needsSetup: false,
-    user: {
-      id: user.id,
-      username: user.username,
-      displayName: user.display_name,
-      email: user.email || undefined,
-      profilePicture: user.profile_picture || undefined,
-      role: user.role,
-      handedness: user.handedness,
-      status: user.status,
-      homeCourseId: user.home_course_id || undefined,
-    },
-  });
 });
 
 // POST /api/auth/forgot-password — request password reset email
 router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
-  const { email } = req.body;
+  try {
+    const { email } = req.body;
 
-  if (!email || !isValidEmail(email)) {
-    return res.status(400).json({ error: 'Valid email is required' });
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+
+    // Always return 200 to prevent email enumeration
+    const successMsg = { message: 'If an account exists with that email, a reset link has been sent.' };
+
+    const { rows } = await query('SELECT id FROM users WHERE lower(email) = lower($1)', [email]);
+    if (rows.length === 0) {
+      return res.json(successMsg);
+    }
+
+    const userId = rows[0].id;
+
+    // Generate token
+    const tokenBytes = crypto.randomBytes(32);
+    const tokenHex = tokenBytes.toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(tokenBytes).digest('hex');
+
+    // Delete existing unused tokens for this user
+    await query('DELETE FROM password_reset_tokens WHERE user_id = $1 AND used = FALSE', [userId]);
+
+    // Insert new token with 1-hour expiry
+    await query(
+      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '1 hour')`,
+      [userId, tokenHash],
+    );
+
+    const appUrl = process.env.APP_URL || 'https://mjgolf.up.railway.app';
+    const resetUrl = `${appUrl}/reset-password?token=${tokenHex}`;
+
+    sendPasswordResetEmail(email, resetUrl).catch((err) => {
+      logger.error('Failed to send password reset email', { error: String(err) });
+    });
+
+    res.json(successMsg);
+  } catch (err) {
+    logger.error('Forgot password failed', { error: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
   }
-
-  // Always return 200 to prevent email enumeration
-  const successMsg = { message: 'If an account exists with that email, a reset link has been sent.' };
-
-  const { rows } = await query('SELECT id FROM users WHERE lower(email) = lower($1)', [email]);
-  if (rows.length === 0) {
-    return res.json(successMsg);
-  }
-
-  const userId = rows[0].id;
-
-  // Generate token
-  const tokenBytes = crypto.randomBytes(32);
-  const tokenHex = tokenBytes.toString('hex');
-  const tokenHash = crypto.createHash('sha256').update(tokenBytes).digest('hex');
-
-  // Delete existing unused tokens for this user
-  await query('DELETE FROM password_reset_tokens WHERE user_id = $1 AND used = FALSE', [userId]);
-
-  // Insert new token with 1-hour expiry
-  await query(
-    `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '1 hour')`,
-    [userId, tokenHash],
-  );
-
-  const appUrl = process.env.APP_URL || 'https://mjgolf.up.railway.app';
-  const resetUrl = `${appUrl}/reset-password?token=${tokenHex}`;
-
-  sendPasswordResetEmail(email, resetUrl).catch((err) => {
-    logger.error('Failed to send password reset email', { error: String(err) });
-  });
-
-  res.json(successMsg);
 });
 
 // POST /api/auth/reset-password — set new password using reset token
 router.post('/reset-password', resetPasswordLimiter, async (req, res) => {
-  const { token, password } = req.body;
+  try {
+    const { token, password } = req.body;
 
-  if (!token || !password) {
-    return res.status(400).json({ error: 'Token and password are required' });
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and password are required' });
+    }
+
+    if (!isValidPassword(password)) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    // Validate token is 64 hex chars
+    if (!/^[0-9a-f]{64}$/i.test(token)) {
+      return res.status(400).json({ error: 'Invalid reset token format' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(Buffer.from(token, 'hex')).digest('hex');
+
+    const { rows } = await query(
+      `SELECT id, user_id FROM password_reset_tokens WHERE token_hash = $1 AND used = FALSE AND expires_at > NOW()`,
+      [tokenHash],
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid or expired reset link' });
+    }
+
+    const { id: tokenId, user_id: userId } = rows[0];
+
+    const hash = await bcrypt.hash(password, 12);
+    await query('UPDATE users SET password = $1, updated_at = $2 WHERE id = $3', [hash, Date.now(), userId]);
+    await query('UPDATE password_reset_tokens SET used = TRUE WHERE id = $1', [tokenId]);
+
+    logger.info(`Password reset completed for user ${userId}`);
+    res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    logger.error('Password reset failed', { error: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
   }
-
-  if (!isValidPassword(password)) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters' });
-  }
-
-  const tokenHash = crypto.createHash('sha256').update(Buffer.from(token, 'hex')).digest('hex');
-
-  const { rows } = await query(
-    `SELECT id, user_id FROM password_reset_tokens WHERE token_hash = $1 AND used = FALSE AND expires_at > NOW()`,
-    [tokenHash],
-  );
-
-  if (rows.length === 0) {
-    return res.status(400).json({ error: 'Invalid or expired reset link' });
-  }
-
-  const { id: tokenId, user_id: userId } = rows[0];
-
-  const hash = await bcrypt.hash(password, 12);
-  await query('UPDATE users SET password = $1, updated_at = $2 WHERE id = $3', [hash, Date.now(), userId]);
-  await query('UPDATE password_reset_tokens SET used = TRUE WHERE id = $1', [tokenId]);
-
-  logger.info(`Password reset completed for user ${userId}`);
-  res.json({ message: 'Password updated successfully' });
 });
 
 // POST /api/auth/register — create a new account (pending admin approval)
