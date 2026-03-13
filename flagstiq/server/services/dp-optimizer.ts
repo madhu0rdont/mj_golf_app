@@ -1181,6 +1181,64 @@ function findAlternativeTeeAction(
 }
 
 // ---------------------------------------------------------------------------
+// Helpers for extractPlan
+// ---------------------------------------------------------------------------
+
+/** Try nearby bearing offsets to avoid OB/hazard. Returns the safest option found. */
+function findSafeBearing(
+  origin: { lat: number; lng: number },
+  initialBearing: number,
+  adjustedTotalDist: number,
+  club: ClubDistribution,
+  hole: CourseHole,
+): { bearing: number; rawLanding: { lat: number; lng: number }; penalty: number } {
+  let bearing = initialBearing;
+  let rawLanding = projectPoint(origin, bearing, adjustedTotalDist);
+
+  const trajHit = checkTreeTrajectory(origin, bearing, club.meanCarry, hole.hazards, club);
+  const hazDrop = resolveHazardDrop(
+    origin, rawLanding,
+    hole.hazards ?? [], hole.fairway ?? [], hole.green ?? [], HAZARD_DROP_PENALTY,
+  );
+
+  if (trajHit.hitOB || (hazDrop.penalty > 0 && haversineYards(hazDrop.landing, origin) < 5)) {
+    for (const offset of [3, -3, 6, -6, 10, -10, 15, -15, 20, -20]) {
+      const altBearing = (bearing + offset + 360) % 360;
+      const altTraj = checkTreeTrajectory(origin, altBearing, club.meanCarry, hole.hazards, club);
+      if (altTraj.hitOB || altTraj.hitTrees) continue;
+      const altLanding = projectPoint(origin, altBearing, adjustedTotalDist);
+      const altHaz = resolveHazardDrop(
+        origin, altLanding,
+        hole.hazards ?? [], hole.fairway ?? [], hole.green ?? [], HAZARD_DROP_PENALTY,
+      );
+      if (altHaz.penalty === 0) {
+        return { bearing: altBearing, rawLanding: altLanding, penalty: 0 };
+      }
+    }
+  }
+
+  return { bearing, rawLanding, penalty: hazDrop.penalty };
+}
+
+/** Build an approach shot toward the pin with elevation adjustment. */
+function buildApproachShot(
+  landingPoint: { lat: number; lng: number },
+  distToPin: number,
+  pin: { lat: number; lng: number },
+  pinElev: number,
+  anchors: AnchorState[],
+  distributions: ClubDistribution[],
+): NamedStrategyPlan['shots'][number] {
+  const nearAnchor = findNearestAnchor(landingPoint, anchors);
+  const elevAdj = nearAnchor
+    ? (pinElev - nearAnchor.elevation) * ELEV_YARDS_PER_METER
+    : 0;
+  const playsLikeDist = Math.round(distToPin + elevAdj);
+  const approachClub = greedyClub(playsLikeDist, distributions);
+  return { clubDist: approachClub, aimPoint: pin, displayCarry: playsLikeDist };
+}
+
+// ---------------------------------------------------------------------------
 // Policy Extraction → NamedStrategyPlan
 // ---------------------------------------------------------------------------
 
@@ -1237,38 +1295,18 @@ function extractPlan(
     const landingElev = getProfileElevation(elevProfile, elevLandingDist);
     const elevDelta = landingElev - currentAnchor.elevation;
     const adjustedTotalDist = totalDist - elevDelta * ELEV_YARDS_PER_METER;
-    let rawLanding = projectPoint(currentAnchor.position, bearing, adjustedTotalDist);
 
-    // Check trajectory and landing for OB — try alternative bearings if needed
-    let trajHit = checkTreeTrajectory(currentAnchor.position, bearing, club.meanCarry, hole.hazards, club);
-    let hazDrop = resolveHazardDrop(
-      currentAnchor.position, rawLanding,
+    // Find safe bearing (avoids OB/hazard by trying nearby offsets)
+    const safe = findSafeBearing(currentAnchor.position, bearing, adjustedTotalDist, club, hole);
+    bearing = safe.bearing;
+    const aimPoint = safe.rawLanding;
+
+    // Resolve final landing after hazard drops
+    const hazDrop = resolveHazardDrop(
+      currentAnchor.position, aimPoint,
       hole.hazards ?? [], hole.fairway ?? [], hole.green ?? [], HAZARD_DROP_PENALTY,
     );
-
-    if (trajHit.hitOB || (hazDrop.penalty > 0 && haversineYards(hazDrop.landing, currentAnchor.position) < 5)) {
-      // Policy's bearing goes through OB — try nearby safe bearings
-      for (const offset of [3, -3, 6, -6, 10, -10, 15, -15, 20, -20]) {
-        const altBearing = (bearing + offset + 360) % 360;
-        const altTraj = checkTreeTrajectory(currentAnchor.position, altBearing, club.meanCarry, hole.hazards, club);
-        if (altTraj.hitOB || altTraj.hitTrees) continue;
-        const altLanding = projectPoint(currentAnchor.position, altBearing, adjustedTotalDist);
-        const altHaz = resolveHazardDrop(
-          currentAnchor.position, altLanding,
-          hole.hazards ?? [], hole.fairway ?? [], hole.green ?? [], HAZARD_DROP_PENALTY,
-        );
-        if (altHaz.penalty === 0) {
-          bearing = altBearing;
-          rawLanding = altLanding;
-          trajHit = altTraj;
-          hazDrop = altHaz;
-          break;
-        }
-      }
-    }
-
     const landing = hazDrop.landing;
-    const aimPoint = rawLanding;
 
     // Slope-adjusted carry: how far the club effectively covers on this terrain
     const adjustedCarry = Math.round(club.meanCarry - elevDelta * ELEV_YARDS_PER_METER);
@@ -1281,17 +1319,7 @@ function extractPlan(
     if (landingDist < CHIP_RANGE) break;
 
     if (landingDist <= approachThreshold) {
-      const nextAnchorForElev = findNearestAnchor(landing, anchors);
-      const approachElevAdj = nextAnchorForElev
-        ? (pinElev - nextAnchorForElev.elevation) * ELEV_YARDS_PER_METER
-        : 0;
-      const playsLikeDist = Math.round(landingDist + approachElevAdj);
-      const approachClub = greedyClub(playsLikeDist, distributions);
-      shots.push({
-        clubDist: approachClub,
-        aimPoint: pin,
-        displayCarry: playsLikeDist,
-      });
+      shots.push(buildApproachShot(landing, landingDist, pin, pinElev, anchors, distributions));
       break;
     }
 
@@ -1306,17 +1334,7 @@ function extractPlan(
     const lastShot = shots[shots.length - 1];
     const lastLandingDist = haversineYards(lastShot.aimPoint, pin);
     if (lastLandingDist >= CHIP_RANGE && lastLandingDist <= approachThreshold) {
-      const postAnchorForElev = findNearestAnchor(lastShot.aimPoint, anchors);
-      const postElevAdj = postAnchorForElev
-        ? (pinElev - postAnchorForElev.elevation) * ELEV_YARDS_PER_METER
-        : 0;
-      const postPlaysLike = Math.round(lastLandingDist + postElevAdj);
-      const approachClub = greedyClub(postPlaysLike, distributions);
-      shots.push({
-        clubDist: approachClub,
-        aimPoint: pin,
-        displayCarry: postPlaysLike,
-      });
+      shots.push(buildApproachShot(lastShot.aimPoint, lastLandingDist, pin, pinElev, anchors, distributions));
     }
   }
 
@@ -1578,44 +1596,49 @@ export function dpOptimizeHole(
   const heading = bearingBetween(tee, { lat: hole.pin.lat, lng: hole.pin.lng });
   const yardage = hole.yardages[teeBox] ?? Object.values(hole.yardages)[0] ?? 400;
   const bearingStep = bearingStepForDistance(yardage);
-  let outcomeTable = buildOutcomeTable(anchors, distributions, hole, bearingStep, elevProfile, centerLine, tee, heading);
-  if (outcomeTable.length === 0) return [];
+  const initialOutcome = buildOutcomeTable(anchors, distributions, hole, bearingStep, elevProfile, centerLine, tee, heading);
+  if (initialOutcome.length === 0) return [];
 
   // 3. Build spatial index for interpolation
   const spatialIndex = buildSpatialIndex(anchors);
 
   const modes: ScoringMode[] = ['scoring', 'safe', 'aggressive'];
-  let policies: Map<number, PolicyEntry>[] = [];
-  let allValues: Map<number, number>[] = [];
   const plans: NamedStrategyPlan[] = [];
   const results: OptimizedStrategy[] = [];
 
   // 4. Value iteration for all modes
+  const initialPolicies: Map<number, PolicyEntry>[] = [];
+  const initialValues: Map<number, number>[] = [];
   for (const mode of modes) {
-    const { policy, values } = valueIteration(anchors, outcomeTable, mode, distributions, spatialIndex);
-    policies.push(policy);
-    allValues.push(values);
+    const { policy, values } = valueIteration(anchors, initialOutcome, mode, distributions, spatialIndex);
+    initialPolicies.push(policy);
+    initialValues.push(values);
   }
 
   // 4b. Expand tee bearings if all strategies are terrible (no safe landing)
-  const teeValue = allValues[0].get(0) ?? 10;
+  let outcomeTable = initialOutcome;
+  let policies = initialPolicies;
+  let allValues = initialValues;
+
+  const teeValue = initialValues[0].get(0) ?? 10;
   if (teeValue > hole.par + 2) {
     const existingBearings = new Set(
-      outcomeTable.filter((e) => e.key.anchorId === 0).map((e) => Math.round(e.bearing)),
+      initialOutcome.filter((e) => e.key.anchorId === 0).map((e) => Math.round(e.bearing)),
     );
     const expanded = expandTeeBearings(
       anchors, distributions, hole, existingBearings, elevProfile, centerLine, tee, heading,
     );
     if (expanded.length > 0) {
-      outcomeTable = [...outcomeTable, ...expanded];
-      // Re-run value iteration with expanded options
-      policies = [];
-      allValues = [];
+      outcomeTable = [...initialOutcome, ...expanded];
+      const expandedPolicies: Map<number, PolicyEntry>[] = [];
+      const expandedValues: Map<number, number>[] = [];
       for (const mode of modes) {
         const { policy, values } = valueIteration(anchors, outcomeTable, mode, distributions, spatialIndex);
-        policies.push(policy);
-        allValues.push(values);
+        expandedPolicies.push(policy);
+        expandedValues.push(values);
       }
+      policies = expandedPolicies;
+      allValues = expandedValues;
     }
   }
 

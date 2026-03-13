@@ -1,7 +1,7 @@
 # Optimizer & Server Code Audit — 2026-03-12
 
 37 findings across optimizer logic, server routes, and auth handlers.
-20 small items fixed on 2026-03-13. Remaining 17 items are larger refactors.
+All actionable items fixed (2026-03-13). Items #9, #14, #15 triaged as no-action-needed.
 
 ## HIGH (2)
 
@@ -203,21 +203,21 @@ Tree hits add `+0.5` strokes, but `computeScoreDistribution` uses `Math.round(s)
 
 **Fixed:** Extracted all 9 debug endpoints to `routes/debug.ts`. `index.ts` reduced from 567 to 268 lines.
 
-### SP3. `extractPlan` — 148 lines with interleaved concerns
+### ~~SP3. `extractPlan` — 148 lines with interleaved concerns~~ DONE
 **Severity:** MEDIUM
 **File:** `dp-optimizer.ts:1197-1344`
 
-Simultaneously handles plan construction, OB avoidance, approach insertion, elevation adjustment, and fallback logic in deeply nested control flow.
+~~Simultaneously handles plan construction, OB avoidance, approach insertion, elevation adjustment, and fallback logic in deeply nested control flow.~~
 
-**Fix:** Extract OB-avoidance and approach-insertion into separate functions.
+**Fixed:** Extracted `findSafeBearing()` (OB-avoidance retry loop) and `buildApproachShot()` (duplicated approach-shot logic from in-loop and post-loop blocks). `extractPlan` reduced from 148 to ~95 lines.
 
-### SP4. `dpOptimizeHole` reassigns `let` variables mid-flow
+### ~~SP4. `dpOptimizeHole` reassigns `let` variables mid-flow~~ DONE
 **Severity:** MEDIUM
 **File:** `dp-optimizer.ts:1572-1698`
 
-`policies`, `allValues`, and `outcomeTable` are reassigned when tee bearing expansion triggers. Couples diversity enforcement with extraction logic.
+~~`policies`, `allValues`, and `outcomeTable` are reassigned when tee bearing expansion triggers. Couples diversity enforcement with extraction logic.~~
 
-**Fix:** Use separate variables for expanded results instead of reassigning.
+**Fixed:** Renamed initial computation to `const initialOutcome`/`initialPolicies`/`initialValues`. Expansion block now builds `expandedPolicies`/`expandedValues` and assigns to final `let` variables. Clear separation between initial and expanded results.
 
 ### ~~SP5. Manual snake_case → camelCase conversion duplicated~~ DONE
 **Severity:** LOW
@@ -227,10 +227,10 @@ Simultaneously handles plan construction, OB avoidance, approach insertion, elev
 
 **Fixed:** Replaced manual conversion with `toCamel(row)` in `routes/debug.ts` anchors + tee-actions endpoints.
 
-### SP6. `admin.ts` — 868-line monolith
+### ~~SP6. `admin.ts` — 868-line monolith~~ DONE
 **Severity:** LOW
 **File:** `admin.ts:1-868`
 
-Handles 10+ unrelated domains (KML import, elevation, scorecards, hazards, strategy constants, geofence, logos, usage dashboards, billing).
+~~Handles 10+ unrelated domains (KML import, elevation, scorecards, hazards, strategy constants, geofence, logos, usage dashboards, billing).~~
 
-**Fix:** Split into domain-specific route files.
+**Fixed:** Split into `routes/admin/` directory with 6 domain files + barrel: `kml.ts`, `courses.ts`, `holes.ts`, `hazards.ts`, `strategy.ts`, `billing.ts`. `requireAdmin` applied once in barrel `index.ts`. All 14 admin tests pass unchanged.

@@ -26,7 +26,7 @@ vi.mock('../../services/elevation.js', () => ({
 
 mockDbModule();
 
-import adminRouter from '../../routes/admin.js';
+import adminRouter from '../../routes/admin/index.js';
 
 const app = createTestApp(adminRouter, '/', { role: 'admin' });
 

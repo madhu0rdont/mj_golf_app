@@ -24,7 +24,7 @@ import seedRouter from './routes/seed.js';
 import extractRouter from './routes/extract.js';
 import wedgeOverridesRouter from './routes/wedge-overrides.js';
 import coursesRouter from './routes/courses.js';
-import adminRouter from './routes/admin.js';
+import adminRouter from './routes/admin/index.js';
 import gamePlansRouter, { markPlansStale } from './routes/game-plans.js';
 import strategyRouter from './routes/strategy.js';
 import debugRouter from './routes/debug.js';
