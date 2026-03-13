@@ -1333,6 +1333,71 @@ function extractPlan(
 }
 
 // ---------------------------------------------------------------------------
+// Single-Shot Simulation (shared physics for policy + greedy loops)
+// ---------------------------------------------------------------------------
+
+interface ShotSimResult {
+  landing: { lat: number; lng: number };
+  /** Extra strokes from tree hits (0.5), OB (1), and hazard drops */
+  extraStrokes: number;
+  hitTree: boolean;
+}
+
+function simulateSingleShot(
+  currentPos: { lat: number; lng: number },
+  club: ClubDistribution,
+  shotBearing: number,
+  lieMultiplier: number,
+  centerLine: { lat: number; lng: number }[],
+  tee: { lat: number; lng: number },
+  heading: number,
+  elevProfile: ElevationProfile,
+  hole: CourseHole,
+): ShotSimResult {
+  const carry = gaussianSample(club.meanCarry, club.stdCarry * lieMultiplier);
+  const offline = gaussianSample(club.meanOffline, club.stdOffline * lieMultiplier);
+
+  // Elevation-adjusted ground carry
+  const frame = projectToHoleFrame(currentPos, centerLine, tee, heading);
+  const distFromTee = Math.max(0, frame.s);
+  const currentElev = getProfileElevation(elevProfile, distFromTee);
+  const landingDist = distFromTee + carry;
+  const landingElev = getProfileElevation(elevProfile, landingDist);
+  const elevDelta = landingElev - currentElev;
+  const adjCarry = Math.max(0, carry - elevDelta * ELEV_YARDS_PER_METER);
+
+  let landing = projectPoint(currentPos, shotBearing, adjCarry);
+  if (Math.abs(offline) > 0.5) {
+    landing = projectPoint(landing, shotBearing + 90, offline);
+  }
+
+  let extraStrokes = 0;
+  let hitTree = false;
+
+  const treeHit = checkTreeTrajectory(currentPos, shotBearing, carry, hole.hazards, club);
+  if (treeHit.hitOB) {
+    landing = currentPos;
+    extraStrokes += 1;
+  } else if (treeHit.hitTrees) {
+    landing = projectPoint(currentPos, shotBearing, treeHit.hitDistance);
+    extraStrokes += 0.5;
+    hitTree = true;
+  } else {
+    const slope = getProfileSlope(elevProfile, landingDist);
+    const rollout = computeRollout(carry, club, landing, hole, slope);
+    if (rollout > 0.5) landing = projectPoint(landing, shotBearing, rollout);
+  }
+
+  if (!treeHit.hitOB) {
+    const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway, hole.green, HAZARD_DROP_PENALTY);
+    extraStrokes += hazDrop.penalty;
+    landing = hazDrop.landing;
+  }
+
+  return { landing, extraStrokes, hitTree };
+}
+
+// ---------------------------------------------------------------------------
 // Policy-Following Monte Carlo Simulation
 // ---------------------------------------------------------------------------
 
@@ -1388,53 +1453,16 @@ function simulateWithPolicy(
       const effectiveLie = lastHitTree ? 'recovery' as LieClass : currentAnchor.lie;
       const lieMultiplier = LIE_MULTIPLIER[effectiveLie];
 
-      const carry = gaussianSample(club.meanCarry, club.stdCarry * lieMultiplier);
-      const offline = gaussianSample(club.meanOffline, club.stdOffline * lieMultiplier);
+      const shot = simulateSingleShot(currentPos, club, shotBearing, lieMultiplier, centerLine, tee, heading, elevProfile, hole);
+      strokes += 1 + shot.extraStrokes;
+      lastHitTree = shot.hitTree;
+      currentPos = shot.landing;
 
-      // Elevation-adjusted ground carry (use actual position, not anchor distFromTee)
-      const policyFrame = projectToHoleFrame(currentPos, centerLine, tee, heading);
-      const policyDistFromTee = Math.max(0, policyFrame.s);
-      const policyCurrentElev = getProfileElevation(elevProfile, policyDistFromTee);
-      const policyLandingDist = policyDistFromTee + carry;
-      const policyLandingElev = getProfileElevation(elevProfile, policyLandingDist);
-      const policyElevDelta = policyLandingElev - policyCurrentElev;
-      const policyAdjCarry = Math.max(0, carry - policyElevDelta * ELEV_YARDS_PER_METER);
-
-      let landing = projectPoint(currentPos, shotBearing, policyAdjCarry);
-      if (Math.abs(offline) > 0.5) {
-        landing = projectPoint(landing, shotBearing + 90, offline);
+      if (shotIdx === 0 && shot.extraStrokes === 0) {
+        fairwayHits++;
       }
 
-      strokes++;
-      lastHitTree = false;
-
-      const treeHit = checkTreeTrajectory(currentPos, shotBearing, carry, hole.hazards, club);
-      if (treeHit.hitOB) {
-        // Stroke-and-distance: return to shot origin + 1 penalty stroke
-        landing = currentPos;
-        strokes += 1;
-      } else if (treeHit.hitTrees) {
-        landing = projectPoint(currentPos, shotBearing, treeHit.hitDistance);
-        strokes += 0.5;
-        lastHitTree = true;
-      } else {
-        const policySlope = getProfileSlope(elevProfile, policyLandingDist);
-        const rollout = computeRollout(carry, club, landing, hole, policySlope);
-        if (rollout > 0.5) landing = projectPoint(landing, shotBearing, rollout);
-      }
-
-      if (!treeHit.hitOB) {
-        const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway, hole.green, HAZARD_DROP_PENALTY);
-        strokes += hazDrop.penalty;
-        landing = hazDrop.landing;
-
-        if (shotIdx === 0 && hazDrop.penalty === 0 && !lastHitTree) {
-          fairwayHits++;
-        }
-      }
-
-      currentPos = landing;
-      currentAnchorId = findNearestAnchor(landing, anchors).id;
+      currentAnchorId = findNearestAnchor(currentPos, anchors).id;
     }
 
     // Greedy approach if still far
@@ -1442,55 +1470,20 @@ function simulateWithPolicy(
     while (distToPin > chipThreshold && strokes < MAX_SHOTS_PER_HOLE) {
       const greedyFrame = projectToHoleFrame(currentPos, centerLine, tee, heading);
       const greedyDistFromTee = Math.max(0, greedyFrame.s);
-      const greedyElev = getProfileElevation(elevProfile, Math.max(0, greedyDistFromTee));
+      const greedyElev = getProfileElevation(elevProfile, greedyDistFromTee);
       const greedyElevAdj = (hole.pin.elevation - greedyElev) * ELEV_YARDS_PER_METER;
-      const playsLikeDist = distToPin + greedyElevAdj;
-      const club = greedyClub(playsLikeDist, distributions);
+      const club = greedyClub(distToPin + greedyElevAdj, distributions);
 
-      // Classify lie at current position (policy loop uses currentAnchor.lie; greedy must classify directly)
       const greedyLie = lastHitTree
         ? 'recovery' as LieClass
         : classifyLie(currentPos, hole.fairway ?? [], hole.green ?? [], hole.hazards);
       const greedyLieMultiplier = LIE_MULTIPLIER[greedyLie];
-      const carry = gaussianSample(club.meanCarry, club.stdCarry * greedyLieMultiplier);
-      const offline = gaussianSample(club.meanOffline, club.stdOffline * greedyLieMultiplier);
       const shotBearing = bearingBetween(currentPos, pin);
 
-      const greedyLandingDist = Math.max(0, greedyDistFromTee) + carry;
-      const greedyLandingElev = getProfileElevation(elevProfile, greedyLandingDist);
-      const greedyCarryElevDelta = greedyLandingElev - greedyElev;
-      const greedyAdjCarry = Math.max(0, carry - greedyCarryElevDelta * ELEV_YARDS_PER_METER);
-
-      let landing = projectPoint(currentPos, shotBearing, greedyAdjCarry);
-      if (Math.abs(offline) > 0.5) {
-        landing = projectPoint(landing, shotBearing + 90, offline);
-      }
-
-      strokes++;
-      lastHitTree = false;
-
-      const greedyTreeHit = checkTreeTrajectory(currentPos, shotBearing, carry, hole.hazards, club);
-      if (greedyTreeHit.hitOB) {
-        // Stroke-and-distance: return to shot origin + 1 penalty stroke
-        landing = currentPos;
-        strokes += 1;
-      } else if (greedyTreeHit.hitTrees) {
-        landing = projectPoint(currentPos, shotBearing, greedyTreeHit.hitDistance);
-        strokes += 0.5;
-        lastHitTree = true;
-      } else {
-        const greedySlope = getProfileSlope(elevProfile, greedyLandingDist);
-        const rollout = computeRollout(carry, club, landing, hole, greedySlope);
-        if (rollout > 0.5) landing = projectPoint(landing, shotBearing, rollout);
-      }
-
-      if (!greedyTreeHit.hitOB) {
-        const hazDrop = resolveHazardDrop(currentPos, landing, hole.hazards, hole.fairway, hole.green, HAZARD_DROP_PENALTY);
-        strokes += hazDrop.penalty;
-        landing = hazDrop.landing;
-      }
-
-      currentPos = landing;
+      const shot = simulateSingleShot(currentPos, club, shotBearing, greedyLieMultiplier, centerLine, tee, heading, elevProfile, hole);
+      strokes += 1 + shot.extraStrokes;
+      lastHitTree = shot.hitTree;
+      currentPos = shot.landing;
       distToPin = haversineYards(currentPos, pin);
     }
 
@@ -1640,23 +1633,27 @@ export function dpOptimizeHole(
   //    Allow shared first clubs; only swap when the entire sequence is identical.
   const planClubKey = (p: NamedStrategyPlan) => p.shots.map((s) => s.clubDist.clubName).join('|');
   const usedKeys = new Set<string>();
-  const usedFirstClubs = new Set<string>();
+  const keyToFirstClub = new Map<string, string>();
   for (let i = 0; i < plans.length; i++) {
     const key = planClubKey(plans[i]);
     if (!plans[i].shots[0]) continue;
 
     if (usedKeys.has(key)) {
-      // Full sequence is identical — try alternative tee club
+      // Full sequence is identical — exclude first clubs from all already-unique plans
+      // to prevent the alternative from duplicating a different existing plan.
+      const excludeClubs = new Set<string>(keyToFirstClub.values());
+      excludeClubs.add(plans[i].shots[0]?.clubDist.clubName ?? '');
       const alt = findAlternativeTeeAction(
         anchors, outcomeTable, allValues[i], modes[i],
-        usedFirstClubs, spatialIndex,
+        excludeClubs, spatialIndex,
       );
       if (alt) {
         plans[i] = extractPlan(anchors, policies[i], distributions, hole, teeBox, modes[i], elevProfile, alt);
       }
     }
-    usedKeys.add(planClubKey(plans[i]));
-    usedFirstClubs.add(plans[i].shots[0]?.clubDist.clubName ?? '');
+    const newKey = planClubKey(plans[i]);
+    usedKeys.add(newKey);
+    keyToFirstClub.set(newKey, plans[i].shots[0]?.clubDist.clubName ?? '');
   }
 
   // 7. Run MC simulations

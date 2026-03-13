@@ -41,7 +41,6 @@ export interface PlanWorkerInput {
   course: CourseWithHoles;
   teeBox: string;
   mode: ScoringMode;
-  roughPenalty: number;
   constants?: StrategyConstants;
 }
 
@@ -81,7 +80,6 @@ function runHolesWorker(
   holes: CourseHole[],
   teeBox: string,
   distributions: ClubDistribution[],
-  roughPenalty: number,
   constants?: StrategyConstants,
   onProgress?: (holeNumber: number) => void,
 ): Promise<HoleResult[]> {
@@ -107,7 +105,7 @@ function runHolesWorker(
       reject(err);
     });
 
-    worker.postMessage({ holes, teeBox, distributions, roughPenalty, constants });
+    worker.postMessage({ holes, teeBox, distributions, constants });
   });
 }
 
@@ -136,7 +134,7 @@ async function _generatePlanParallelInner(
   input: PlanWorkerInput,
   onProgress?: (completed: number, total: number) => void,
 ): Promise<GamePlan> {
-  const { clubs, shots, course, teeBox, mode, roughPenalty, constants } = input;
+  const { clubs, shots, course, teeBox, mode, constants } = input;
 
   // 1. Compute distributions once on main thread (fast, ~50ms)
   const groups = computeClubShotGroups(clubs, shots);
@@ -166,7 +164,7 @@ async function _generatePlanParallelInner(
     : undefined;
 
   const batchResults = await Promise.all(
-    batches.map((batch) => runHolesWorker(batch, teeBox, distributions, roughPenalty, constants, handleHoleProgress)),
+    batches.map((batch) => runHolesWorker(batch, teeBox, distributions, constants, handleHoleProgress)),
   );
 
   // 4. Merge results into a single map

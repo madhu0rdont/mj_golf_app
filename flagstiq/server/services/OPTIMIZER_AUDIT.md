@@ -38,12 +38,12 @@
 
 **Fixed:** Changed `perpDist = dAP` to `perpDist = Math.abs(cross)` for consistency.
 
-### 7. Inconsistent rough penalty between DP and legacy paths
+### ~~7. Inconsistent rough penalty between DP and legacy paths~~ DONE
 **Files:** `dp-optimizer.ts:692` vs `strategy-optimizer.ts:1137`
 
-DP path uses `HAZARD_DROP_PENALTY` (0.15), legacy `simulateHoleGPS` uses `roughPenalty` (0.3 from constants). 2x difference means fallback produces systematically higher expected strokes for rough-heavy holes.
+~~DP path uses `HAZARD_DROP_PENALTY` (0.15), legacy `simulateHoleGPS` uses `roughPenalty` (0.3 from constants). 2x difference means fallback produces systematically higher expected strokes for rough-heavy holes.~~
 
-**Fix:** Align to one value. If 0.15 is intentional (lie multiplier also penalizes rough), adjust the legacy path to match.
+**Fixed:** Resolved by #1 fix — both paths now use 0.3.
 
 ### ~~8. Greedy loop missing lie multiplier for non-tree lies~~ DONE
 **File:** `dp-optimizer.ts:1458-1461`
@@ -52,12 +52,12 @@ DP path uses `HAZARD_DROP_PENALTY` (0.15), legacy `simulateHoleGPS` uses `roughP
 
 **Fixed:** Added `classifyLie(currentPos, ...)` call in greedy loop to apply correct lie multiplier for rough/bunker positions.
 
-### 10. Diversity enforcement over-constrains `excludeClubs`
-**File:** `dp-optimizer.ts:1649-1666`
+### ~~10. Diversity enforcement over-constrains `excludeClubs`~~ DONE
+**File:** `dp-optimizer.ts:1632-1657`
 
-`usedFirstClubs` accumulates first-club names from *all* prior plans, not just the one causing the duplicate. Example: Plan 0 uses Driver, Plan 1 uses 3W (unique sequence), Plan 2 duplicates Plan 0 — both Driver AND 3W are excluded, but 3W is irrelevant.
+~~`usedFirstClubs` accumulates first-club names from *all* prior plans, not just the one causing the duplicate. Example: Plan 0 uses Driver, Plan 1 uses 3W (unique sequence), Plan 2 duplicates Plan 0 — both Driver AND 3W are excluded, but 3W is irrelevant.~~
 
-**Fix:** Only exclude the club that caused the duplicate sequence, not all previously used first clubs.
+**Fixed:** Replaced blind `usedFirstClubs` Set with `keyToFirstClub` Map keyed by club sequence. When a duplicate is found, excludes first clubs from all already-unique plans (not all prior plans indiscriminately). This prevents both the original duplicate and creating new duplicates with other existing plans.
 
 ### ~~11. Elevation lookup uses anchor `distFromTee` instead of actual position~~ DONE
 **File:** `dp-optimizer.ts:1405-1409`
@@ -140,13 +140,13 @@ Tree hits add `+0.5` strokes, but `computeScoreDistribution` uses `Math.round(s)
 ### ~~D2. `getRoughPenalty` imported but unused in `plan-regenerator.ts`~~ DONE
 **Fixed:** Removed from import.
 
-### D3. Legacy optimizer functions are effectively dead code
+### ~~D3. Legacy optimizer functions are effectively dead code~~ DONE
 **Severity:** LOW
 **File:** `strategy-optimizer.ts:862-1283`
 
-`generateNamedStrategies`, `simulateHoleGPS`, `optimizeHole` (~420 lines) only run when `dpOptimizeHole` returns empty, which effectively never happens in practice.
+~~`generateNamedStrategies`, `simulateHoleGPS`, `optimizeHole` (~420 lines) only run when `dpOptimizeHole` returns empty, which effectively never happens in practice.~~
 
-**Fix:** Consider removing or flagging as deprecated.
+**Fixed:** Removed all 3 legacy functions + 6 orphaned helpers (`closestClub`, `longestClub`, `shortestClub`, `centerLinePoint`, `findSafeLanding`, `expectedLanding`, `getRoughPenalty`). Removed fallback calls from `game-plan.ts` and `generate-holes-worker.ts`. Cleaned up `roughPenalty` parameter from `generateGamePlan`, worker pool, and all callers. Removed legacy tests. `strategy-optimizer.ts` reduced from 1285 to 761 lines (−524).
 
 ### ~~D4. `_roughPenalty` parameter ignored in `dpOptimizeHole`~~ DONE
 **Fixed:** Removed parameter and updated 4 call sites.
@@ -187,13 +187,13 @@ Tree hits add `+0.5` strokes, but `computeScoreDistribution` uses `Math.round(s)
 
 ## SPAGHETTI CODE
 
-### SP1. `simulateWithPolicy` — 210 lines with duplicated simulation loops
+### ~~SP1. `simulateWithPolicy` — 210 lines with duplicated simulation loops~~ DONE
 **Severity:** HIGH
 **File:** `dp-optimizer.ts:1350-1559`
 
-Two nearly identical simulation loops (~60 lines each): policy-following loop and greedy approach loop. Same pattern duplicated a 3rd time in `simulateHoleGPS` (strategy-optimizer.ts:1096-1197).
+~~Two nearly identical simulation loops (~60 lines each): policy-following loop and greedy approach loop. Same pattern duplicated a 3rd time in `simulateHoleGPS` (strategy-optimizer.ts:1096-1197).~~
 
-**Fix:** Extract `simulateSingleShot(pos, club, bearing, ...)` and call from all three loops.
+**Fixed:** Extracted `simulateSingleShot()` helper with shared shot physics (elevation, landing, tree collision, rollout, hazard drop). Both policy and greedy loops now call it. Third copy removed with D3 (legacy `simulateHoleGPS` deleted).
 
 ### ~~SP2. `index.ts` — 566 lines mixing debug routes with server setup~~ DONE
 **Severity:** HIGH

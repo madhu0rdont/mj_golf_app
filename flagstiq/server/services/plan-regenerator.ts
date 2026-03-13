@@ -49,7 +49,6 @@ export async function regenerateStalePlans() {
       const shots = shotRows.map(toCamel<Shot>);
 
       const constants = await loadStrategyConstants();
-      const roughPenalty = constants.hazard_drop_penalty;
 
       // Pre-load all courses + holes for this user's stale plans
       const courseIds = [...new Set(userPlans.map(r => r.course_id as string))];
@@ -84,7 +83,6 @@ export async function regenerateStalePlans() {
               course,
               teeBox,
               mode: mode as ScoringMode,
-              roughPenalty,
               constants,
             });
 

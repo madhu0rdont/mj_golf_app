@@ -206,9 +206,8 @@ router.post('/:courseId/:teeBox/:mode/generate', async (req, res) => {
 
     // Generate plan across parallel worker threads (non-blocking)
     const constants = await loadStrategyConstants();
-    const roughPenalty = constants.hazard_drop_penalty;
     const plan = await generatePlanParallel(
-      { clubs, shots, course, teeBox, mode: mode as ScoringMode, roughPenalty, constants },
+      { clubs, shots, course, teeBox, mode: mode as ScoringMode, constants },
       (completed, total) => {
         res.write(`data: ${JSON.stringify({ type: 'progress', completed, total })}\n\n`);
         // Flush the compression buffer so SSE events stream immediately
@@ -300,7 +299,6 @@ router.post('/:courseId/:teeBox/:mode/generate/:holeNumber', async (req, res) =>
 
     // Run DP optimizer for this single hole (runs synchronously, ~15-20s for one hole)
     const singleHoleConstants = await loadStrategyConstants();
-    const roughPenalty = singleHoleConstants.hazard_drop_penalty;
     const strategies = dpOptimizeHole(hole, teeBox, distributions, singleHoleConstants);
 
     if (strategies.length === 0) {
