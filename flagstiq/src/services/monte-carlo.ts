@@ -27,11 +27,11 @@ const DEFAULT_TRIALS = 2000;
 const GRIP_DOWN_YDS_PER_INCH = 5;
 const MAX_GRIP_DOWN_INCHES = 3;
 
-/** Log-curve putting model fitted to PGA strokes-gained data.
- *  putts(d) = 1.0 + 0.42 * ln(d), clamped to [1, 3] */
+/** Log-curve putting model.
+ *  putts(d) = 1.0 + 0.75 * ln(d), clamped to [1, 4] */
 export function expectedPutts(distanceYards: number): number {
   if (distanceYards <= 1) return 1.0;
-  return Math.min(3, 1.0 + 0.42 * Math.log(distanceYards));
+  return Math.min(4, 1.0 + 0.75 * Math.log(distanceYards));
 }
 
 /** Box-Muller transform for Gaussian sampling */

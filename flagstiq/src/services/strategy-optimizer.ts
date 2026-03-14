@@ -20,6 +20,8 @@ export interface AimPoint {
   carry: number; // meanCarry in yards
   carryNote: string | null; // e.g. "+20y past bunker"
   tip: string; // caddy tip, e.g. "Right of the bunker, works left to center"
+  remainingToPin?: number;
+  shortGameStrokes?: number;
 }
 
 export interface OptimizedStrategy extends ApproachStrategy {

@@ -771,8 +771,8 @@ export async function migrate() {
     ['rollout_slope_factor', 3.0, 'rollout', 'Rollout adjustment per unit slope (m/yd)'],
     ['default_loft', 30, 'rollout', 'Default club loft (degrees) for rollout calc'],
     // Putting model
-    ['putt_coefficient', 0.42, 'putting', 'Log coefficient in expected putts formula'],
-    ['putt_cap', 3, 'putting', 'Maximum expected putts (cap)'],
+    ['putt_coefficient', 0.75, 'putting', 'Log coefficient in expected putts formula'],
+    ['putt_cap', 4, 'putting', 'Maximum expected putts (cap)'],
     // MC trials
     ['mc_trials', 2000, 'simulation', 'Monte Carlo trials per strategy'],
     // DP convergence

@@ -56,7 +56,7 @@ function PuttingCurveDiagram() {
   const toX = (d: number) => ml + (d / xMax) * pw;
   const toY = (p: number) => mt + ((yMax - p) / (yMax - yMin)) * ph;
 
-  const expectedPutts = (d: number) => d <= 1 ? 1.0 : Math.min(3, 1.0 + 0.42 * Math.log(d));
+  const expectedPutts = (d: number) => d <= 1 ? 1.0 : Math.min(4, 1.0 + 0.75 * Math.log(d));
 
   const curve: [number, number][] = [];
   for (let d = 1; d <= 20; d += 0.5) {
@@ -64,9 +64,9 @@ function PuttingCurveDiagram() {
   }
 
   const labels = [
-    { d: 3, p: expectedPutts(3), text: '1.5' },
-    { d: 10, p: expectedPutts(10), text: '2.0' },
-    { d: 20, p: expectedPutts(20), text: '2.3' },
+    { d: 3, p: expectedPutts(3), text: '1.8' },
+    { d: 10, p: expectedPutts(10), text: '2.7' },
+    { d: 20, p: expectedPutts(20), text: '3.2' },
   ];
 
   return (

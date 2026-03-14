@@ -25,8 +25,8 @@ export interface ApproachStrategy {
 
 const MIN_SHOTS_FOR_DISTRIBUTION = 3;
 
-/** Log-curve putting model fitted to PGA strokes-gained data. */
-export function expectedPutts(distanceYards: number, coefficient = 0.42, cap = 3): number {
+/** Log-curve putting model. */
+export function expectedPutts(distanceYards: number, coefficient = 0.75, cap = 4): number {
   if (distanceYards <= 1) return 1.0;
   return Math.min(cap, 1.0 + coefficient * Math.log(distanceYards));
 }

@@ -47,18 +47,18 @@ describe('expectedPutts', () => {
     expect(expectedPutts(1)).toBe(1.0);
   });
 
-  it('returns ~1.46 at 3 yards', () => {
-    // 1.0 + 0.42 * ln(3) = 1.0 + 0.42 * 1.0986 ≈ 1.461
-    expect(expectedPutts(3)).toBeCloseTo(1.461, 2);
+  it('returns ~1.82 at 3 yards', () => {
+    // 1.0 + 0.75 * ln(3) = 1.0 + 0.75 * 1.0986 ≈ 1.824
+    expect(expectedPutts(3)).toBeCloseTo(1.824, 2);
   });
 
-  it('returns ~1.97 at 10 yards', () => {
-    // 1.0 + 0.42 * ln(10) = 1.0 + 0.42 * 2.3026 ≈ 1.967
-    expect(expectedPutts(10)).toBeCloseTo(1.967, 2);
+  it('returns ~2.73 at 10 yards', () => {
+    // 1.0 + 0.75 * ln(10) = 1.0 + 0.75 * 2.3026 ≈ 2.727
+    expect(expectedPutts(10)).toBeCloseTo(2.727, 2);
   });
 
-  it('clamps to 3.0 for very large distances', () => {
-    expect(expectedPutts(1000)).toBe(3.0);
+  it('clamps to 4.0 for very large distances', () => {
+    expect(expectedPutts(1000)).toBe(4.0);
   });
 
   it('increases monotonically with distance', () => {

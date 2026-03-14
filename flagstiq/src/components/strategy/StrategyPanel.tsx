@@ -140,6 +140,20 @@ export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount, is
                         </div>
                       </div>
                     ))}
+                    {isSelected && (() => {
+                      const last = opt.aimPoints[opt.aimPoints.length - 1];
+                      if (!last?.remainingToPin || last.remainingToPin <= 1) return null;
+                      return (
+                        <div className="flex items-start gap-1.5 mt-0.5 opacity-70">
+                          <span className="flex-shrink-0 flex h-4 w-4 items-center justify-center rounded-full bg-border text-[9px] font-bold text-text-muted mt-0.5">
+                            +
+                          </span>
+                          <p className="text-[11px] text-text-medium leading-snug">
+                            {last.remainingToPin}y to pin — chip + putts ({last.shortGameStrokes} strokes)
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

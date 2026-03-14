@@ -1547,6 +1547,16 @@ function simulateWithPolicy(
     aimFrom = expectedLanding;
   }
 
+  // Add short game context to last aim point when not on/near pin
+  if (aimPoints.length > 0) {
+    const distToPin = haversineYards(aimFrom, pin);
+    if (distToPin > 1) {
+      const lastAp = aimPoints[aimPoints.length - 1];
+      lastAp.remainingToPin = Math.round(distToPin);
+      lastAp.shortGameStrokes = parseFloat(shortGameValue(distToPin, 'fairway').toFixed(1));
+    }
+  }
+
   const label = plan.shots
     .map((s) => `${s.clubDist.clubName} (${s.displayCarry ?? Math.round(s.clubDist.meanCarry)})`)
     .join(' \u2192 ');

@@ -62,6 +62,8 @@ export interface AimPoint {
   carry: number;
   carryNote: string | null;
   tip: string;
+  remainingToPin?: number;
+  shortGameStrokes?: number;
 }
 
 export interface OptimizedStrategy extends ApproachStrategy {

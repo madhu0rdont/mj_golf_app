@@ -170,6 +170,16 @@ function HoleCard({ hole, isKeyHole }: { hole: HolePlan; isKeyHole?: boolean }) 
                   {ap.tip}
                 </p>
               ))}
+              {(() => {
+                const last = hole.strategy.aimPoints[hole.strategy.aimPoints.length - 1];
+                if (!last?.remainingToPin || last.remainingToPin <= 1) return null;
+                return (
+                  <p className="text-[10px] text-text-muted/70">
+                    <span className="font-semibold">+</span>{' '}
+                    {last.remainingToPin}y to pin — chip + putts ({last.shortGameStrokes} strokes)
+                  </p>
+                );
+              })()}
             </div>
           )}
 
