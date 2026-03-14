@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import request from 'supertest';
-import { createTestApp, mockQuery, mockPool, mockClient, mockDbModule, mockWithTransaction, resetMocks, TEST_USER_ID } from '../helpers/setup.js';
+import { createTestApp, mockQuery, mockPool, mockClient, mockDbModule, resetMocks, TEST_USER_ID } from '../helpers/setup.js';
 
 // vi.hoisted runs before vi.mock hoisting, so the variable is available
 const mockMarkPlansStale = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const mockLoadUserClubs = vi.hoisted(() => vi.fn().mockResolvedValue([]));
 
 // Mock plan-regenerator so markPlansStale's debounced regen doesn't fire
 vi.mock('../../services/plan-regenerator.js', () => ({
@@ -19,12 +20,16 @@ vi.mock('../../routes/game-plans.js', async (importOriginal) => {
   };
 });
 
+vi.mock('../../services/club-loader.js', () => ({
+  loadUserClubs: mockLoadUserClubs,
+}));
+
 // Mock the db module before importing the router
 mockDbModule();
 
 // Mock the db-columns utility
 vi.mock('../../utils/db-columns.js', () => ({
-  CLUB_COLUMNS: ['id', 'name', 'sort_order', 'created_at', 'updated_at'],
+  BAG_CLUB_COLUMNS: ['id', 'name', 'category', 'sort_order', 'is_active', 'created_at', 'updated_at', 'user_id'],
   SESSION_COLUMNS: ['id', 'club_id', 'date', 'shot_count', 'created_at', 'updated_at'],
   SHOT_COLUMNS: ['id', 'session_id', 'club_id', 'shot_number', 'carry_yards'],
   pickColumns: vi.fn((obj: Record<string, unknown>, _cols: string[]) => {
@@ -56,6 +61,7 @@ describe('backup routes', () => {
   beforeEach(() => {
     resetMocks();
     mockMarkPlansStale.mockReset().mockResolvedValue(undefined);
+    mockLoadUserClubs.mockReset().mockResolvedValue([]);
     vi.useFakeTimers();
   });
 
@@ -66,11 +72,12 @@ describe('backup routes', () => {
   // ── GET /export ────────────────────────────────────────────────────
   describe('GET /export', () => {
     it('returns all data', async () => {
-      // Three queries: clubs, sessions, shots
+      // loadUserClubs returns clubs array
+      mockLoadUserClubs.mockResolvedValueOnce([
+        { id: 'c1', name: 'Driver', sortOrder: 0 },
+      ]);
+      // Two remaining queries: sessions, shots
       mockQuery
-        .mockResolvedValueOnce({
-          rows: [{ id: 'c1', name: 'Driver', sort_order: 0 }],
-        })
         .mockResolvedValueOnce({
           rows: [{ id: 's1', club_id: 'c1', date: '2025-01-01' }],
         })
@@ -84,7 +91,7 @@ describe('backup routes', () => {
       expect(res.body.exportedAt).toBeDefined();
       expect(res.body.clubs).toHaveLength(1);
       expect(res.body.clubs[0].name).toBe('Driver');
-      expect(res.body.clubs[0].sortOrder).toBe(0); // camelCase
+      expect(res.body.clubs[0].sortOrder).toBe(0);
       expect(res.body.sessions).toHaveLength(1);
       expect(res.body.shots).toHaveLength(1);
     });
@@ -155,7 +162,7 @@ describe('backup routes', () => {
         if (sql === 'BEGIN') return Promise.resolve({ rows: [] });
         if (sql.startsWith('DELETE FROM shots')) return Promise.resolve({ rows: [] });
         if (sql.startsWith('DELETE FROM sessions')) return Promise.resolve({ rows: [] });
-        if (sql.startsWith('DELETE FROM clubs')) return Promise.resolve({ rows: [] });
+        if (sql.startsWith('DELETE FROM bag_clubs')) return Promise.resolve({ rows: [] });
         // Fail on INSERT
         if (sql.startsWith('INSERT')) return Promise.reject(new Error('Constraint violation'));
         if (sql === 'ROLLBACK') return Promise.resolve({ rows: [] });
@@ -179,7 +186,7 @@ describe('backup routes', () => {
   // ── Error handling ─────────────────────────────────────────────────
   describe('error handling', () => {
     it('returns 500 on database error for export', async () => {
-      mockQuery.mockRejectedValueOnce(new Error('Connection failed'));
+      mockLoadUserClubs.mockRejectedValueOnce(new Error('Connection failed'));
 
       const res = await request(app).get('/export');
       expect(res.status).toBe(500);

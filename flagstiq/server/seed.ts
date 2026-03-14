@@ -3,7 +3,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { query, pool } from './db.js';
 import { logger } from './logger.js';
-import { CLUB_COLUMNS, SESSION_COLUMNS, SHOT_COLUMNS, pickColumns, buildInsert } from './utils/db-columns.js';
+import { BAG_CLUB_COLUMNS, SESSION_COLUMNS, SHOT_COLUMNS, pickColumns, buildInsert } from './utils/db-columns.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -14,7 +14,7 @@ interface SeedData {
 }
 
 export async function seed() {
-  const { rows } = await query('SELECT count(*) FROM clubs');
+  const { rows } = await query('SELECT count(*) FROM bag_clubs');
   if (parseInt(rows[0].count) > 0) {
     logger.info('Database already seeded, skipping');
     return;
@@ -28,9 +28,22 @@ export async function seed() {
     await client.query('BEGIN');
 
     for (const club of data.clubs) {
-      const row = pickColumns(club, CLUB_COLUMNS);
-      const q = buildInsert('clubs', row);
+      const now = Date.now();
+      const row = pickColumns({ ...club, isActive: true }, BAG_CLUB_COLUMNS);
+      const q = buildInsert('bag_clubs', row);
       await client.query(q.text, q.values);
+
+      // Create manual profile if carry/total present
+      const clubId = club.id as string;
+      const manualCarry = club.manual_carry ?? club.manualCarry;
+      const manualTotal = club.manual_total ?? club.manualTotal;
+      if (manualCarry != null || manualTotal != null) {
+        await client.query(
+          `INSERT INTO club_profiles (id, bag_club_id, profile_type, carry_mean, total_mean, is_current, effective_from, created_at)
+           VALUES (gen_random_uuid()::text, $1, 'manual', $2, $3, TRUE, $4, $4)`,
+          [clubId, manualCarry ?? null, manualTotal ?? null, now],
+        );
+      }
     }
 
     for (const session of data.sessions) {

@@ -4,6 +4,7 @@ import { logger } from '../logger.js';
 import { loadStrategyConstants } from './strategy-optimizer.js';
 import { generatePlanParallel, isPlanGenerationActive } from './plan-worker-pool.js';
 import { loadCourseHoles } from './hole-loader.js';
+import { loadUserClubs } from './club-loader.js';
 import type { ScoringMode } from './dp-optimizer.js';
 import type { Club, Shot, CourseWithHoles } from '../models/types.js';
 
@@ -43,8 +44,7 @@ export async function regenerateStalePlans() {
 
     // 3. For each user, load their clubs/shots once and regenerate all their stale plans
     for (const [userId, userPlans] of byUser) {
-      const { rows: clubRows } = await query('SELECT * FROM clubs WHERE user_id = $1 ORDER BY sort_order', [userId]);
-      const clubs = clubRows.map(toCamel<Club>);
+      const clubs = await loadUserClubs(userId);
 
       const { rows: shotRows } = await query('SELECT * FROM shots WHERE user_id = $1', [userId]);
       const shots = shotRows.map(toCamel<Shot>);

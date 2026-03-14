@@ -2,8 +2,9 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { query, toCamel, withTransaction } from '../db.js';
 import { logger } from '../logger.js';
-import { CLUB_COLUMNS, SESSION_COLUMNS, SHOT_COLUMNS, pickColumns, buildInsert } from '../utils/db-columns.js';
+import { BAG_CLUB_COLUMNS, SESSION_COLUMNS, SHOT_COLUMNS, pickColumns, buildInsert } from '../utils/db-columns.js';
 import { markPlansStale } from './game-plans.js';
+import { loadUserClubs } from '../services/club-loader.js';
 
 const importBackupSchema = z.object({
   version: z.number(),
@@ -18,14 +19,14 @@ const router = Router();
 router.get('/export', async (req, res) => {
   try {
     const userId = req.session.userId!;
-    const clubs = await query('SELECT * FROM clubs WHERE user_id = $1 ORDER BY sort_order', [userId]);
+    const clubs = await loadUserClubs(userId);
     const sessions = await query('SELECT * FROM sessions WHERE user_id = $1 ORDER BY date', [userId]);
     const shots = await query('SELECT * FROM shots WHERE user_id = $1 ORDER BY session_id, shot_number', [userId]);
 
     res.json({
       version: 1,
       exportedAt: new Date().toISOString(),
-      clubs: clubs.rows.map(toCamel),
+      clubs,
       sessions: sessions.rows.map(toCamel),
       shots: shots.rows.map(toCamel),
     });
@@ -62,14 +63,35 @@ router.post('/import', async (req, res) => {
       // Clear current user's data only
       await client.query('DELETE FROM shots WHERE user_id = $1', [userId]);
       await client.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
-      await client.query('DELETE FROM wedge_overrides WHERE user_id = $1', [userId]);
-      await client.query('DELETE FROM clubs WHERE user_id = $1', [userId]);
+      await client.query('DELETE FROM bag_clubs WHERE user_id = $1', [userId]);
 
-      // Insert clubs with user_id
+      // Insert clubs into bag_clubs + club_profiles
       for (const club of clubs) {
-        const row = pickColumns({ ...club, userId }, CLUB_COLUMNS);
-        const q = buildInsert('clubs', row);
+        const now = Date.now();
+        const row = pickColumns({ ...club, isActive: true, userId, createdAt: club.createdAt ?? now, updatedAt: club.updatedAt ?? now }, BAG_CLUB_COLUMNS);
+        const q = buildInsert('bag_clubs', row);
         await client.query(q.text, q.values);
+
+        // Create manual profile if carry/total present
+        const clubId = (club.id ?? row.id) as string;
+        const manualCarry = club.manualCarry as number | null | undefined;
+        const manualTotal = club.manualTotal as number | null | undefined;
+        if (manualCarry != null || manualTotal != null) {
+          await client.query(
+            `INSERT INTO club_profiles (id, bag_club_id, profile_type, carry_mean, total_mean, is_current, effective_from, created_at)
+             VALUES (gen_random_uuid()::text, $1, 'manual', $2, $3, TRUE, $4, $4)`,
+            [clubId, manualCarry ?? null, manualTotal ?? null, now],
+          );
+        }
+        // Create computed profile if present
+        const computedCarry = club.computedCarry as number | null | undefined;
+        if (computedCarry != null) {
+          await client.query(
+            `INSERT INTO club_profiles (id, bag_club_id, profile_type, carry_mean, is_current, effective_from, created_at)
+             VALUES (gen_random_uuid()::text, $1, 'computed', $2, TRUE, $3, $3)`,
+            [clubId, computedCarry, now],
+          );
+        }
       }
 
       // Insert sessions with user_id

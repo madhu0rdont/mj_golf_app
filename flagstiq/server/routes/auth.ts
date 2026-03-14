@@ -345,10 +345,10 @@ router.post('/setup', async (req, res) => {
     );
 
     // Assign any existing data to the new player account
+    await query('UPDATE bag_clubs SET user_id = $1 WHERE user_id IS NULL', [playerId]);
     await query('UPDATE clubs SET user_id = $1 WHERE user_id IS NULL', [playerId]);
     await query('UPDATE sessions SET user_id = $1 WHERE user_id IS NULL', [playerId]);
     await query('UPDATE shots SET user_id = $1 WHERE user_id IS NULL', [playerId]);
-    await query('UPDATE wedge_overrides SET user_id = $1 WHERE user_id IS NULL', [playerId]);
     await query('UPDATE game_plan_cache SET user_id = $1 WHERE user_id IS NULL', [playerId]);
     await query('UPDATE game_plan_history SET user_id = $1 WHERE user_id IS NULL', [playerId]);
 

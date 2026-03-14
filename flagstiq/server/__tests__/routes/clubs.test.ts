@@ -4,6 +4,8 @@ import { createTestApp, mockQuery, mockClient, mockDbModule, resetMocks, TEST_US
 
 // vi.hoisted runs before vi.mock hoisting, so the variable is available
 const mockMarkPlansStale = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const mockLoadUserClubs = vi.hoisted(() => vi.fn().mockResolvedValue([]));
+const mockLoadSingleClub = vi.hoisted(() => vi.fn().mockResolvedValue(null));
 
 // Mock plan-regenerator so markPlansStale's debounced regen doesn't fire
 vi.mock('../../services/plan-regenerator.js', () => ({
@@ -19,6 +21,11 @@ vi.mock('../../routes/game-plans.js', async (importOriginal) => {
   };
 });
 
+vi.mock('../../services/club-loader.js', () => ({
+  loadUserClubs: mockLoadUserClubs,
+  loadSingleClub: mockLoadSingleClub,
+}));
+
 // Mock the db module before importing the router
 mockDbModule();
 
@@ -31,6 +38,8 @@ describe('clubs routes', () => {
   beforeEach(() => {
     resetMocks();
     mockMarkPlansStale.mockReset().mockResolvedValue(undefined);
+    mockLoadUserClubs.mockReset().mockResolvedValue([]);
+    mockLoadSingleClub.mockReset().mockResolvedValue(null);
     vi.useFakeTimers();
   });
 
@@ -40,13 +49,11 @@ describe('clubs routes', () => {
 
   // ── GET / ──────────────────────────────────────────────────────────
   describe('GET /', () => {
-    it('returns clubs array with camelCase keys', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [
-          { id: '1', name: 'Driver', sort_order: 0, created_at: 1000 },
-          { id: '2', name: '7 Iron', sort_order: 1, created_at: 2000 },
-        ],
-      });
+    it('returns clubs array', async () => {
+      mockLoadUserClubs.mockResolvedValueOnce([
+        { id: '1', name: 'Driver', sortOrder: 0, createdAt: 1000 },
+        { id: '2', name: '7 Iron', sortOrder: 1, createdAt: 2000 },
+      ]);
 
       const res = await request(app).get('/');
       expect(res.status).toBe(200);
@@ -54,24 +61,23 @@ describe('clubs routes', () => {
         { id: '1', name: 'Driver', sortOrder: 0, createdAt: 1000 },
         { id: '2', name: '7 Iron', sortOrder: 1, createdAt: 2000 },
       ]);
-      expect(mockQuery).toHaveBeenCalledWith('SELECT * FROM clubs WHERE user_id = $1 ORDER BY sort_order', [TEST_USER_ID]);
+      expect(mockLoadUserClubs).toHaveBeenCalledWith(TEST_USER_ID);
     });
   });
 
   // ── GET /:id ───────────────────────────────────────────────────────
   describe('GET /:id', () => {
     it('returns a single club', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'abc', name: 'PW', sort_order: 5 }],
-      });
+      mockLoadSingleClub.mockResolvedValueOnce({ id: 'abc', name: 'PW', sortOrder: 5 });
 
       const res = await request(app).get('/abc');
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ id: 'abc', name: 'PW', sortOrder: 5 });
+      expect(mockLoadSingleClub).toHaveBeenCalledWith(TEST_USER_ID, 'abc');
     });
 
     it('returns 404 when club not found', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [] });
+      mockLoadSingleClub.mockResolvedValueOnce(null);
 
       const res = await request(app).get('/nonexistent');
       expect(res.status).toBe(404);
@@ -84,8 +90,12 @@ describe('clubs routes', () => {
     it('creates club with valid data, returns 201', async () => {
       // First query: get max sort_order
       mockQuery.mockResolvedValueOnce({ rows: [{ max_order: 2 }] });
-      // Second query: INSERT
+      // Second query: INSERT into bag_clubs
       mockQuery.mockResolvedValueOnce({ rows: [] });
+      // loadSingleClub returns new club
+      mockLoadSingleClub.mockResolvedValueOnce({
+        id: 'new-id', name: 'New Club', category: 'iron', sortOrder: 3, createdAt: 1000, updatedAt: 1000,
+      });
 
       const res = await request(app)
         .post('/')
@@ -95,13 +105,12 @@ describe('clubs routes', () => {
       expect(res.body.name).toBe('New Club');
       expect(res.body.category).toBe('iron');
       expect(res.body.sortOrder).toBe(3);
-      expect(res.body.id).toBeDefined();
-      expect(res.body.createdAt).toBeDefined();
     });
 
     it('marks plans stale after creating club', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [{ max_order: 0 }] });
       mockQuery.mockResolvedValueOnce({ rows: [] });
+      mockLoadSingleClub.mockResolvedValueOnce({ id: 'x', name: 'X', sortOrder: 1 });
 
       await request(app)
         .post('/')
@@ -123,12 +132,10 @@ describe('clubs routes', () => {
   // ── PUT /:id ───────────────────────────────────────────────────────
   describe('PUT /:id', () => {
     it('updates club and returns updated record', async () => {
-      // First call: UPDATE query
+      // UPDATE bag_clubs
       mockQuery.mockResolvedValueOnce({ rows: [] });
-      // Second call: SELECT after update
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'abc', name: 'Updated Club', sort_order: 0 }],
-      });
+      // loadSingleClub returns updated
+      mockLoadSingleClub.mockResolvedValueOnce({ id: 'abc', name: 'Updated Club', sortOrder: 0 });
 
       const res = await request(app)
         .put('/abc')
@@ -140,9 +147,7 @@ describe('clubs routes', () => {
 
     it('marks plans stale after updating club', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [] });
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 'abc', name: 'Updated', sort_order: 0 }],
-      });
+      mockLoadSingleClub.mockResolvedValueOnce({ id: 'abc', name: 'Updated', sortOrder: 0 });
 
       await request(app)
         .put('/abc')
@@ -184,14 +189,14 @@ describe('clubs routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
 
-      // Uses withTransaction — deletes sessions then club (user-scoped)
+      // Uses withTransaction — deletes sessions then bag_clubs (user-scoped)
       expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
       expect(mockClient.query).toHaveBeenCalledWith(
         'DELETE FROM sessions WHERE club_id = $1 AND user_id = $2',
         ['abc', TEST_USER_ID]
       );
       expect(mockClient.query).toHaveBeenCalledWith(
-        'DELETE FROM clubs WHERE id = $1 AND user_id = $2',
+        'DELETE FROM bag_clubs WHERE id = $1 AND user_id = $2',
         ['abc', TEST_USER_ID]
       );
       expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
@@ -207,7 +212,7 @@ describe('clubs routes', () => {
   // ── Error handling ─────────────────────────────────────────────────
   describe('error handling', () => {
     it('returns 500 when query throws', async () => {
-      mockQuery.mockRejectedValueOnce(new Error('DB connection failed'));
+      mockLoadUserClubs.mockRejectedValueOnce(new Error('DB connection failed'));
 
       const res = await request(app).get('/');
       expect(res.status).toBe(500);

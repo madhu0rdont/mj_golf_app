@@ -375,7 +375,7 @@ describe('users routes', () => {
       expect(res.body.ok).toBe(true);
       expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
       expect(mockClient.query).toHaveBeenCalledWith('DELETE FROM shots WHERE user_id = $1', ['player-id']);
-      expect(mockClient.query).toHaveBeenCalledWith('DELETE FROM clubs WHERE user_id = $1', ['player-id']);
+      expect(mockClient.query).toHaveBeenCalledWith('DELETE FROM bag_clubs WHERE user_id = $1', ['player-id']);
       expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
     });
 

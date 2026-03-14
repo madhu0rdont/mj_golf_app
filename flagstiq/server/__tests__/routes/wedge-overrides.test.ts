@@ -37,8 +37,9 @@ describe('wedge-overrides routes', () => {
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
       await request(app).get('/');
+      // Query joins through club_distance_profiles → club_profiles → bag_clubs
       expect(mockQuery).toHaveBeenCalledWith(
-        'SELECT * FROM wedge_overrides WHERE user_id = $1',
+        expect.stringContaining('bag_clubs'),
         [TEST_USER_ID],
       );
     });
@@ -54,6 +55,9 @@ describe('wedge-overrides routes', () => {
   // ── PUT / ──────────────────────────────────────────────────────────
   describe('PUT /', () => {
     it('upserts override with valid data', async () => {
+      // First query: find existing profile
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'profile-1' }] });
+      // Second query: INSERT INTO club_distance_profiles
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
       const res = await request(app)
@@ -63,8 +67,27 @@ describe('wedge-overrides routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
       expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO wedge_overrides'),
-        [VALID_UUID, 'full', 130, TEST_USER_ID],
+        expect.stringContaining('INSERT INTO club_distance_profiles'),
+        expect.arrayContaining(['profile-1', 'full', 130]),
+      );
+    });
+
+    it('creates manual profile if none exists', async () => {
+      // First query: no existing profile
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      // Second query: INSERT INTO club_profiles (RETURNING id)
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'new-profile' }] });
+      // Third query: INSERT INTO club_distance_profiles
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const res = await request(app)
+        .put('/')
+        .send({ clubId: VALID_UUID, position: 'full', carry: 130 });
+
+      expect(res.status).toBe(200);
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO club_profiles'),
+        expect.arrayContaining([VALID_UUID]),
       );
     });
 
@@ -162,8 +185,8 @@ describe('wedge-overrides routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
       expect(mockQuery).toHaveBeenCalledWith(
-        'DELETE FROM wedge_overrides WHERE club_id = $1 AND position = $2 AND user_id = $3',
-        [VALID_UUID, 'full', TEST_USER_ID],
+        expect.stringContaining('DELETE FROM club_distance_profiles'),
+        ['full', VALID_UUID, TEST_USER_ID],
       );
     });
 

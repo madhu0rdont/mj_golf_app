@@ -3,6 +3,7 @@ import { pool, toCamel } from '../db.js';
 import { logger } from '../logger.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { loadSingleHole } from '../services/hole-loader.js';
+import { loadUserClubs } from '../services/club-loader.js';
 
 const router = Router();
 
@@ -291,9 +292,9 @@ router.get('/tee-actions/:courseId/:holeNumber', async (req, res) => {
     if (!hole) return res.json({ error: 'hole not found' });
 
     // Load clubs/shots for distributions
-    const { rows: clubRows } = await pool.query('SELECT * FROM clubs ORDER BY loft ASC');
-    const { rows: shotRows } = await pool.query('SELECT * FROM shots');
-    const clubs = clubRows.map(r => toCamel(r));
+    const debugUserId = (req.query.userId as string) || req.session.userId!;
+    const clubs = await loadUserClubs(debugUserId);
+    const { rows: shotRows } = await pool.query('SELECT * FROM shots WHERE user_id = $1', [debugUserId]);
     const shots = shotRows.map(r => toCamel(r));
     const groups = computeClubShotGroups(clubs as never[], shots as never[]);
     const distributions = buildDistributions(groups);

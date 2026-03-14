@@ -12,6 +12,7 @@ import { buildDistributions } from '../services/monte-carlo.js';
 import { assembleGamePlan } from '../services/game-plan.js';
 import type { GamePlan } from '../services/game-plan.js';
 import { loadCourseHoles, loadSingleHole } from '../services/hole-loader.js';
+import { loadUserClubs } from '../services/club-loader.js';
 import type { Club, Shot, CourseWithHoles } from '../models/types.js';
 
 const router = Router();
@@ -188,8 +189,7 @@ router.post('/:courseId/:teeBox/:mode/generate', async (req, res) => {
     }
 
     // Load user's club/shot data
-    const { rows: clubRows } = await query('SELECT * FROM clubs WHERE user_id = $1 ORDER BY sort_order', [userId]);
-    const clubs = clubRows.map(toCamel<Club>);
+    const clubs = await loadUserClubs(userId);
 
     const { rows: shotRows } = await query('SELECT * FROM shots WHERE user_id = $1', [userId]);
     const shots = shotRows.map(toCamel<Shot>);
@@ -279,8 +279,7 @@ router.post('/:courseId/:teeBox/:mode/generate/:holeNumber', async (req, res) =>
     }
 
     // Load user's club/shot data and build distributions
-    const { rows: clubRows } = await query('SELECT * FROM clubs WHERE user_id = $1 ORDER BY sort_order', [userId]);
-    const clubs = clubRows.map(toCamel<Club>);
+    const clubs = await loadUserClubs(userId);
     const { rows: shotRows } = await query('SELECT * FROM shots WHERE user_id = $1', [userId]);
     const shots = shotRows.map(toCamel<Shot>);
 

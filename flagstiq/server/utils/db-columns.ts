@@ -6,6 +6,11 @@ export const CLUB_COLUMNS = [
   'preferred_shape', 'sort_order', 'user_id', 'created_at', 'updated_at',
 ];
 
+export const BAG_CLUB_COLUMNS = [
+  'id', 'name', 'category', 'brand', 'model', 'loft', 'shaft', 'flex',
+  'preferred_shape', 'sort_order', 'is_active', 'user_id', 'created_at', 'updated_at',
+];
+
 export const SESSION_COLUMNS = [
   'id', 'club_id', 'date', 'location', 'notes', 'source',
   'shot_count', 'type', 'metadata', 'user_id', 'created_at', 'updated_at',

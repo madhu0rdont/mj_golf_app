@@ -323,10 +323,9 @@ router.post('/:id/clear-data', requireAdmin, async (req, res) => {
     await withTransaction(async (client) => {
       await client.query('DELETE FROM shots WHERE user_id = $1', [targetId]);
       await client.query('DELETE FROM sessions WHERE user_id = $1', [targetId]);
-      await client.query('DELETE FROM wedge_overrides WHERE user_id = $1', [targetId]);
       await client.query('DELETE FROM game_plan_cache WHERE user_id = $1', [targetId]);
       await client.query('DELETE FROM game_plan_history WHERE user_id = $1', [targetId]);
-      await client.query('DELETE FROM clubs WHERE user_id = $1', [targetId]);
+      await client.query('DELETE FROM bag_clubs WHERE user_id = $1', [targetId]);
     });
 
     logger.info(`Cleared all data for user ${targetId}`);
@@ -388,10 +387,9 @@ router.delete('/:id', requireAdmin, async (req, res) => {
       // Cascade delete user's data
       await client.query('DELETE FROM shots WHERE user_id = $1', [targetId]);
       await client.query('DELETE FROM sessions WHERE user_id = $1', [targetId]);
-      await client.query('DELETE FROM wedge_overrides WHERE user_id = $1', [targetId]);
       await client.query('DELETE FROM game_plan_cache WHERE user_id = $1', [targetId]);
       await client.query('DELETE FROM game_plan_history WHERE user_id = $1', [targetId]);
-      await client.query('DELETE FROM clubs WHERE user_id = $1', [targetId]);
+      await client.query('DELETE FROM bag_clubs WHERE user_id = $1', [targetId]);
       await client.query('DELETE FROM users WHERE id = $1', [targetId]);
     });
 

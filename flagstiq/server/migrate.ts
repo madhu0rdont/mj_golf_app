@@ -970,6 +970,161 @@ export async function migrate() {
     logger.info('Migrated course_holes data to normalized hole tables');
   }
 
+  // ── Phase 2: Split clubs → bag_clubs + club_profiles ──
+  await query(`
+    CREATE TABLE IF NOT EXISTS bag_clubs (
+      id              TEXT PRIMARY KEY,
+      user_id         TEXT NOT NULL REFERENCES users(id),
+      name            TEXT NOT NULL,
+      category        TEXT NOT NULL,
+      brand           TEXT,
+      model           TEXT,
+      loft            REAL,
+      shaft           TEXT,
+      flex            TEXT,
+      preferred_shape TEXT,
+      sort_order      INTEGER NOT NULL DEFAULT 0,
+      is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at      BIGINT NOT NULL,
+      updated_at      BIGINT NOT NULL
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_bag_clubs_user ON bag_clubs(user_id)`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS club_profiles (
+      id                  TEXT PRIMARY KEY,
+      bag_club_id         TEXT NOT NULL REFERENCES bag_clubs(id) ON DELETE CASCADE,
+      profile_type        TEXT NOT NULL DEFAULT 'manual',
+      carry_mean          REAL,
+      carry_sd            REAL,
+      total_mean          REAL,
+      total_sd            REAL,
+      offline_mean        REAL,
+      offline_sd          REAL,
+      ball_speed_mean     REAL,
+      launch_angle_mean   REAL,
+      spin_rate_mean      REAL,
+      apex_height_mean    REAL,
+      descent_angle_mean  REAL,
+      sample_size         INTEGER DEFAULT 0,
+      is_current          BOOLEAN NOT NULL DEFAULT TRUE,
+      effective_from      BIGINT NOT NULL,
+      created_at          BIGINT NOT NULL
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_club_profiles_bag_club ON club_profiles(bag_club_id)`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS club_distance_profiles (
+      id               TEXT PRIMARY KEY,
+      club_profile_id  TEXT NOT NULL REFERENCES club_profiles(id) ON DELETE CASCADE,
+      shot_intent      TEXT NOT NULL,
+      swing_pct        REAL,
+      carry_mean       REAL NOT NULL,
+      carry_sd         REAL,
+      offline_mean     REAL,
+      offline_sd       REAL,
+      sample_size      INTEGER DEFAULT 0,
+      created_at       BIGINT NOT NULL,
+      UNIQUE(club_profile_id, shot_intent)
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_club_distance_profiles_profile ON club_distance_profiles(club_profile_id)`);
+
+  // Migrate data from clubs → bag_clubs + club_profiles (idempotent, one-time)
+  const CLUBS_SPLIT_FLAG = 'clubs_split_v1';
+  const { rows: clubsSplitFlag } = await query('SELECT 1 FROM _migration_flags WHERE flag = $1', [CLUBS_SPLIT_FLAG]);
+  if (clubsSplitFlag.length === 0) {
+    // 1. Copy physical club data to bag_clubs (same PKs)
+    await query(`
+      INSERT INTO bag_clubs (id, user_id, name, category, brand, model, loft, shaft, flex, preferred_shape, sort_order, is_active, created_at, updated_at)
+      SELECT id, user_id, name, category, brand, model, loft, shaft, flex, preferred_shape, sort_order, TRUE, created_at, updated_at
+      FROM clubs
+      WHERE user_id IS NOT NULL
+      ON CONFLICT DO NOTHING
+    `);
+
+    // 2. Create 'manual' profile for clubs that have manual_carry or manual_total
+    await query(`
+      INSERT INTO club_profiles (id, bag_club_id, profile_type, carry_mean, total_mean, is_current, effective_from, created_at)
+      SELECT gen_random_uuid()::text, id, 'manual', manual_carry, manual_total, TRUE, created_at, created_at
+      FROM clubs
+      WHERE user_id IS NOT NULL AND (manual_carry IS NOT NULL OR manual_total IS NOT NULL)
+      ON CONFLICT DO NOTHING
+    `);
+
+    // 3. Create 'computed' profile for clubs that have computed_carry or computed_total
+    await query(`
+      INSERT INTO club_profiles (id, bag_club_id, profile_type, carry_mean, total_mean, is_current, effective_from, created_at)
+      SELECT gen_random_uuid()::text, id, 'computed', computed_carry, computed_total, TRUE, created_at, created_at
+      FROM clubs
+      WHERE user_id IS NOT NULL AND (computed_carry IS NOT NULL OR computed_total IS NOT NULL)
+      ON CONFLICT DO NOTHING
+    `);
+
+    // 4. Migrate wedge_overrides → club_distance_profiles (position → shot_intent)
+    // Need to join through club_profiles to get the profile id
+    await query(`
+      INSERT INTO club_distance_profiles (id, club_profile_id, shot_intent, swing_pct, carry_mean, created_at)
+      SELECT
+        gen_random_uuid()::text,
+        cp.id,
+        wo.position,
+        CASE wo.position
+          WHEN 'full' THEN 1.0
+          WHEN 'three_quarter' THEN 0.75
+          WHEN 'shoulder' THEN 0.75
+          WHEN 'half' THEN 0.5
+          WHEN 'hip' THEN 0.5
+          ELSE NULL
+        END,
+        wo.carry,
+        EXTRACT(EPOCH FROM NOW())::bigint * 1000
+      FROM wedge_overrides wo
+      JOIN club_profiles cp ON cp.bag_club_id = wo.club_id AND cp.profile_type = 'manual'
+      WHERE wo.user_id IS NOT NULL
+      ON CONFLICT DO NOTHING
+    `);
+
+    // 5. For wedge overrides that didn't match a manual profile, create one and link
+    await query(`
+      INSERT INTO club_profiles (id, bag_club_id, profile_type, is_current, effective_from, created_at)
+      SELECT gen_random_uuid()::text, wo.club_id, 'manual', TRUE, EXTRACT(EPOCH FROM NOW())::bigint * 1000, EXTRACT(EPOCH FROM NOW())::bigint * 1000
+      FROM wedge_overrides wo
+      LEFT JOIN club_profiles cp ON cp.bag_club_id = wo.club_id AND cp.profile_type = 'manual'
+      WHERE wo.user_id IS NOT NULL AND cp.id IS NULL
+      GROUP BY wo.club_id
+      ON CONFLICT DO NOTHING
+    `);
+    // Then insert distance profiles for those
+    await query(`
+      INSERT INTO club_distance_profiles (id, club_profile_id, shot_intent, swing_pct, carry_mean, created_at)
+      SELECT
+        gen_random_uuid()::text,
+        cp.id,
+        wo.position,
+        CASE wo.position
+          WHEN 'full' THEN 1.0
+          WHEN 'three_quarter' THEN 0.75
+          WHEN 'shoulder' THEN 0.75
+          WHEN 'half' THEN 0.5
+          WHEN 'hip' THEN 0.5
+          ELSE NULL
+        END,
+        wo.carry,
+        EXTRACT(EPOCH FROM NOW())::bigint * 1000
+      FROM wedge_overrides wo
+      JOIN club_profiles cp ON cp.bag_club_id = wo.club_id AND cp.profile_type = 'manual'
+      LEFT JOIN club_distance_profiles cdp ON cdp.club_profile_id = cp.id AND cdp.shot_intent = wo.position
+      WHERE wo.user_id IS NOT NULL AND cdp.id IS NULL
+      ON CONFLICT DO NOTHING
+    `);
+
+    await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [CLUBS_SPLIT_FLAG, Date.now()]);
+    logger.info('Migrated clubs data to bag_clubs + club_profiles');
+  }
+
   // ── S1: Update wedge_overrides unique constraint to include user_id ──
   // Original PK was (club_id, position) without user_id, allowing cross-user overwrites
   await query(`

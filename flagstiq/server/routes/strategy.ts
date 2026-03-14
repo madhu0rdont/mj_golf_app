@@ -6,6 +6,7 @@ import { loadStrategyConstants } from '../services/strategy-optimizer.js';
 import { computeClubShotGroups } from '../services/club-shot-groups.js';
 import { buildDistributions } from '../services/monte-carlo.js';
 import { loadSingleHole } from '../services/hole-loader.js';
+import { loadUserClubs } from '../services/club-loader.js';
 import type { Club, Shot } from '../models/types.js';
 
 const router = Router();
@@ -27,8 +28,7 @@ router.post('/hole', async (req, res) => {
     }
 
     // Build distributions from user's shot data (deterministic — always computed fresh)
-    const { rows: clubRows } = await query('SELECT * FROM clubs WHERE user_id = $1 ORDER BY sort_order', [userId]);
-    const clubs = clubRows.map(toCamel<Club>);
+    const clubs = await loadUserClubs(userId);
 
     const { rows: shotRows } = await query('SELECT * FROM shots WHERE user_id = $1', [userId]);
     const shots = shotRows.map(toCamel<Shot>);
