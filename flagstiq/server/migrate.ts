@@ -279,6 +279,9 @@ export async function migrate() {
     }, 5000);
   }
 
+  // Clean up safe mode cache entries — only scoring mode is used
+  await query(`DELETE FROM game_plan_cache WHERE mode = 'safe'`);
+
   // Home course preference
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS home_course_id TEXT REFERENCES courses(id)`);
 
