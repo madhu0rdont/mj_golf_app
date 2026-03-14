@@ -98,7 +98,7 @@ describe('computeLandingZones', () => {
     expect(maxDist2).toBeGreaterThan(maxDist1 * 1.5);
   });
 
-  it('outer ellipse extends ~3σ along carry axis', () => {
+  it('outer ellipse extends ~2σ along carry axis', () => {
     const dist = makeDist({ stdCarry: 12, stdOffline: 8 });
     const strategy: ApproachStrategy = {
       clubs: [{ clubId: 'driver', clubName: 'Driver' }],
@@ -107,16 +107,13 @@ describe('computeLandingZones', () => {
     };
     const zones = computeLandingZones(strategy, [dist], tee, bearing);
     const center = zones[0].center;
-    // Outer ellipse semi-major = carryAxis * 3 = max(12, 8*1.5) * 3 = 12 * 3 = 36
-    // The max distance from center in the carry direction should be ~36 yards.
+    // sigma2 semi-major = stdCarry * 2 = 12 * 2 = 24
     const maxDist2 = Math.max(...zones[0].sigma2.map((p) => haversineYards(center, p)));
-    expect(maxDist2).toBeCloseTo(36, -1); // within ~10 yards
+    expect(maxDist2).toBeCloseTo(24, -1); // within ~10 yards
   });
 
-  it('minimum aspect ratio enforced when offline > carry std', () => {
-    // stdCarry=5, stdOffline=8 — offline is larger than carry
-    // carryAxis = max(5, 8 * 1.5) = max(5, 12) = 12
-    // So inner carry semi = 12 * 1.5 = 18, inner offline semi = 8 * 1.5 = 12
+  it('ellipse axes match stdCarry and stdOffline directly', () => {
+    // stdCarry=5, stdOffline=8 — no minimum aspect ratio is applied
     const dist = makeDist({ stdCarry: 5, stdOffline: 8 });
     const strategy: ApproachStrategy = {
       clubs: [{ clubId: 'driver', clubName: 'Driver' }],
@@ -126,10 +123,7 @@ describe('computeLandingZones', () => {
     const zones = computeLandingZones(strategy, [dist], tee, bearing);
     const center = zones[0].center;
 
-    // Measure distances of sigma1 ellipse points along bearing (carry direction = north)
-    // and perpendicular (offline direction = east/west)
     const carryDistances = zones[0].sigma1.map((p) => {
-      // Along-bearing distance: difference in lat (bearing=0 is due north)
       return Math.abs(haversineYards(center, { lat: p.lat, lng: center.lng }));
     });
     const offlineDistances = zones[0].sigma1.map((p) => {
@@ -139,12 +133,9 @@ describe('computeLandingZones', () => {
     const maxCarry = Math.max(...carryDistances);
     const maxOffline = Math.max(...offlineDistances);
 
-    // The carry axis should be larger than the offline axis (enforced 1.5x ratio)
-    expect(maxCarry).toBeGreaterThan(maxOffline);
-    // Inner carry semi should be ~18 yards (12 * 1.5)
-    expect(maxCarry).toBeCloseTo(18, -1);
-    // Inner offline semi should be ~12 yards (8 * 1.5)
-    expect(maxOffline).toBeCloseTo(12, -1);
+    // sigma1 uses raw std values: carry=5, offline=8
+    expect(maxCarry).toBeCloseTo(5, -1);
+    expect(maxOffline).toBeCloseTo(8, -1);
   });
 
   it('outer ellipse is 2× inner in max distance', () => {
@@ -242,8 +233,8 @@ describe('computeLandingZonesFromAimPoints', () => {
     expect(zones[0].sigma2).toHaveLength(36);
   });
 
-  it('aim-point zones enforce minimum aspect ratio', () => {
-    // stdCarry=5, stdOffline=8 → carryAxis = max(5, 8*1.5) = 12
+  it('aim-point zones use raw stdCarry and stdOffline', () => {
+    // stdCarry=5, stdOffline=8 — no aspect ratio enforcement
     const narrowDist = makeDist({
       clubId: 'driver',
       clubName: 'Driver',
@@ -267,7 +258,6 @@ describe('computeLandingZonesFromAimPoints', () => {
     const zones = computeLandingZonesFromAimPoints(strategy, [narrowDist], 0);
     const center = zones[0].center;
 
-    // Measure along-bearing (carry, north) and perpendicular (offline) distances
     const carryDistances = zones[0].sigma1.map((p) =>
       Math.abs(haversineYards(center, { lat: p.lat, lng: center.lng })),
     );
@@ -278,10 +268,10 @@ describe('computeLandingZonesFromAimPoints', () => {
     const maxCarry = Math.max(...carryDistances);
     const maxOffline = Math.max(...offlineDistances);
 
-    // Carry axis forced to 12 (1.5 * 8), inner = 12 * 1.5 = 18
-    // Offline axis stays at 8, inner = 8 * 1.5 = 12
-    // The ellipse should be elongated along bearing (carry > offline)
-    expect(maxCarry).toBeGreaterThan(maxOffline);
+    // Offline (8) is larger than carry (5) — no minimum aspect ratio applied
+    expect(maxOffline).toBeGreaterThan(maxCarry);
+    expect(maxCarry).toBeCloseTo(5, -1);
+    expect(maxOffline).toBeCloseTo(8, -1);
   });
 
   it('aim-point zone outer ellipse is 2× inner', () => {
