@@ -7,6 +7,16 @@ vi.mock('../../services/plan-regenerator.js', () => ({
   regenerateStalePlans: vi.fn().mockResolvedValue(undefined),
 }));
 
+const mockLoadRunHistory = vi.hoisted(() => vi.fn().mockResolvedValue([]));
+const mockLoadRunDetail = vi.hoisted(() => vi.fn().mockResolvedValue(null));
+const mockInsertOptimizerRun = vi.hoisted(() => vi.fn().mockResolvedValue('run-id'));
+
+vi.mock('../../services/optimizer-run-loader.js', () => ({
+  loadRunHistory: mockLoadRunHistory,
+  loadRunDetail: mockLoadRunDetail,
+  insertOptimizerRun: mockInsertOptimizerRun,
+}));
+
 // Mock the db module before importing the router
 mockDbModule();
 
@@ -33,6 +43,9 @@ describe('game-plans routes', () => {
     resetMocks();
     vi.useFakeTimers();
     vi.mocked(regenerateStalePlans).mockReset().mockResolvedValue(undefined);
+    mockLoadRunHistory.mockReset().mockResolvedValue([]);
+    mockLoadRunDetail.mockReset().mockResolvedValue(null);
+    mockInsertOptimizerRun.mockReset().mockResolvedValue('run-id');
   });
 
   afterEach(() => {
@@ -244,12 +257,10 @@ describe('game-plans routes', () => {
   // ── History endpoints ────────────────────────────────────────────
   describe('GET /history/:courseId/:teeBox/:mode', () => {
     it('returns history entries for charting', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [
-          { id: 'h1', total_expected: 78.5, trigger_reason: 'New practice data recorded', created_at: 2000 },
-          { id: 'h2', total_expected: 79.2, trigger_reason: 'Club settings changed', created_at: 1000 },
-        ],
-      });
+      mockLoadRunHistory.mockResolvedValueOnce([
+        { id: 'h1', totalExpected: 78.5, triggerReason: 'New practice data recorded', createdAt: 2000 },
+        { id: 'h2', totalExpected: 79.2, triggerReason: 'Club settings changed', createdAt: 1000 },
+      ]);
 
       const res = await request(app).get('/history/c1/blue/scoring');
       expect(res.status).toBe(200);
@@ -261,30 +272,19 @@ describe('game-plans routes', () => {
     });
 
     it('returns empty array when no history', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [] });
-
       const res = await request(app).get('/history/c1/blue/scoring');
       expect(res.status).toBe(200);
       expect(res.body).toEqual([]);
     });
 
-    it('queries with correct parameters and limit', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [] });
-
+    it('calls loadRunHistory with correct parameters', async () => {
       await request(app).get('/history/c1/blue/scoring');
 
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining('FROM game_plan_history'),
-        ['c1', 'blue', 'scoring', TEST_USER_ID],
-      );
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining('LIMIT 100'),
-        expect.anything(),
-      );
+      expect(mockLoadRunHistory).toHaveBeenCalledWith(TEST_USER_ID, 'c1', 'blue', 'scoring');
     });
 
     it('returns 500 on database error', async () => {
-      mockQuery.mockRejectedValueOnce(new Error('DB error'));
+      mockLoadRunHistory.mockRejectedValueOnce(new Error('DB error'));
 
       const res = await request(app).get('/history/c1/blue/scoring');
       expect(res.status).toBe(500);
@@ -293,29 +293,16 @@ describe('game-plans routes', () => {
 
   describe('GET /history/:courseId/:teeBox/:mode/:id', () => {
     it('returns full historical plan', async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [{
-          id: 'h1',
-          course_id: 'c1',
-          tee_box: 'blue',
-          mode: 'scoring',
-          total_expected: 78.5,
-          plan: SAMPLE_PLAN,
-          trigger_reason: 'Club bag changed',
-          created_at: 1000,
-        }],
-      });
+      mockLoadRunDetail.mockResolvedValueOnce(SAMPLE_PLAN);
 
       const res = await request(app).get('/history/c1/blue/scoring/h1');
       expect(res.status).toBe(200);
-      expect(res.body.id).toBe('h1');
-      expect(res.body.plan).toEqual(SAMPLE_PLAN);
       expect(res.body.totalExpected).toBe(78.5);
-      expect(res.body.triggerReason).toBe('Club bag changed');
+      expect(res.body.courseName).toBe('Test Course');
     });
 
     it('returns 404 when history entry not found', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [] });
+      mockLoadRunDetail.mockResolvedValueOnce(null);
 
       const res = await request(app).get('/history/c1/blue/scoring/nonexistent');
       expect(res.status).toBe(404);
@@ -323,7 +310,7 @@ describe('game-plans routes', () => {
     });
 
     it('returns 500 on database error', async () => {
-      mockQuery.mockRejectedValueOnce(new Error('DB error'));
+      mockLoadRunDetail.mockRejectedValueOnce(new Error('DB error'));
 
       const res = await request(app).get('/history/c1/blue/scoring/h1');
       expect(res.status).toBe(500);

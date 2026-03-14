@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import crypto from 'node:crypto';
 import { query, toCamel } from '../db.js';
 import { logger } from '../logger.js';
 import { regenerateStalePlans } from '../services/plan-regenerator.js';
@@ -13,6 +12,7 @@ import { assembleGamePlan } from '../services/game-plan.js';
 import type { GamePlan } from '../services/game-plan.js';
 import { loadCourseHoles, loadSingleHole } from '../services/hole-loader.js';
 import { loadUserClubs } from '../services/club-loader.js';
+import { loadRunHistory, loadRunDetail, insertOptimizerRun } from '../services/optimizer-run-loader.js';
 import type { Club, Shot, CourseWithHoles } from '../models/types.js';
 
 const router = Router();
@@ -127,15 +127,8 @@ router.get('/history/:courseId/:teeBox/:mode', async (req, res) => {
   try {
     const userId = req.session.userId!;
     const { courseId, teeBox, mode } = req.params;
-    const { rows } = await query(
-      `SELECT id, total_expected, trigger_reason, created_at
-       FROM game_plan_history
-       WHERE course_id = $1 AND tee_box = $2 AND mode = $3 AND user_id = $4
-       ORDER BY created_at DESC
-       LIMIT 100`,
-      [courseId, teeBox, mode, userId],
-    );
-    res.json(rows.map(toCamel));
+    const history = await loadRunHistory(userId, courseId, teeBox, mode);
+    res.json(history);
   } catch (err) {
     logger.error('Failed to fetch game plan history', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
@@ -147,14 +140,11 @@ router.get('/history/:courseId/:teeBox/:mode/:id', async (req, res) => {
   try {
     const userId = req.session.userId!;
     const { id } = req.params;
-    const { rows } = await query(
-      `SELECT * FROM game_plan_history WHERE id = $1 AND user_id = $2`,
-      [id, userId],
-    );
-    if (rows.length === 0) {
+    const plan = await loadRunDetail(userId, id);
+    if (!plan) {
       return res.status(404).json({ error: 'History entry not found' });
     }
-    res.json(toCamel(rows[0]));
+    res.json(plan);
   } catch (err) {
     logger.error('Failed to fetch game plan history entry', { error: String(err) });
     res.status(500).json({ error: 'Internal server error' });
@@ -223,13 +213,8 @@ router.post('/:courseId/:teeBox/:mode/generate', async (req, res) => {
       [cacheId, courseId, teeBox, mode, JSON.stringify(plan), userId, now],
     );
 
-    // Insert history
-    const historyId = crypto.randomUUID();
-    await query(
-      `INSERT INTO game_plan_history (id, course_id, tee_box, mode, total_expected, plan, trigger_reason, user_id, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [historyId, courseId, teeBox, mode, plan.totalExpected, JSON.stringify(plan), 'manual_generate', userId, now],
-    );
+    // Insert history (normalized optimizer run)
+    await insertOptimizerRun(userId, courseId, teeBox, mode, plan, 'manual_generate');
 
     logger.info(`Generated ${mode} plan for ${course.name} (${teeBox}): ${plan.totalExpected.toFixed(1)} xS`, {
       component: 'game-plan-generate',

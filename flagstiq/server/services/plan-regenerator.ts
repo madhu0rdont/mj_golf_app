@@ -1,12 +1,12 @@
-import crypto from 'node:crypto';
 import { query, toCamel } from '../db.js';
 import { logger } from '../logger.js';
 import { loadStrategyConstants } from './strategy-optimizer.js';
 import { generatePlanParallel, isPlanGenerationActive } from './plan-worker-pool.js';
 import { loadCourseHoles } from './hole-loader.js';
 import { loadUserClubs } from './club-loader.js';
+import { insertOptimizerRun } from './optimizer-run-loader.js';
 import type { ScoringMode } from './dp-optimizer.js';
-import type { Club, Shot, CourseWithHoles } from '../models/types.js';
+import type { Shot, CourseWithHoles } from '../models/types.js';
 
 // PostgreSQL advisory lock ID for plan regeneration
 const REGEN_LOCK_ID = 1337;
@@ -94,13 +94,8 @@ export async function regenerateStalePlans() {
               [cacheId, courseId, teeBox, mode, JSON.stringify(plan), userId, now],
             );
 
-            // Insert game_plan_history row
-            const historyId = crypto.randomUUID();
-            await query(
-              `INSERT INTO game_plan_history (id, course_id, tee_box, mode, total_expected, plan, trigger_reason, user_id, created_at)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-              [historyId, courseId, teeBox, mode, plan.totalExpected, JSON.stringify(plan), staleReason, userId, now],
-            );
+            // Insert optimizer run (normalized history)
+            await insertOptimizerRun(userId, courseId, teeBox, mode, plan, staleReason ?? 'auto_regeneration');
 
             logger.info(`${course.name} (${teeBox}/${mode}): ${(plan.totalExpected ?? 0).toFixed(1)} xS`, { component: 'plan-regen' });
           }),

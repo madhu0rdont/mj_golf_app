@@ -286,7 +286,7 @@ describe('auth routes', () => {
         .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // assign shots
         .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // assign wedge_overrides
         .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // assign game_plan_cache
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // assign game_plan_history
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // assign optimizer_runs
 
       const res = await request(app)
         .post('/setup')

@@ -324,7 +324,7 @@ router.post('/:id/clear-data', requireAdmin, async (req, res) => {
       await client.query('DELETE FROM shots WHERE user_id = $1', [targetId]);
       await client.query('DELETE FROM sessions WHERE user_id = $1', [targetId]);
       await client.query('DELETE FROM game_plan_cache WHERE user_id = $1', [targetId]);
-      await client.query('DELETE FROM game_plan_history WHERE user_id = $1', [targetId]);
+      await client.query('DELETE FROM optimizer_runs WHERE user_id = $1', [targetId]);
       await client.query('DELETE FROM bag_clubs WHERE user_id = $1', [targetId]);
     });
 
@@ -388,7 +388,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
       await client.query('DELETE FROM shots WHERE user_id = $1', [targetId]);
       await client.query('DELETE FROM sessions WHERE user_id = $1', [targetId]);
       await client.query('DELETE FROM game_plan_cache WHERE user_id = $1', [targetId]);
-      await client.query('DELETE FROM game_plan_history WHERE user_id = $1', [targetId]);
+      await client.query('DELETE FROM optimizer_runs WHERE user_id = $1', [targetId]);
       await client.query('DELETE FROM bag_clubs WHERE user_id = $1', [targetId]);
       await client.query('DELETE FROM users WHERE id = $1', [targetId]);
     });

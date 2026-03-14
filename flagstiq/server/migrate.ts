@@ -1125,6 +1125,144 @@ export async function migrate() {
     logger.info('Migrated clubs data to bag_clubs + club_profiles');
   }
 
+  // ── Phase 3: Normalize game_plan_history → optimizer_runs + child tables ──
+  await query(`
+    CREATE TABLE IF NOT EXISTS optimizer_runs (
+      id               TEXT PRIMARY KEY,
+      user_id          TEXT NOT NULL REFERENCES users(id),
+      course_id        TEXT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+      tee_box          TEXT NOT NULL,
+      mode             TEXT NOT NULL,
+      total_expected   REAL NOT NULL,
+      total_plays_like REAL,
+      course_name      TEXT NOT NULL DEFAULT '',
+      trigger_reason   TEXT,
+      plan_payload     JSONB,
+      created_at       BIGINT NOT NULL
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_optimizer_runs_user_course ON optimizer_runs(user_id, course_id, tee_box, mode, created_at DESC)`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS optimizer_run_holes (
+      id                 TEXT PRIMARY KEY,
+      run_id             TEXT NOT NULL REFERENCES optimizer_runs(id) ON DELETE CASCADE,
+      hole_number        INTEGER NOT NULL,
+      par                INTEGER NOT NULL,
+      yardage            INTEGER NOT NULL,
+      plays_like_yardage REAL,
+      expected_strokes   REAL NOT NULL,
+      strategy_name      TEXT NOT NULL,
+      strategy_type      TEXT NOT NULL,
+      strategy_label     TEXT,
+      blowup_risk        REAL,
+      std_strokes        REAL,
+      fairway_rate       REAL,
+      color_code         TEXT,
+      eagle_pct          REAL,
+      birdie_pct         REAL,
+      par_pct            REAL,
+      bogey_pct          REAL,
+      double_pct         REAL,
+      worse_pct          REAL,
+      UNIQUE(run_id, hole_number)
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_optimizer_run_holes_run ON optimizer_run_holes(run_id)`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS optimizer_run_aim_points (
+      id              TEXT PRIMARY KEY,
+      run_hole_id     TEXT NOT NULL REFERENCES optimizer_run_holes(id) ON DELETE CASCADE,
+      shot_number     INTEGER NOT NULL,
+      club_name       TEXT NOT NULL,
+      carry           REAL NOT NULL,
+      carry_note      TEXT,
+      tip             TEXT,
+      lat             REAL NOT NULL,
+      lng             REAL NOT NULL,
+      UNIQUE(run_hole_id, shot_number)
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_optimizer_run_aim_points_hole ON optimizer_run_aim_points(run_hole_id)`);
+
+  // Migrate data from game_plan_history → optimizer_runs + child tables (idempotent)
+  const OPTIMIZER_RUNS_FLAG = 'optimizer_runs_v1';
+  const { rows: optimizerRunsFlag } = await query('SELECT 1 FROM _migration_flags WHERE flag = $1', [OPTIMIZER_RUNS_FLAG]);
+  if (optimizerRunsFlag.length === 0) {
+    // 1. Copy top-level fields to optimizer_runs
+    await query(`
+      INSERT INTO optimizer_runs (id, user_id, course_id, tee_box, mode, total_expected, total_plays_like, course_name, trigger_reason, plan_payload, created_at)
+      SELECT id, user_id, course_id, tee_box, mode, total_expected,
+        (plan->>'totalPlaysLike')::real,
+        COALESCE(plan->>'courseName', ''),
+        trigger_reason, plan, created_at
+      FROM game_plan_history
+      WHERE NOT EXISTS (SELECT 1 FROM optimizer_runs WHERE optimizer_runs.id = game_plan_history.id)
+    `);
+
+    // 2. Extract holes from JSONB into optimizer_run_holes
+    await query(`
+      INSERT INTO optimizer_run_holes (id, run_id, hole_number, par, yardage, plays_like_yardage,
+        expected_strokes, strategy_name, strategy_type, strategy_label,
+        blowup_risk, std_strokes, fairway_rate, color_code,
+        eagle_pct, birdie_pct, par_pct, bogey_pct, double_pct, worse_pct)
+      SELECT
+        gen_random_uuid()::text,
+        r.id,
+        (h.value->>'holeNumber')::integer,
+        (h.value->>'par')::integer,
+        (h.value->>'yardage')::integer,
+        (h.value->>'playsLikeYardage')::real,
+        (h.value->'strategy'->>'expectedStrokes')::real,
+        COALESCE(h.value->'strategy'->>'strategyName', ''),
+        COALESCE(h.value->'strategy'->>'strategyType', 'scoring'),
+        h.value->'strategy'->>'label',
+        (h.value->'strategy'->>'blowupRisk')::real,
+        (h.value->'strategy'->>'stdStrokes')::real,
+        (h.value->'strategy'->>'fairwayRate')::real,
+        h.value->>'colorCode',
+        (h.value->'strategy'->'scoreDistribution'->>'eagle')::real,
+        (h.value->'strategy'->'scoreDistribution'->>'birdie')::real,
+        (h.value->'strategy'->'scoreDistribution'->>'par')::real,
+        (h.value->'strategy'->'scoreDistribution'->>'bogey')::real,
+        (h.value->'strategy'->'scoreDistribution'->>'double')::real,
+        (h.value->'strategy'->'scoreDistribution'->>'worse')::real
+      FROM optimizer_runs r, jsonb_array_elements(r.plan_payload->'holes') h(value)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM optimizer_run_holes orh WHERE orh.run_id = r.id
+      )
+    `);
+
+    // 3. Extract aim points from JSONB into optimizer_run_aim_points
+    await query(`
+      INSERT INTO optimizer_run_aim_points (id, run_hole_id, shot_number, club_name, carry, carry_note, tip, lat, lng)
+      SELECT
+        gen_random_uuid()::text,
+        orh.id,
+        (ap.value->>'shotNumber')::integer,
+        COALESCE(ap.value->>'clubName', ''),
+        (ap.value->>'carry')::real,
+        ap.value->>'carryNote',
+        ap.value->>'tip',
+        (ap.value->'position'->>'lat')::real,
+        (ap.value->'position'->>'lng')::real
+      FROM optimizer_run_holes orh
+      JOIN optimizer_runs r ON r.id = orh.run_id,
+      LATERAL (
+        SELECT value FROM jsonb_array_elements(
+          r.plan_payload->'holes'->(orh.hole_number - 1)->'strategy'->'aimPoints'
+        )
+      ) ap(value)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM optimizer_run_aim_points orap WHERE orap.run_hole_id = orh.id
+      )
+    `);
+
+    await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [OPTIMIZER_RUNS_FLAG, Date.now()]);
+    logger.info('Migrated game_plan_history data to optimizer_runs + child tables');
+  }
+
   // ── S1: Update wedge_overrides unique constraint to include user_id ──
   // Original PK was (club_id, position) without user_id, allowing cross-user overwrites
   await query(`
