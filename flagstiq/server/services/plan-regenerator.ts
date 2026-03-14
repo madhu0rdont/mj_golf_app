@@ -25,9 +25,14 @@ export async function regenerateStalePlans() {
   const startTime = Date.now();
 
   try {
-    // 1. Query stale plans (including user_id), skip recently regenerated to avoid loops
+    // 1. Query stale plans (including user_id), skip recently regenerated to avoid loops.
+    //    Prioritize each user's home course so it's ready first.
     const { rows: stalePlans } = await query(
-      `SELECT user_id, course_id, tee_box, mode, stale_reason FROM game_plan_cache WHERE stale = TRUE AND (updated_at IS NULL OR updated_at < $1)`,
+      `SELECT gpc.user_id, gpc.course_id, gpc.tee_box, gpc.mode, gpc.stale_reason
+       FROM game_plan_cache gpc
+       LEFT JOIN users u ON u.id = gpc.user_id
+       WHERE gpc.stale = TRUE AND (gpc.updated_at IS NULL OR gpc.updated_at < $1)
+       ORDER BY CASE WHEN gpc.course_id = u.home_course_id THEN 0 ELSE 1 END, gpc.updated_at ASC`,
       [Date.now() - 120_000],
     );
     if (stalePlans.length === 0) return;
