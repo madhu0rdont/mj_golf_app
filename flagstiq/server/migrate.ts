@@ -1202,6 +1202,7 @@ export async function migrate() {
     `);
 
     // 2. Extract holes from JSONB into optimizer_run_holes
+    //    COALESCE guards against null strategy fields in malformed history entries
     await query(`
       INSERT INTO optimizer_run_holes (id, run_id, hole_number, par, yardage, plays_like_yardage,
         expected_strokes, strategy_name, strategy_type, strategy_label,
@@ -1211,10 +1212,10 @@ export async function migrate() {
         gen_random_uuid()::text,
         r.id,
         (h.value->>'holeNumber')::integer,
-        (h.value->>'par')::integer,
-        (h.value->>'yardage')::integer,
+        COALESCE((h.value->>'par')::integer, 4),
+        COALESCE((h.value->>'yardage')::integer, 0),
         (h.value->>'playsLikeYardage')::real,
-        (h.value->'strategy'->>'expectedStrokes')::real,
+        COALESCE((h.value->'strategy'->>'expectedStrokes')::real, COALESCE((h.value->>'par')::real, 4)),
         COALESCE(h.value->'strategy'->>'strategyName', ''),
         COALESCE(h.value->'strategy'->>'strategyType', 'scoring'),
         h.value->'strategy'->>'label',
@@ -1235,18 +1236,19 @@ export async function migrate() {
     `);
 
     // 3. Extract aim points from JSONB into optimizer_run_aim_points
+    //    Skip holes with missing/empty aimPoints arrays
     await query(`
       INSERT INTO optimizer_run_aim_points (id, run_hole_id, shot_number, club_name, carry, carry_note, tip, lat, lng)
       SELECT
         gen_random_uuid()::text,
         orh.id,
-        (ap.value->>'shotNumber')::integer,
+        COALESCE((ap.value->>'shotNumber')::integer, 1),
         COALESCE(ap.value->>'clubName', ''),
-        (ap.value->>'carry')::real,
+        COALESCE((ap.value->>'carry')::real, 0),
         ap.value->>'carryNote',
         ap.value->>'tip',
-        (ap.value->'position'->>'lat')::real,
-        (ap.value->'position'->>'lng')::real
+        COALESCE((ap.value->'position'->>'lat')::real, 0),
+        COALESCE((ap.value->'position'->>'lng')::real, 0)
       FROM optimizer_run_holes orh
       JOIN optimizer_runs r ON r.id = orh.run_id,
       LATERAL (
@@ -1254,9 +1256,11 @@ export async function migrate() {
           r.plan_payload->'holes'->(orh.hole_number - 1)->'strategy'->'aimPoints'
         )
       ) ap(value)
-      WHERE NOT EXISTS (
-        SELECT 1 FROM optimizer_run_aim_points orap WHERE orap.run_hole_id = orh.id
-      )
+      WHERE jsonb_typeof(r.plan_payload->'holes'->(orh.hole_number - 1)->'strategy'->'aimPoints') = 'array'
+        AND jsonb_array_length(r.plan_payload->'holes'->(orh.hole_number - 1)->'strategy'->'aimPoints') > 0
+        AND NOT EXISTS (
+          SELECT 1 FROM optimizer_run_aim_points orap WHERE orap.run_hole_id = orh.id
+        )
     `);
 
     await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [OPTIMIZER_RUNS_FLAG, Date.now()]);
