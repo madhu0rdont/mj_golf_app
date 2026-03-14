@@ -740,17 +740,17 @@ function buildOutcomeTable(
     if (anchor.isTerminal) continue;
 
     const clubs = getEligibleClubs(anchor, distributions, pinElev);
-    // Pass pin bearing for tee anchor so the direct-to-pin angle is always evaluated
-    const teePinBearing = anchor.id === 0 ? heading : undefined;
-    // For tee anchor, also include bearing(s) to fairway centroid(s)
+    // Pass pin bearing for EVERY anchor so the direct-to-pin angle is
+    // always in the bearing fan — prevents OB on doglegs where
+    // localBearing diverges from the pin direction.
+    const pinBearing = bearingBetween(anchor.position, pin);
+    // Include fairway centroid bearings for all anchors
     let fairwayBearings: number[] | undefined;
-    if (anchor.id === 0) {
-      const fairways = hole.fairway ?? [];
-      if (fairways.length > 0) {
-        fairwayBearings = fairways.map((poly) => bearingBetween(tee, polygonCentroid(poly)));
-      }
+    const fairways = hole.fairway ?? [];
+    if (fairways.length > 0) {
+      fairwayBearings = fairways.map((poly) => bearingBetween(anchor.position, polygonCentroid(poly)));
     }
-    const bearings = getAimBearings(anchor, pin, bearingStep, teePinBearing, fairwayBearings);
+    const bearings = getAimBearings(anchor, pin, bearingStep, pinBearing, fairwayBearings);
     const sampleCount = samplesForAnchor(anchor, maxCarry, hole.hazards);
 
     for (let ci = 0; ci < clubs.length; ci++) {

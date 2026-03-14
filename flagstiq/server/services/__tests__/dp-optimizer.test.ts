@@ -4,6 +4,7 @@ import { discretizeHole, dpOptimizeHole, classifyLie } from '../dp-optimizer';
 import { DEFAULT_STRATEGY_CONSTANTS } from '../strategy-optimizer';
 import type { ClubDistribution } from '../monte-carlo';
 import type { CourseHole, HazardFeature } from '../../models/types';
+import { pointInPolygon } from '../geo';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -937,4 +938,88 @@ describe('constants consistency', () => {
     const highBest = Math.min(...highPenalty.map(r => r.expectedStrokes));
     expect(highBest).toBeGreaterThanOrEqual(defaultBest);
   }, 30_000);
+});
+
+// ---------------------------------------------------------------------------
+// Dogleg par 5 — OB regression test
+// Ensures aim points never land inside OB polygons on dogleg holes where
+// localBearing diverges from the pin direction.
+// ---------------------------------------------------------------------------
+
+describe('dogleg par 5 — no OB aim points', () => {
+  let results: ReturnType<typeof dpOptimizeHole>;
+
+  function makeDoglegPar5WithOB(): CourseHole {
+    const tee = { lat: 33.0, lng: -117.0, elevation: 0 };
+    const pin = { lat: 33.0 + 450 / 121100, lng: -117.003, elevation: 0 };
+
+    // Fairway follows the dogleg left
+    const fairway = [[
+      { lat: 33.0, lng: -117.001 },
+      { lat: 33.0, lng: -116.999 },
+      { lat: 33.0 + 250 / 121100, lng: -116.999 },
+      { lat: 33.0 + 250 / 121100, lng: -117.001 },
+      { lat: 33.0 + 350 / 121100, lng: -117.002 },
+      { lat: 33.0 + 450 / 121100, lng: -117.004 },
+      { lat: 33.0 + 450 / 121100, lng: -117.002 },
+      { lat: 33.0 + 350 / 121100, lng: -117.0005 },
+    ]];
+
+    // OB zone: straight north beyond the dogleg bend
+    const obLat = 33.0 + 380 / 121100;
+    const obHazard = makeHazard({
+      name: 'OB North',
+      type: 'ob',
+      penalty: 1,
+      polygon: [
+        { lat: obLat, lng: -117.001 },
+        { lat: obLat, lng: -116.998 },
+        { lat: obLat + 0.002, lng: -116.998 },
+        { lat: obLat + 0.002, lng: -117.001 },
+      ],
+    });
+
+    return {
+      id: 'dogleg-par5',
+      courseId: 'course-1',
+      holeNumber: 1,
+      par: 5,
+      handicap: null,
+      yardages: { blue: 480 },
+      heading: 0,
+      tee,
+      pin,
+      targets: [],
+      centerLine: [],
+      hazards: [obHazard],
+      fairway,
+      green: [],
+      playsLikeYards: null,
+      notes: null,
+    };
+  }
+
+  beforeAll(() => {
+    seedRandom();
+    results = dpOptimizeHole(makeDoglegPar5WithOB(), 'blue', makeLightDistributions());
+  }, 120_000);
+
+  it('produces strategies', () => {
+    expect(results.length).toBeGreaterThan(0);
+  });
+
+  it('no aim point lands inside an OB polygon', () => {
+    const hole = makeDoglegPar5WithOB();
+    const obPolygons = (hole.hazards ?? [])
+      .filter((h) => h.type === 'ob')
+      .map((h) => h.polygon);
+
+    for (const r of results) {
+      for (const ap of r.aimPoints) {
+        for (const obPoly of obPolygons) {
+          expect(pointInPolygon(ap.position, obPoly)).toBe(false);
+        }
+      }
+    }
+  });
 });
