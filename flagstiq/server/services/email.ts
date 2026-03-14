@@ -81,6 +81,31 @@ export async function sendAdminNotificationEmail(username: string, email: string
   await send(adminEmail, 'New FlagstIQ Registration — Pending Approval', html, 'admin_notification');
 }
 
+export async function sendPlanRegenCompleteEmail(
+  to: string,
+  displayName: string,
+  plans: { courseName: string; teeBox: string; mode: string; xS: number }[],
+  elapsedSeconds: number,
+) {
+  const rows = plans
+    .map((p) => `<tr><td style="padding:4px 12px 4px 0;font-size:14px;">${p.courseName}</td><td style="padding:4px 12px;font-size:14px;color:#666;">${p.teeBox}/${p.mode}</td><td style="padding:4px 0 4px 12px;font-size:14px;font-weight:600;text-align:right;">${p.xS.toFixed(1)} xS</td></tr>`)
+    .join('');
+  const mins = Math.round(elapsedSeconds / 60);
+  const html = `
+    <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px; color: #0e1a10;">
+      <h1 style="font-size: 24px; font-weight: 700; color: #1a2e1e; margin-bottom: 8px;">Game plans updated</h1>
+      <p style="font-size: 14px; color: #666; margin-bottom: 16px;">
+        ${plans.length} plan${plans.length === 1 ? '' : 's'} regenerated in ${mins} minute${mins === 1 ? '' : 's'}.
+      </p>
+      <table style="border-collapse:collapse;width:100%;margin-bottom:16px;">${rows}</table>
+      <p style="font-size: 12px; color: #999;">
+        Open FlagstIQ to review your updated strategies.
+      </p>
+    </div>
+  `;
+  await send(to, `Game plans updated — ${plans.length} course${plans.length === 1 ? '' : 's'}`, html, 'plan_regen_complete');
+}
+
 export async function sendAccountApprovedEmail(to: string, displayName: string) {
   const appUrl = process.env.APP_URL || 'https://mjgolf.up.railway.app';
   const html = `

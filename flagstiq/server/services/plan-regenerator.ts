@@ -5,6 +5,7 @@ import { generatePlanParallel, isPlanGenerationActive } from './plan-worker-pool
 import { loadCourseHoles } from './hole-loader.js';
 import { loadUserClubs } from './club-loader.js';
 import { insertOptimizerRun } from './optimizer-run-loader.js';
+import { sendPlanRegenCompleteEmail } from './email.js';
 import type { ScoringMode } from './dp-optimizer.js';
 import type { Shot, CourseWithHoles } from '../models/types.js';
 
@@ -67,6 +68,10 @@ export async function regenerateStalePlans() {
         if (course.holes.length > 0) courseMap.set(courseId, course);
       }
 
+      // Track completed plans for email notification
+      const completedPlans: { courseName: string; teeBox: string; mode: string; xS: number }[] = [];
+      const userStartTime = Date.now();
+
       // Regenerate plans in parallel batches
       for (let i = 0; i < userPlans.length; i += WORKER_CONCURRENCY) {
         const batch = userPlans.slice(i, i + WORKER_CONCURRENCY);
@@ -102,7 +107,9 @@ export async function regenerateStalePlans() {
             // Insert optimizer run (normalized history)
             await insertOptimizerRun(userId, courseId, teeBox, mode, plan, staleReason ?? 'auto_regeneration');
 
-            logger.info(`${course.name} (${teeBox}/${mode}): ${(plan.totalExpected ?? 0).toFixed(1)} xS`, { component: 'plan-regen' });
+            const xS = plan.totalExpected ?? 0;
+            completedPlans.push({ courseName: course.name, teeBox, mode, xS });
+            logger.info(`${course.name} (${teeBox}/${mode}): ${xS.toFixed(1)} xS`, { component: 'plan-regen' });
           }),
         );
 
@@ -116,6 +123,20 @@ export async function regenerateStalePlans() {
               error: String(result.reason),
             });
           }
+        }
+      }
+
+      // Send email notification when all plans for this user are done
+      if (completedPlans.length > 0) {
+        const { rows: userRows } = await query('SELECT email, display_name FROM users WHERE id = $1', [userId]);
+        if (userRows.length > 0 && userRows[0].email) {
+          const userElapsed = (Date.now() - userStartTime) / 1000;
+          sendPlanRegenCompleteEmail(
+            userRows[0].email as string,
+            (userRows[0].display_name as string) || 'Golfer',
+            completedPlans,
+            userElapsed,
+          ).catch((err) => logger.error('Failed to send regen email', { error: String(err) }));
         }
       }
     }
