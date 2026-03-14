@@ -281,10 +281,9 @@ describe('auth routes', () => {
         .mockResolvedValueOnce({ rows: [{ count: '0' }] }) // count check
         .mockResolvedValueOnce({ rows: [] }) // admin insert
         .mockResolvedValueOnce({ rows: [] }) // player insert
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // assign clubs
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // assign bag_clubs
         .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // assign sessions
         .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // assign shots
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // assign wedge_overrides
         .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // assign game_plan_cache
         .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // assign optimizer_runs
 

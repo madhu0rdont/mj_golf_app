@@ -20,29 +20,9 @@ export async function migrate() {
   `);
 
   await query(`
-    CREATE TABLE IF NOT EXISTS clubs (
-      id             TEXT PRIMARY KEY,
-      name           TEXT NOT NULL,
-      category       TEXT NOT NULL,
-      brand          TEXT,
-      model          TEXT,
-      loft           REAL,
-      shaft          TEXT,
-      flex           TEXT,
-      manual_carry   REAL,
-      manual_total   REAL,
-      computed_carry REAL,
-      computed_total REAL,
-      sort_order     INTEGER NOT NULL DEFAULT 0,
-      created_at     BIGINT NOT NULL,
-      updated_at     BIGINT NOT NULL
-    )
-  `);
-
-  await query(`
     CREATE TABLE IF NOT EXISTS sessions (
       id          TEXT PRIMARY KEY,
-      club_id     TEXT NOT NULL REFERENCES clubs(id),
+      club_id     TEXT REFERENCES bag_clubs(id),
       date        BIGINT NOT NULL,
       location    TEXT,
       notes       TEXT,
@@ -61,7 +41,7 @@ export async function migrate() {
     CREATE TABLE IF NOT EXISTS shots (
       id              TEXT PRIMARY KEY,
       session_id      TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-      club_id         TEXT NOT NULL REFERENCES clubs(id),
+      club_id         TEXT NOT NULL REFERENCES bag_clubs(id),
       shot_number     INTEGER NOT NULL,
       carry_yards     REAL NOT NULL,
       total_yards     REAL,
@@ -89,16 +69,6 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_shots_club ON shots(club_id)
   `);
 
-  // Wedge matrix overrides
-  await query(`
-    CREATE TABLE IF NOT EXISTS wedge_overrides (
-      club_id    TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
-      position   TEXT NOT NULL,
-      carry      REAL NOT NULL,
-      PRIMARY KEY (club_id, position)
-    )
-  `);
-
   // Session store table for connect-pg-simple
   await query(`
     CREATE TABLE IF NOT EXISTS "user_sessions" (
@@ -114,7 +84,6 @@ export async function migrate() {
 
   // Session type + multi-club support for wedge-distance sessions
   await query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'block'`);
-  await query(`ALTER TABLE sessions ALTER COLUMN club_id DROP NOT NULL`);
 
   // Shot position for wedge practice (full / shoulder / hip)
   await query(`ALTER TABLE shots ADD COLUMN IF NOT EXISTS position TEXT`);
@@ -122,9 +91,6 @@ export async function migrate() {
   // Interleaved practice: hole number per shot, session metadata (hole definitions)
   await query(`ALTER TABLE shots ADD COLUMN IF NOT EXISTS hole_number INTEGER`);
   await query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS metadata JSONB`);
-
-  // Preferred shot shape per club for yardage book filtering
-  await query(`ALTER TABLE clubs ADD COLUMN IF NOT EXISTS preferred_shape TEXT`);
 
   // Course strategy tables
   await query(`
@@ -138,30 +104,6 @@ export async function migrate() {
       created_at  BIGINT NOT NULL,
       updated_at  BIGINT NOT NULL
     )
-  `);
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS course_holes (
-      id               TEXT PRIMARY KEY,
-      course_id        TEXT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-      hole_number      INTEGER NOT NULL,
-      par              INTEGER NOT NULL,
-      yardages         JSONB NOT NULL,
-      heading          NUMERIC(6,2),
-      tee              JSONB NOT NULL,
-      pin              JSONB NOT NULL,
-      targets          JSONB DEFAULT '[]',
-      center_line      JSONB DEFAULT '[]',
-      hazards          JSONB DEFAULT '[]',
-      fairway          JSONB DEFAULT '[]',
-      plays_like_yards JSONB,
-      notes            TEXT,
-      UNIQUE(course_id, hole_number)
-    )
-  `);
-
-  await query(`
-    CREATE INDEX IF NOT EXISTS idx_course_holes_course ON course_holes(course_id)
   `);
 
   // Game plan cache
@@ -181,38 +123,9 @@ export async function migrate() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_game_plan_cache_course ON game_plan_cache(course_id)`);
 
-  // Game plan history (for charting projected scoring improvement over time)
-  await query(`
-    CREATE TABLE IF NOT EXISTS game_plan_history (
-      id              TEXT PRIMARY KEY,
-      course_id       TEXT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-      tee_box         TEXT NOT NULL,
-      mode            TEXT NOT NULL,
-      total_expected  REAL NOT NULL,
-      plan            JSONB NOT NULL,
-      trigger_reason  TEXT,
-      created_at      BIGINT NOT NULL
-    )
-  `);
-  await query(`
-    CREATE INDEX IF NOT EXISTS idx_gph_course_time
-      ON game_plan_history(course_id, tee_box, mode, created_at);
-    CREATE INDEX IF NOT EXISTS idx_gph_user_course_time
-      ON game_plan_history(user_id, course_id, tee_box, mode, created_at DESC)
-  `);
-
-  // Green polygon for course holes
-  await query(`ALTER TABLE course_holes ADD COLUMN IF NOT EXISTS green JSONB DEFAULT '[]'`);
-
-  // Handicap (stroke index) per hole
-  await query(`ALTER TABLE course_holes ADD COLUMN IF NOT EXISTS handicap INTEGER`);
-
   // Indexes for filtered /api/shots queries
   await query(`CREATE INDEX IF NOT EXISTS idx_shots_club_id ON shots (club_id)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_sessions_source ON sessions (source)`);
-
-  // Club bag ordering
-  await query(`CREATE INDEX IF NOT EXISTS idx_clubs_sort_order ON clubs (sort_order)`);
 
   // Game plan cache: composite lookup
   await query(`CREATE INDEX IF NOT EXISTS idx_game_plan_cache_lookup ON game_plan_cache (course_id, tee_box, mode)`);
@@ -246,15 +159,6 @@ export async function migrate() {
       [type, penalty, now],
     );
   }
-
-  // Migrate fairway from single polygon to array of polygons
-  await query(`
-    UPDATE course_holes
-    SET fairway = jsonb_build_array(fairway)
-    WHERE jsonb_typeof(fairway) = 'array'
-      AND jsonb_array_length(fairway) > 0
-      AND jsonb_typeof(fairway->0) = 'object'
-  `);
 
   // ── Multi-user: bootstrap accounts ──
   const bootstrapNow = Date.now();
@@ -300,12 +204,9 @@ export async function migrate() {
   }
 
   // ── Multi-user: add user_id columns ──
-  await query(`ALTER TABLE clubs ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id)`);
   await query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id)`);
   await query(`ALTER TABLE shots ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id)`);
-  await query(`ALTER TABLE wedge_overrides ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id)`);
   await query(`ALTER TABLE game_plan_cache ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id)`);
-  await query(`ALTER TABLE game_plan_history ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id)`);
 
   // Assign existing data to the first player account (MJ)
   const { rows: firstPlayer } = await query(
@@ -313,16 +214,13 @@ export async function migrate() {
   );
   if (firstPlayer.length > 0) {
     const playerId = firstPlayer[0].id;
-    await query('UPDATE clubs SET user_id = $1 WHERE user_id IS NULL', [playerId]);
     await query('UPDATE sessions SET user_id = $1 WHERE user_id IS NULL', [playerId]);
     await query('UPDATE shots SET user_id = $1 WHERE user_id IS NULL', [playerId]);
-    await query('UPDATE wedge_overrides SET user_id = $1 WHERE user_id IS NULL', [playerId]);
     await query('UPDATE game_plan_cache SET user_id = $1 WHERE user_id IS NULL', [playerId]);
-    await query('UPDATE game_plan_history SET user_id = $1 WHERE user_id IS NULL', [playerId]);
   }
 
   // Set NOT NULL on user_id columns (only if no NULLs remain)
-  for (const table of ['clubs', 'sessions', 'shots', 'wedge_overrides', 'game_plan_cache', 'game_plan_history']) {
+  for (const table of ['sessions', 'shots', 'game_plan_cache']) {
     const { rows: nullRows } = await query(`SELECT count(*) FROM ${table} WHERE user_id IS NULL`);
     if (parseInt(nullRows[0].count) === 0) {
       await query(`ALTER TABLE ${table} ALTER COLUMN user_id SET NOT NULL`).catch(() => {});
@@ -330,12 +228,10 @@ export async function migrate() {
   }
 
   // Indexes for user-scoped queries
-  await query(`CREATE INDEX IF NOT EXISTS idx_clubs_user ON clubs(user_id)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_shots_user ON shots(user_id)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_shots_user_session ON shots(user_id, session_id)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_game_plan_cache_user ON game_plan_cache(user_id, course_id)`);
-  await query(`CREATE INDEX IF NOT EXISTS idx_game_plan_history_user ON game_plan_history(user_id, course_id)`);
 
   // Update game_plan_cache unique constraint to include user_id
   await query(`ALTER TABLE game_plan_cache DROP CONSTRAINT IF EXISTS game_plan_cache_course_id_tee_box_mode_key`);
@@ -471,8 +367,16 @@ export async function migrate() {
       ];
       for (const hole of stonebraeHoles) {
         await query(
-          'UPDATE course_holes SET par = $1, handicap = $2, yardages = $3 WHERE course_id = $4 AND hole_number = $5',
-          [hole.p, hole.h, JSON.stringify(hole.y), cid, hole.n],
+          'UPDATE holes SET par = $1, handicap = $2 WHERE course_id = $3 AND hole_number = $4',
+          [hole.p, hole.h, cid, hole.n],
+        );
+        await query(
+          `INSERT INTO hole_tees (id, hole_id, tee_name, lat, lng, yardage)
+           SELECT gen_random_uuid()::text, h.id, kv.key, 0, 0, (kv.value)::integer
+           FROM holes h, jsonb_each_text($1::jsonb) kv
+           WHERE h.course_id = $2 AND h.hole_number = $3
+           ON CONFLICT (hole_id, tee_name) DO UPDATE SET yardage = EXCLUDED.yardage`,
+          [JSON.stringify(hole.y), cid, hole.n],
         );
       }
       logger.info('Seeded TPC Stonebrae scorecard data');
@@ -518,8 +422,16 @@ export async function migrate() {
       ];
       for (const hole of hardingHoles) {
         await query(
-          'UPDATE course_holes SET par = $1, handicap = $2, yardages = $3 WHERE course_id = $4 AND hole_number = $5',
-          [hole.p, hole.h, JSON.stringify(hole.y), cid, hole.n],
+          'UPDATE holes SET par = $1, handicap = $2 WHERE course_id = $3 AND hole_number = $4',
+          [hole.p, hole.h, cid, hole.n],
+        );
+        await query(
+          `INSERT INTO hole_tees (id, hole_id, tee_name, lat, lng, yardage)
+           SELECT gen_random_uuid()::text, h.id, kv.key, 0, 0, (kv.value)::integer
+           FROM holes h, jsonb_each_text($1::jsonb) kv
+           WHERE h.course_id = $2 AND h.hole_number = $3
+           ON CONFLICT (hole_id, tee_name) DO UPDATE SET yardage = EXCLUDED.yardage`,
+          [JSON.stringify(hole.y), cid, hole.n],
         );
       }
       logger.info('Seeded TPC Harding Park scorecard data');
@@ -571,8 +483,16 @@ export async function migrate() {
       ];
       for (const hole of meadowHoles) {
         await query(
-          'UPDATE course_holes SET par = $1, handicap = $2, yardages = $3 WHERE course_id = $4 AND hole_number = $5',
-          [hole.p, hole.h, JSON.stringify(hole.y), cid, hole.n],
+          'UPDATE holes SET par = $1, handicap = $2 WHERE course_id = $3 AND hole_number = $4',
+          [hole.p, hole.h, cid, hole.n],
+        );
+        await query(
+          `INSERT INTO hole_tees (id, hole_id, tee_name, lat, lng, yardage)
+           SELECT gen_random_uuid()::text, h.id, kv.key, 0, 0, (kv.value)::integer
+           FROM holes h, jsonb_each_text($1::jsonb) kv
+           WHERE h.course_id = $2 AND h.hole_number = $3
+           ON CONFLICT (hole_id, tee_name) DO UPDATE SET yardage = EXCLUDED.yardage`,
+          [JSON.stringify(hole.y), cid, hole.n],
         );
       }
       logger.info('Seeded Meadow Club scorecard data');
@@ -618,8 +538,16 @@ export async function migrate() {
       ];
       for (const hole of presidioHoles) {
         await query(
-          'UPDATE course_holes SET par = $1, handicap = $2, yardages = $3 WHERE course_id = $4 AND hole_number = $5',
-          [hole.p, hole.h, JSON.stringify(hole.y), cid, hole.n],
+          'UPDATE holes SET par = $1, handicap = $2 WHERE course_id = $3 AND hole_number = $4',
+          [hole.p, hole.h, cid, hole.n],
+        );
+        await query(
+          `INSERT INTO hole_tees (id, hole_id, tee_name, lat, lng, yardage)
+           SELECT gen_random_uuid()::text, h.id, kv.key, 0, 0, (kv.value)::integer
+           FROM holes h, jsonb_each_text($1::jsonb) kv
+           WHERE h.course_id = $2 AND h.hole_number = $3
+           ON CONFLICT (hole_id, tee_name) DO UPDATE SET yardage = EXCLUDED.yardage`,
+          [JSON.stringify(hole.y), cid, hole.n],
         );
       }
       logger.info('Seeded Presidio Golf Course scorecard data');
@@ -665,8 +593,16 @@ export async function migrate() {
       ];
       for (const hole of blackhawkHoles) {
         await query(
-          'UPDATE course_holes SET par = $1, handicap = $2, yardages = $3 WHERE course_id = $4 AND hole_number = $5',
-          [hole.p, hole.h, JSON.stringify(hole.y), cid, hole.n],
+          'UPDATE holes SET par = $1, handicap = $2 WHERE course_id = $3 AND hole_number = $4',
+          [hole.p, hole.h, cid, hole.n],
+        );
+        await query(
+          `INSERT INTO hole_tees (id, hole_id, tee_name, lat, lng, yardage)
+           SELECT gen_random_uuid()::text, h.id, kv.key, 0, 0, (kv.value)::integer
+           FROM holes h, jsonb_each_text($1::jsonb) kv
+           WHERE h.course_id = $2 AND h.hole_number = $3
+           ON CONFLICT (hole_id, tee_name) DO UPDATE SET yardage = EXCLUDED.yardage`,
+          [JSON.stringify(hole.y), cid, hole.n],
         );
       }
       logger.info('Seeded Blackhawk Country Club scorecard data');
@@ -712,8 +648,16 @@ export async function migrate() {
       ];
       for (const hole of tildenHoles) {
         await query(
-          'UPDATE course_holes SET par = $1, handicap = $2, yardages = $3 WHERE course_id = $4 AND hole_number = $5',
-          [hole.p, hole.h, JSON.stringify(hole.y), cid, hole.n],
+          'UPDATE holes SET par = $1, handicap = $2 WHERE course_id = $3 AND hole_number = $4',
+          [hole.p, hole.h, cid, hole.n],
+        );
+        await query(
+          `INSERT INTO hole_tees (id, hole_id, tee_name, lat, lng, yardage)
+           SELECT gen_random_uuid()::text, h.id, kv.key, 0, 0, (kv.value)::integer
+           FROM holes h, jsonb_each_text($1::jsonb) kv
+           WHERE h.course_id = $2 AND h.hole_number = $3
+           ON CONFLICT (hole_id, tee_name) DO UPDATE SET yardage = EXCLUDED.yardage`,
+          [JSON.stringify(hole.y), cid, hole.n],
         );
       }
       logger.info('Seeded Tilden Park scorecard data');
@@ -758,8 +702,16 @@ export async function migrate() {
       ];
       for (const hole of claremontHoles) {
         await query(
-          'UPDATE course_holes SET par = $1, handicap = $2, yardages = $3 WHERE course_id = $4 AND hole_number = $5',
-          [hole.p, hole.h, JSON.stringify(hole.y), cid, hole.n],
+          'UPDATE holes SET par = $1, handicap = $2 WHERE course_id = $3 AND hole_number = $4',
+          [hole.p, hole.h, cid, hole.n],
+        );
+        await query(
+          `INSERT INTO hole_tees (id, hole_id, tee_name, lat, lng, yardage)
+           SELECT gen_random_uuid()::text, h.id, kv.key, 0, 0, (kv.value)::integer
+           FROM holes h, jsonb_each_text($1::jsonb) kv
+           WHERE h.course_id = $2 AND h.hole_number = $3
+           ON CONFLICT (hole_id, tee_name) DO UPDATE SET yardage = EXCLUDED.yardage`,
+          [JSON.stringify(hole.y), cid, hole.n],
         );
       }
       logger.info('Seeded Claremont Country Club scorecard data');
@@ -904,72 +856,6 @@ export async function migrate() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_hole_hazards_hole ON hole_hazards(hole_id)`);
 
-  // Migrate data from course_holes → new tables (idempotent, one-time)
-  const HOLES_SPLIT_FLAG = 'holes_split_v1';
-  const { rows: holesSplitFlag } = await query('SELECT 1 FROM _migration_flags WHERE flag = $1', [HOLES_SPLIT_FLAG]);
-  if (holesSplitFlag.length === 0) {
-    // 1. Copy scalar + geometry data to holes table
-    await query(`
-      INSERT INTO holes (id, course_id, hole_number, par, handicap, heading, notes, center_line, targets, fairway, green)
-      SELECT id, course_id, hole_number, par, handicap, heading, notes,
-             COALESCE(center_line, '[]'::jsonb), COALESCE(targets, '[]'::jsonb),
-             COALESCE(fairway, '[]'::jsonb), COALESCE(green, '[]'::jsonb)
-      FROM course_holes
-      ON CONFLICT DO NOTHING
-    `);
-
-    // 2. Create one hole_tees row per yardage key per hole (all share the single tee position)
-    await query(`
-      INSERT INTO hole_tees (id, hole_id, tee_name, lat, lng, elevation, yardage, plays_like_yardage)
-      SELECT
-        gen_random_uuid()::text,
-        ch.id,
-        kv.key,
-        (ch.tee->>'lat')::real,
-        (ch.tee->>'lng')::real,
-        COALESCE((ch.tee->>'elevation')::real, 0),
-        (kv.value)::integer,
-        (ch.plays_like_yards->>kv.key)::integer
-      FROM course_holes ch, jsonb_each_text(ch.yardages) kv
-      ON CONFLICT DO NOTHING
-    `);
-
-    // 3. Create one default pin per hole
-    await query(`
-      INSERT INTO hole_pins (id, hole_id, pin_name, lat, lng, elevation, is_default)
-      SELECT
-        gen_random_uuid()::text,
-        ch.id,
-        'default',
-        (ch.pin->>'lat')::real,
-        (ch.pin->>'lng')::real,
-        COALESCE((ch.pin->>'elevation')::real, 0),
-        true
-      FROM course_holes ch
-      ON CONFLICT DO NOTHING
-    `);
-
-    // 4. Create one hole_hazards row per hazard array element
-    await query(`
-      INSERT INTO hole_hazards (id, hole_id, hazard_type, name, penalty, confidence, source, polygon, status)
-      SELECT
-        gen_random_uuid()::text,
-        ch.id,
-        COALESCE(h.value->>'type', 'bunker'),
-        h.value->>'name',
-        COALESCE((h.value->>'penalty')::real, 1.0),
-        COALESCE(h.value->>'confidence', 'high'),
-        COALESCE(h.value->>'source', 'manual'),
-        COALESCE(h.value->'polygon', '[]'::jsonb),
-        COALESCE(h.value->>'status', 'accepted')
-      FROM course_holes ch, jsonb_array_elements(ch.hazards) h(value)
-      WHERE jsonb_array_length(COALESCE(ch.hazards, '[]'::jsonb)) > 0
-    `);
-
-    await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [HOLES_SPLIT_FLAG, Date.now()]);
-    logger.info('Migrated course_holes data to normalized hole tables');
-  }
-
   // ── Phase 2: Split clubs → bag_clubs + club_profiles ──
   await query(`
     CREATE TABLE IF NOT EXISTS bag_clubs (
@@ -1032,99 +918,6 @@ export async function migrate() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_club_distance_profiles_profile ON club_distance_profiles(club_profile_id)`);
 
-  // Migrate data from clubs → bag_clubs + club_profiles (idempotent, one-time)
-  const CLUBS_SPLIT_FLAG = 'clubs_split_v1';
-  const { rows: clubsSplitFlag } = await query('SELECT 1 FROM _migration_flags WHERE flag = $1', [CLUBS_SPLIT_FLAG]);
-  if (clubsSplitFlag.length === 0) {
-    // 1. Copy physical club data to bag_clubs (same PKs)
-    await query(`
-      INSERT INTO bag_clubs (id, user_id, name, category, brand, model, loft, shaft, flex, preferred_shape, sort_order, is_active, created_at, updated_at)
-      SELECT id, user_id, name, category, brand, model, loft, shaft, flex, preferred_shape, sort_order, TRUE, created_at, updated_at
-      FROM clubs
-      WHERE user_id IS NOT NULL
-      ON CONFLICT DO NOTHING
-    `);
-
-    // 2. Create 'manual' profile for clubs that have manual_carry or manual_total
-    await query(`
-      INSERT INTO club_profiles (id, bag_club_id, profile_type, carry_mean, total_mean, is_current, effective_from, created_at)
-      SELECT gen_random_uuid()::text, id, 'manual', manual_carry, manual_total, TRUE, created_at, created_at
-      FROM clubs
-      WHERE user_id IS NOT NULL AND (manual_carry IS NOT NULL OR manual_total IS NOT NULL)
-      ON CONFLICT DO NOTHING
-    `);
-
-    // 3. Create 'computed' profile for clubs that have computed_carry or computed_total
-    await query(`
-      INSERT INTO club_profiles (id, bag_club_id, profile_type, carry_mean, total_mean, is_current, effective_from, created_at)
-      SELECT gen_random_uuid()::text, id, 'computed', computed_carry, computed_total, TRUE, created_at, created_at
-      FROM clubs
-      WHERE user_id IS NOT NULL AND (computed_carry IS NOT NULL OR computed_total IS NOT NULL)
-      ON CONFLICT DO NOTHING
-    `);
-
-    // 4. Migrate wedge_overrides → club_distance_profiles (position → shot_intent)
-    // Need to join through club_profiles to get the profile id
-    await query(`
-      INSERT INTO club_distance_profiles (id, club_profile_id, shot_intent, swing_pct, carry_mean, created_at)
-      SELECT
-        gen_random_uuid()::text,
-        cp.id,
-        wo.position,
-        CASE wo.position
-          WHEN 'full' THEN 1.0
-          WHEN 'three_quarter' THEN 0.75
-          WHEN 'shoulder' THEN 0.75
-          WHEN 'half' THEN 0.5
-          WHEN 'hip' THEN 0.5
-          ELSE NULL
-        END,
-        wo.carry,
-        EXTRACT(EPOCH FROM NOW())::bigint * 1000
-      FROM wedge_overrides wo
-      JOIN club_profiles cp ON cp.bag_club_id = wo.club_id AND cp.profile_type = 'manual'
-      WHERE wo.user_id IS NOT NULL
-      ON CONFLICT DO NOTHING
-    `);
-
-    // 5. For wedge overrides that didn't match a manual profile, create one and link
-    await query(`
-      INSERT INTO club_profiles (id, bag_club_id, profile_type, is_current, effective_from, created_at)
-      SELECT gen_random_uuid()::text, wo.club_id, 'manual', TRUE, EXTRACT(EPOCH FROM NOW())::bigint * 1000, EXTRACT(EPOCH FROM NOW())::bigint * 1000
-      FROM wedge_overrides wo
-      LEFT JOIN club_profiles cp ON cp.bag_club_id = wo.club_id AND cp.profile_type = 'manual'
-      WHERE wo.user_id IS NOT NULL AND cp.id IS NULL
-      GROUP BY wo.club_id
-      ON CONFLICT DO NOTHING
-    `);
-    // Then insert distance profiles for those
-    await query(`
-      INSERT INTO club_distance_profiles (id, club_profile_id, shot_intent, swing_pct, carry_mean, created_at)
-      SELECT
-        gen_random_uuid()::text,
-        cp.id,
-        wo.position,
-        CASE wo.position
-          WHEN 'full' THEN 1.0
-          WHEN 'three_quarter' THEN 0.75
-          WHEN 'shoulder' THEN 0.75
-          WHEN 'half' THEN 0.5
-          WHEN 'hip' THEN 0.5
-          ELSE NULL
-        END,
-        wo.carry,
-        EXTRACT(EPOCH FROM NOW())::bigint * 1000
-      FROM wedge_overrides wo
-      JOIN club_profiles cp ON cp.bag_club_id = wo.club_id AND cp.profile_type = 'manual'
-      LEFT JOIN club_distance_profiles cdp ON cdp.club_profile_id = cp.id AND cdp.shot_intent = wo.position
-      WHERE wo.user_id IS NOT NULL AND cdp.id IS NULL
-      ON CONFLICT DO NOTHING
-    `);
-
-    await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [CLUBS_SPLIT_FLAG, Date.now()]);
-    logger.info('Migrated clubs data to bag_clubs + club_profiles');
-  }
-
   // ── Phase 3: Normalize game_plan_history → optimizer_runs + child tables ──
   await query(`
     CREATE TABLE IF NOT EXISTS optimizer_runs (
@@ -1186,100 +979,35 @@ export async function migrate() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_optimizer_run_aim_points_hole ON optimizer_run_aim_points(run_hole_id)`);
 
-  // Migrate data from game_plan_history → optimizer_runs + child tables (idempotent)
-  const OPTIMIZER_RUNS_FLAG = 'optimizer_runs_v1';
-  const { rows: optimizerRunsFlag } = await query('SELECT 1 FROM _migration_flags WHERE flag = $1', [OPTIMIZER_RUNS_FLAG]);
-  if (optimizerRunsFlag.length === 0) {
-    // 1. Copy top-level fields to optimizer_runs
+  // ── Drop old normalized-away tables ──
+  const DROP_OLD_FLAG = 'drop_old_tables_v1';
+  const { rows: dropOldFlag } = await query('SELECT 1 FROM _migration_flags WHERE flag = $1', [DROP_OLD_FLAG]);
+  if (dropOldFlag.length === 0) {
+    // Re-point FK constraints from old clubs → bag_clubs
+    await query(`ALTER TABLE sessions DROP CONSTRAINT IF EXISTS sessions_club_id_fkey`);
+    await query(`ALTER TABLE shots DROP CONSTRAINT IF EXISTS shots_club_id_fkey`);
     await query(`
-      INSERT INTO optimizer_runs (id, user_id, course_id, tee_box, mode, total_expected, total_plays_like, course_name, trigger_reason, plan_payload, created_at)
-      SELECT id, user_id, course_id, tee_box, mode, total_expected,
-        (plan->>'totalPlaysLike')::real,
-        COALESCE(plan->>'courseName', ''),
-        trigger_reason, plan, created_at
-      FROM game_plan_history
-      WHERE NOT EXISTS (SELECT 1 FROM optimizer_runs WHERE optimizer_runs.id = game_plan_history.id)
+      DO $$ BEGIN
+        ALTER TABLE sessions ADD CONSTRAINT sessions_club_id_fkey FOREIGN KEY (club_id) REFERENCES bag_clubs(id);
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+    await query(`
+      DO $$ BEGIN
+        ALTER TABLE shots ADD CONSTRAINT shots_club_id_fkey FOREIGN KEY (club_id) REFERENCES bag_clubs(id);
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
     `);
 
-    // 2. Extract holes from JSONB into optimizer_run_holes
-    //    COALESCE guards against null strategy fields in malformed history entries
-    await query(`
-      INSERT INTO optimizer_run_holes (id, run_id, hole_number, par, yardage, plays_like_yardage,
-        expected_strokes, strategy_name, strategy_type, strategy_label,
-        blowup_risk, std_strokes, fairway_rate, color_code,
-        eagle_pct, birdie_pct, par_pct, bogey_pct, double_pct, worse_pct)
-      SELECT
-        gen_random_uuid()::text,
-        r.id,
-        (h.value->>'holeNumber')::integer,
-        COALESCE((h.value->>'par')::integer, 4),
-        COALESCE((h.value->>'yardage')::integer, 0),
-        (h.value->>'playsLikeYardage')::real,
-        COALESCE((h.value->'strategy'->>'expectedStrokes')::real, COALESCE((h.value->>'par')::real, 4)),
-        COALESCE(h.value->'strategy'->>'strategyName', ''),
-        COALESCE(h.value->'strategy'->>'strategyType', 'scoring'),
-        h.value->'strategy'->>'label',
-        (h.value->'strategy'->>'blowupRisk')::real,
-        (h.value->'strategy'->>'stdStrokes')::real,
-        (h.value->'strategy'->>'fairwayRate')::real,
-        h.value->>'colorCode',
-        (h.value->'strategy'->'scoreDistribution'->>'eagle')::real,
-        (h.value->'strategy'->'scoreDistribution'->>'birdie')::real,
-        (h.value->'strategy'->'scoreDistribution'->>'par')::real,
-        (h.value->'strategy'->'scoreDistribution'->>'bogey')::real,
-        (h.value->'strategy'->'scoreDistribution'->>'double')::real,
-        (h.value->'strategy'->'scoreDistribution'->>'worse')::real
-      FROM optimizer_runs r, jsonb_array_elements(r.plan_payload->'holes') h(value)
-      WHERE NOT EXISTS (
-        SELECT 1 FROM optimizer_run_holes orh WHERE orh.run_id = r.id
-      )
-    `);
+    // Drop old tables (order matters for FK dependencies)
+    await query(`DROP TABLE IF EXISTS wedge_overrides`);
+    await query(`DROP TABLE IF EXISTS game_plan_history`);
+    await query(`DROP TABLE IF EXISTS clubs`);
+    await query(`DROP TABLE IF EXISTS course_holes`);
 
-    // 3. Extract aim points from JSONB into optimizer_run_aim_points
-    //    Skip holes with missing/empty aimPoints arrays
-    await query(`
-      INSERT INTO optimizer_run_aim_points (id, run_hole_id, shot_number, club_name, carry, carry_note, tip, lat, lng)
-      SELECT
-        gen_random_uuid()::text,
-        orh.id,
-        COALESCE((ap.value->>'shotNumber')::integer, 1),
-        COALESCE(ap.value->>'clubName', ''),
-        COALESCE((ap.value->>'carry')::real, 0),
-        ap.value->>'carryNote',
-        ap.value->>'tip',
-        COALESCE((ap.value->'position'->>'lat')::real, 0),
-        COALESCE((ap.value->'position'->>'lng')::real, 0)
-      FROM optimizer_run_holes orh
-      JOIN optimizer_runs r ON r.id = orh.run_id,
-      LATERAL (
-        SELECT value FROM jsonb_array_elements(
-          r.plan_payload->'holes'->(orh.hole_number - 1)->'strategy'->'aimPoints'
-        )
-      ) ap(value)
-      WHERE jsonb_typeof(r.plan_payload->'holes'->(orh.hole_number - 1)->'strategy'->'aimPoints') = 'array'
-        AND jsonb_array_length(r.plan_payload->'holes'->(orh.hole_number - 1)->'strategy'->'aimPoints') > 0
-        AND NOT EXISTS (
-          SELECT 1 FROM optimizer_run_aim_points orap WHERE orap.run_hole_id = orh.id
-        )
-    `);
-
-    await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [OPTIMIZER_RUNS_FLAG, Date.now()]);
-    logger.info('Migrated game_plan_history data to optimizer_runs + child tables');
+    await query('INSERT INTO _migration_flags (flag, applied_at) VALUES ($1, $2)', [DROP_OLD_FLAG, Date.now()]);
+    logger.info('Dropped old tables: wedge_overrides, game_plan_history, clubs, course_holes');
   }
-
-  // ── S1: Update wedge_overrides unique constraint to include user_id ──
-  // Original PK was (club_id, position) without user_id, allowing cross-user overwrites
-  await query(`
-    DO $$ BEGIN
-      IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'wedge_overrides_user_club_position_key'
-      ) THEN
-        ALTER TABLE wedge_overrides DROP CONSTRAINT IF EXISTS wedge_overrides_pkey;
-        ALTER TABLE wedge_overrides ADD CONSTRAINT wedge_overrides_user_club_position_key
-          UNIQUE(user_id, club_id, position);
-      END IF;
-    END $$
-  `);
 
   logger.info('Database migration complete');
 }
