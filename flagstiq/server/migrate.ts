@@ -259,7 +259,7 @@ export async function migrate() {
 
   // Force regeneration of all cached game plans after strategy-optimizer changes
   // Bump version when optimizer logic changes (caddy tips, strategies, simulation, etc.)
-  const STRATEGY_SYNC_VERSION = 'strategy_sync_v8'; // v8: pin bearing for all anchors (OB fix)
+  const STRATEGY_SYNC_VERSION = 'strategy_sync_v9'; // v9: lie penalty in value interpolation
   const { rows: syncFlag } = await query(
     'SELECT 1 FROM _migration_flags WHERE flag = $1',
     [STRATEGY_SYNC_VERSION],
