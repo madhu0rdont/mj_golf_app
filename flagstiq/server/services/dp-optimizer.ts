@@ -967,6 +967,20 @@ function interpolateValue(
     value += (minLateralDist - KERNEL_H_U) * 0.05;
   }
 
+  // Lie penalty: landing in rough/trees costs future strokes due to
+  // increased dispersion and harder recovery. This makes the DP prefer
+  // bearings that land in the fairway.
+  const LIE_PENALTY: Record<LieClass, number> = {
+    fairway: 0,
+    green: 0,
+    rough: 0.2,
+    fairway_bunker: 0.3,
+    greenside_bunker: 0.2,
+    trees: 0.6,
+    recovery: 1.0,
+  };
+  value += LIE_PENALTY[lie];
+
   return value;
 }
 
