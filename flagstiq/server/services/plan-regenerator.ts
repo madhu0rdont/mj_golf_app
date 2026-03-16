@@ -26,19 +26,27 @@ export async function regenerateStalePlans() {
   const startTime = Date.now();
 
   try {
+    // Check QA mode — if enabled, only regenerate home course front 9
+    const { rows: qaFlag } = await query("SELECT 1 FROM _migration_flags WHERE flag = 'regen_qa_mode'");
+    const qaMode = qaFlag.length > 0;
+
     // 1. Query stale plans (including user_id), skip recently regenerated to avoid loops.
     //    Prioritize each user's home course so it's ready first.
-    const { rows: stalePlans } = await query(
-      `SELECT gpc.user_id, gpc.course_id, gpc.tee_box, gpc.mode, gpc.stale_reason
-       FROM game_plan_cache gpc
-       LEFT JOIN users u ON u.id = gpc.user_id
-       WHERE gpc.stale = TRUE AND (gpc.updated_at IS NULL OR gpc.updated_at < $1)
-       ORDER BY CASE WHEN gpc.course_id = u.home_course_id THEN 0 ELSE 1 END, gpc.updated_at ASC`,
-      [Date.now() - 120_000],
-    );
+    const stalePlanQuery = qaMode
+      ? `SELECT gpc.user_id, gpc.course_id, gpc.tee_box, gpc.mode, gpc.stale_reason
+         FROM game_plan_cache gpc
+         JOIN users u ON u.id = gpc.user_id AND gpc.course_id = u.home_course_id
+         WHERE gpc.stale = TRUE AND (gpc.updated_at IS NULL OR gpc.updated_at < $1)
+         ORDER BY gpc.updated_at ASC`
+      : `SELECT gpc.user_id, gpc.course_id, gpc.tee_box, gpc.mode, gpc.stale_reason
+         FROM game_plan_cache gpc
+         LEFT JOIN users u ON u.id = gpc.user_id
+         WHERE gpc.stale = TRUE AND (gpc.updated_at IS NULL OR gpc.updated_at < $1)
+         ORDER BY CASE WHEN gpc.course_id = u.home_course_id THEN 0 ELSE 1 END, gpc.updated_at ASC`;
+    const { rows: stalePlans } = await query(stalePlanQuery, [Date.now() - 120_000]);
     if (stalePlans.length === 0) return;
 
-    logger.info(`Regenerating ${stalePlans.length} stale plan(s)`, { component: 'plan-regen' });
+    logger.info(`Regenerating ${stalePlans.length} stale plan(s)${qaMode ? ' (QA mode: home course front 9 only)' : ''}`, { component: 'plan-regen' });
 
     // 2. Group stale plans by user_id
     const byUser = new Map<string, typeof stalePlans>();
@@ -64,7 +72,8 @@ export async function regenerateStalePlans() {
         const { rows: courseRows } = await query('SELECT * FROM courses WHERE id = $1', [courseId]);
         if (courseRows.length === 0) continue;
         const course = toCamel<CourseWithHoles>(courseRows[0]);
-        course.holes = await loadCourseHoles(courseId);
+        const allHoles = await loadCourseHoles(courseId);
+        course.holes = qaMode ? allHoles.filter(h => h.holeNumber <= 9) : allHoles;
         if (course.holes.length > 0) courseMap.set(courseId, course);
       }
 

@@ -64,4 +64,35 @@ router.put('/strategy-constants', async (req, res) => {
   }
 });
 
+// GET /api/admin/regen-settings — return QA regen mode status
+router.get('/regen-settings', async (_req, res) => {
+  try {
+    const { rows } = await query("SELECT 1 FROM _migration_flags WHERE flag = 'regen_qa_mode'");
+    res.json({ qaMode: rows.length > 0 });
+  } catch (err) {
+    logger.error('Failed to fetch regen settings', { error: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUT /api/admin/regen-settings — toggle QA regen mode
+router.put('/regen-settings', async (req, res) => {
+  const { qaMode } = req.body as { qaMode: boolean };
+  try {
+    if (qaMode) {
+      await query(
+        "INSERT INTO _migration_flags (flag, applied_at) VALUES ('regen_qa_mode', $1) ON CONFLICT (flag) DO NOTHING",
+        [Date.now()],
+      );
+    } else {
+      await query("DELETE FROM _migration_flags WHERE flag = 'regen_qa_mode'");
+    }
+    logger.info(`Regen QA mode ${qaMode ? 'enabled' : 'disabled'}`);
+    res.json({ qaMode });
+  } catch (err) {
+    logger.error('Failed to update regen settings', { error: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useCallback } from 'react';
+import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router';
 import { Map, Shield, Upload, ChevronLeft, MapPin, Users, LogOut, Camera, Loader2, BarChart3, SlidersHorizontal } from 'lucide-react';
 import { TopBar } from '../components/layout/TopBar';
@@ -53,6 +53,47 @@ function resizeImage(file: File, maxSize: number): Promise<string> {
     };
     img.src = url;
   });
+}
+
+function QaRegenToggle() {
+  const [qaMode, setQaMode] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api.get('/admin/regen-settings').then((r) => setQaMode((r as { qaMode: boolean }).qaMode)).catch(() => {});
+  }, []);
+
+  const toggle = async () => {
+    const next = !qaMode;
+    setSaving(true);
+    try {
+      await api.put('/admin/regen-settings', { qaMode: next });
+      setQaMode(next);
+    } catch { /* ignore */ }
+    setSaving(false);
+  };
+
+  if (qaMode === null) return null;
+
+  return (
+    <div className="flex items-center justify-between rounded-sm border border-border bg-card px-4 py-3">
+      <div>
+        <p className="text-sm font-medium text-text-dark">QA Regen Mode</p>
+        <p className="text-xs text-text-muted">
+          {qaMode ? 'Home course front 9 only' : 'Full runs (all courses, 18 holes)'}
+        </p>
+      </div>
+      <button
+        onClick={toggle}
+        disabled={saving}
+        className={`relative h-6 w-11 rounded-full transition-colors ${qaMode ? 'bg-turf' : 'bg-border'}`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${qaMode ? 'translate-x-5' : ''}`}
+        />
+      </button>
+    </div>
+  );
 }
 
 type View = 'dashboard' | 'course-grid' | 'course-edit' | 'penalties' | 'constants' | 'import' | 'users' | 'usage';
@@ -299,6 +340,8 @@ export function AdminPage() {
                 <p className="text-xs text-text-muted">API costs & usage tracking</p>
               </button>
             </div>
+
+            <QaRegenToggle />
 
             <button
               onClick={logout}
