@@ -7,6 +7,7 @@ import {
   greedyClub,
   resolveHazardDrop,
   checkTreeTrajectory,
+  checkHazards,
   compensateForBias,
   computeCarryNote,
   generateCaddyTip,
@@ -121,11 +122,11 @@ let SHORT_GAME_THRESHOLD = 60; // yards from pin — bypass interpolation
 // Per-lie dispersion multiplier (replaces binary ROUGH_LIE_MULTIPLIER)
 let LIE_MULTIPLIER: Record<LieClass, number> = {
   fairway: 1.0,
-  rough: 1.15,
+  rough: 1.25,
   green: 1.0,
   fairway_bunker: 1.25,
   greenside_bunker: 1.20,
-  trees: 1.40,
+  trees: 1.50,
   recovery: 1.60,
 };
 
@@ -967,20 +968,6 @@ function interpolateValue(
     value += (minLateralDist - KERNEL_H_U) * 0.05;
   }
 
-  // Lie penalty: landing in rough/trees costs future strokes due to
-  // increased dispersion and harder recovery. This makes the DP prefer
-  // bearings that land in the fairway.
-  const LIE_PENALTY: Record<LieClass, number> = {
-    fairway: 0,
-    green: 0,
-    rough: 0.2,
-    fairway_bunker: 0.3,
-    greenside_bunker: 0.2,
-    trees: 0.6,
-    recovery: 1.0,
-  };
-  value += LIE_PENALTY[lie];
-
   return value;
 }
 
@@ -1198,16 +1185,18 @@ function findAlternativeTeeAction(
 // Helpers for extractPlan
 // ---------------------------------------------------------------------------
 
-/** Try nearby bearing offsets to avoid OB/hazard. Returns the safest option found. */
+/** Try nearby bearing offsets to avoid OB/hazard. Returns the safest option found.
+ *  HARD CONSTRAINT: never returns a bearing whose landing is in OB. */
 function findSafeBearing(
   origin: { lat: number; lng: number },
   initialBearing: number,
   adjustedTotalDist: number,
   club: ClubDistribution,
   hole: CourseHole,
+  pin: { lat: number; lng: number },
 ): { bearing: number; rawLanding: { lat: number; lng: number }; penalty: number } {
-  let bearing = initialBearing;
-  let rawLanding = projectPoint(origin, bearing, adjustedTotalDist);
+  const bearing = initialBearing;
+  const rawLanding = projectPoint(origin, bearing, adjustedTotalDist);
 
   const trajHit = checkTreeTrajectory(origin, bearing, club.meanCarry, hole.hazards, club);
   const hazDrop = resolveHazardDrop(
@@ -1216,10 +1205,19 @@ function findSafeBearing(
   );
 
   if (trajHit.hitOB || (hazDrop.penalty > 0 && haversineYards(hazDrop.landing, origin) < 5)) {
-    for (const offset of [3, -3, 6, -6, 10, -10, 15, -15, 20, -20]) {
-      const altBearing = (bearing + offset + 360) % 360;
+    let bestAlt = { bearing, rawLanding, penalty: hazDrop.penalty };
+
+    // Try offset bearings + pin bearing as fallback candidates
+    const pinBearing = bearingBetween(origin, pin);
+    const offsets = [3, -3, 6, -6, 10, -10, 15, -15, 20, -20, 25, -25, 30, -30];
+    const candidates = [
+      ...offsets.map(o => (bearing + o + 360) % 360),
+      pinBearing, // always try direct-to-pin
+    ];
+
+    for (const altBearing of candidates) {
       const altTraj = checkTreeTrajectory(origin, altBearing, club.meanCarry, hole.hazards, club);
-      if (altTraj.hitOB || altTraj.hitTrees) continue;
+      if (altTraj.hitOB) continue;
       const altLanding = projectPoint(origin, altBearing, adjustedTotalDist);
       const altHaz = resolveHazardDrop(
         origin, altLanding,
@@ -1228,7 +1226,13 @@ function findSafeBearing(
       if (altHaz.penalty === 0) {
         return { bearing: altBearing, rawLanding: altLanding, penalty: 0 };
       }
+      // Track lowest-penalty alternative
+      if (altHaz.penalty < bestAlt.penalty) {
+        bestAlt = { bearing: altBearing, rawLanding: altLanding, penalty: altHaz.penalty };
+      }
     }
+
+    return bestAlt; // best available, never worse than original
   }
 
   return { bearing, rawLanding, penalty: hazDrop.penalty };
@@ -1311,9 +1315,16 @@ function extractPlan(
     const adjustedTotalDist = totalDist - elevDelta * ELEV_YARDS_PER_METER;
 
     // Find safe bearing (avoids OB/hazard by trying nearby offsets)
-    const safe = findSafeBearing(currentAnchor.position, bearing, adjustedTotalDist, club, hole);
+    const safe = findSafeBearing(currentAnchor.position, bearing, adjustedTotalDist, club, hole, pin);
     bearing = safe.bearing;
-    const aimPoint = safe.rawLanding;
+    let aimPoint = safe.rawLanding;
+
+    // HARD CONSTRAINT: never recommend a shot into OB
+    const obCheck = checkHazards(aimPoint, hole.hazards ?? []);
+    if (obCheck.hazardType === 'ob') {
+      bearing = bearingBetween(currentAnchor.position, pin);
+      aimPoint = projectPoint(currentAnchor.position, bearing, adjustedTotalDist);
+    }
 
     // Resolve final landing after hazard drops
     const hazDrop = resolveHazardDrop(

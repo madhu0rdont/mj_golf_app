@@ -259,7 +259,7 @@ export async function migrate() {
 
   // Force regeneration of all cached game plans after strategy-optimizer changes
   // Bump version when optimizer logic changes (caddy tips, strategies, simulation, etc.)
-  const STRATEGY_SYNC_VERSION = 'strategy_sync_v9'; // v9: lie penalty in value interpolation
+  const STRATEGY_SYNC_VERSION = 'strategy_sync_v10'; // v10: remove LIE_PENALTY double-count, bump lie multipliers, OB safety net
   const { rows: syncFlag } = await query(
     'SELECT 1 FROM _migration_flags WHERE flag = $1',
     [STRATEGY_SYNC_VERSION],
@@ -278,6 +278,16 @@ export async function migrate() {
       regenerateStalePlans().catch((err) => logger.error('Post-migration regen failed', { error: String(err) }));
     }, 5000);
   }
+
+  // Update lie multipliers in strategy_constants to match new defaults
+  await query(
+    `UPDATE strategy_constants SET value = 1.25, updated_at = $1 WHERE key = 'lie_rough' AND value = 1.15`,
+    [Date.now()],
+  );
+  await query(
+    `UPDATE strategy_constants SET value = 1.50, updated_at = $1 WHERE key = 'lie_trees' AND value = 1.40`,
+    [Date.now()],
+  );
 
   // Clean up safe mode cache entries — only scoring mode is used
   await query(`DELETE FROM game_plan_cache WHERE mode = 'safe'`);
