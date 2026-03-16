@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { FileDown, Copy, Play, Flag, RefreshCw } from 'lucide-react';
+import { FileDown, Copy, Play, Flag, RefreshCw, Bug } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui/Button';
 import { exportGamePlanPDF } from '../../services/game-plan-pdf';
 import type { GamePlan, HolePlan } from '../../services/game-plan';
@@ -306,6 +307,7 @@ function copySummary(plan: GamePlan) {
 }
 
 export function GamePlanView({ gamePlan, progress, isGenerating, onGenerate, distributions, isStale, staleReason, isFetching, cacheAge, courseHoles }: GamePlanViewProps) {
+  const { isAdmin } = useAuth();
   const trackedPlanRef = useRef<string | null>(null);
 
   // Track static-maps impressions once per game plan render
@@ -405,6 +407,12 @@ export function GamePlanView({ gamePlan, progress, isGenerating, onGenerate, dis
                   )}
                 </p>
               </div>
+              {isAdmin && gamePlan.optimizerVersion && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-border/50 px-2 py-0.5 text-[9px] font-mono text-text-muted">
+                  <Bug size={9} />
+                  v{gamePlan.optimizerVersion}
+                </span>
+              )}
             </div>
           </div>
 

@@ -170,6 +170,4 @@ export interface StrategyConstants {
   steep_slope_threshold: number;
   steep_slope_max_penalty: number;
   steep_slope_penalty_rate: number;
-  // Rough penalty
-  rough_landing_penalty: number;
 }

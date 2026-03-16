@@ -26,6 +26,7 @@ import wedgeOverridesRouter from './routes/wedge-overrides.js';
 import coursesRouter from './routes/courses.js';
 import adminRouter from './routes/admin/index.js';
 import gamePlansRouter, { markPlansStale } from './routes/game-plans.js';
+import { OPTIMIZER_VERSION } from './services/game-plan.js';
 import strategyRouter from './routes/strategy.js';
 import debugRouter from './routes/debug.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -200,7 +201,7 @@ async function start() {
   // IMPORTANT: Only bump OPTIMIZER_VERSION when the DP optimizer / MC simulation
   // / game-plan logic actually changes. Package version bumps alone should NOT
   // trigger costly regeneration that blocks the event loop for minutes.
-  const OPTIMIZER_VERSION = '2.0.0'; // comprehensive audit fixes: carry clamp, bias consistency, convergence, elevation lookup, carry notes, rough penalty
+  // Use the shared OPTIMIZER_VERSION from game-plan.ts
   try {
     const { rows } = await pool.query(
       `SELECT value FROM app_settings WHERE key = 'optimizer_version'`,

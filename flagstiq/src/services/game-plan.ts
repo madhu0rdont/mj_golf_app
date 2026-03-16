@@ -23,6 +23,7 @@ export interface GamePlan {
   keyHoles: number[];
   totalPlaysLike: number;
   holes: HolePlan[];
+  optimizerVersion?: string;
 }
 
 export type { OptimizedStrategy, ScoreDistribution };

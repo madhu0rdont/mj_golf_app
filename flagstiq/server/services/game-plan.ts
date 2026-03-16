@@ -27,7 +27,11 @@ export interface GamePlan {
   keyHoles: number[];
   totalPlaysLike: number;
   holes: HolePlan[];
+  optimizerVersion?: string;
 }
+
+/** Bump when optimizer logic changes. Shown in debug UI. */
+export const OPTIMIZER_VERSION = '3.0.0';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -125,6 +129,7 @@ export function assembleGamePlan(
     keyHoles,
     totalPlaysLike,
     holes,
+    optimizerVersion: OPTIMIZER_VERSION,
   };
 }
 

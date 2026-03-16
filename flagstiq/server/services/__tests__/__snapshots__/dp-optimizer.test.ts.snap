@@ -19,7 +19,7 @@ exports[`QA — optimizer snapshot > par 3 (150y) strategy output is stable 1`] 
     ],
     "name": "Safe Play",
     "type": "safe",
-    "xS": 4.12,
+    "xS": 4.1,
   },
 ]
 `;
