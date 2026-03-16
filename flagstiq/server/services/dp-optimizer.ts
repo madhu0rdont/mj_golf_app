@@ -27,6 +27,7 @@ import {
   STEEP_SLOPE_THRESHOLD,
   STEEP_SLOPE_MAX_PENALTY,
   STEEP_SLOPE_PENALTY_RATE,
+  ROUGH_LANDING_PENALTY,
 } from './strategy-optimizer.js';
 import type { OptimizedStrategy, NamedStrategyPlan, AimPoint, ElevationProfile } from './strategy-optimizer.js';
 
@@ -714,6 +715,10 @@ function sampleOutcomes(
     } else {
       lie = classifyLie(landing, fairwayPolygons, greenPoly, hole.hazards);
       if (penalty === 0 && (lie === 'fairway' || lie === 'green')) fairwayCount++;
+      // Direct penalty for off-fairway lies — makes optimizer prefer fairway
+      if (lie === 'rough') {
+        penalty += ROUGH_LANDING_PENALTY;
+      }
     }
 
     // Project landing into hole-frame coordinates

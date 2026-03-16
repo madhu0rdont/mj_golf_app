@@ -26,6 +26,7 @@ export const DEFAULT_STRATEGY_CONSTANTS: StrategyConstants = {
   min_carry_ratio: 0.5, max_carry_ratio: 1.10,
   hazard_drop_penalty: 0.3, max_shots_per_hole: 8,
   steep_slope_threshold: 0.05, steep_slope_max_penalty: 0.5, steep_slope_penalty_rate: 5.0,
+  rough_landing_penalty: 0.15,
 };
 
 export async function loadStrategyConstants(): Promise<StrategyConstants> {
@@ -147,6 +148,9 @@ const ELEV_PROFILE_STEP = 10;      // yards between elevation profile samples
 export let STEEP_SLOPE_THRESHOLD = 0.05;    // meters/yard (~5% grade)
 export let STEEP_SLOPE_MAX_PENALTY = 0.5;   // max half-stroke penalty
 export let STEEP_SLOPE_PENALTY_RATE = 5.0;  // penalty per m/yd above threshold
+
+// Rough landing penalty — makes optimizer prefer fairway
+export let ROUGH_LANDING_PENALTY = 0.15;
 
 export interface ElevationProfile {
   /** Elevation samples at ELEV_PROFILE_STEP-yard intervals from tee to pin */
@@ -334,6 +338,7 @@ export function applyStrategyConstants(c: StrategyConstants): void {
   STEEP_SLOPE_THRESHOLD = c.steep_slope_threshold;
   STEEP_SLOPE_MAX_PENALTY = c.steep_slope_max_penalty;
   STEEP_SLOPE_PENALTY_RATE = c.steep_slope_penalty_rate;
+  ROUGH_LANDING_PENALTY = c.rough_landing_penalty;
 }
 
 // ---------------------------------------------------------------------------
