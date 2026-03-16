@@ -1319,9 +1319,10 @@ function extractPlan(
     bearing = safe.bearing;
     let aimPoint = safe.rawLanding;
 
-    // HARD CONSTRAINT: never recommend a shot into OB
-    const obCheck = checkHazards(aimPoint, hole.hazards ?? []);
-    if (obCheck.hazardType === 'ob') {
+    // HARD CONSTRAINT: never recommend a shot into or through OB
+    const obLanding = checkHazards(aimPoint, hole.hazards ?? []);
+    const obTraj = checkTreeTrajectory(currentAnchor.position, bearing, club.meanCarry, hole.hazards, club);
+    if (obLanding.hazardType === 'ob' || obTraj.hitOB) {
       bearing = bearingBetween(currentAnchor.position, pin);
       aimPoint = projectPoint(currentAnchor.position, bearing, adjustedTotalDist);
     }
