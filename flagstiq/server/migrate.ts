@@ -273,7 +273,11 @@ export async function migrate() {
       [STRATEGY_SYNC_VERSION, Date.now()],
     );
     logger.info('Marked all cached plans stale for strategy optimizer sync');
-    // Fire-and-forget regeneration after server finishes starting
+  }
+
+  // Always check for stale plans on startup (covers restarts that killed in-progress regen)
+  const { rows: staleCheck } = await query('SELECT 1 FROM game_plan_cache WHERE stale = TRUE LIMIT 1');
+  if (staleCheck.length > 0) {
     setTimeout(() => {
       regenerateStalePlans().catch((err) => logger.error('Post-migration regen failed', { error: String(err) }));
     }, 5000);
