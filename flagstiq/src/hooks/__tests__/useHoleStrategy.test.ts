@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { computeLandingZones, computeLandingZonesFromAimPoints } from '../useHoleStrategy';
 import type { ClubDistribution, ApproachStrategy } from '../../services/monte-carlo';
 import type { OptimizedStrategy } from '../../services/strategy-optimizer';
-import { haversineYards } from '../../utils/geo';
+import { haversineYards, pointInPolygon, projectPoint } from '../../utils/geo';
 
 const makeDist = (overrides: Partial<ClubDistribution> = {}): ClubDistribution => ({
   clubId: 'driver',
@@ -296,5 +296,61 @@ describe('computeLandingZonesFromAimPoints', () => {
     // 3σ / 1.5σ = 2:1
     const ratio = maxDist2 / maxDist1;
     expect(ratio).toBeCloseTo(2.0, 1);
+  });
+
+  it('landing zone centers with biased aim positions land on fairway', () => {
+    // Simulate compensateForBias: position is shifted OPPOSITE to bias
+    // compensatedPos = target - meanOffline; landing center should be ≈ target
+    const heading = 0; // due north
+    const meanOffline = -10; // 10 yards left bias (left-handed draw)
+    const targetOnFairway = { lat: 33.0025, lng: -117.0 }; // on the fairway center
+
+    // compensateForBias shifts OPPOSITE: target + 10y right (since -(-10) = +10)
+    const compensatedPos = projectPoint(targetOnFairway, heading + 90, -meanOffline);
+
+    const biasedDist = makeDist({
+      clubId: 'iron5',
+      clubName: '5 Iron',
+      meanCarry: 195,
+      stdCarry: 7,
+      meanOffline,
+      stdOffline: 6,
+    });
+
+    const strategy: OptimizedStrategy = {
+      clubs: [{ clubId: 'iron5', clubName: '5 Iron' }],
+      expectedStrokes: 3.5,
+      label: '5 Iron (195)',
+      strategyName: 'Test Biased',
+      strategyType: 'scoring',
+      scoreDistribution: { eagle: 0, birdie: 0, par: 1, bogey: 0, double: 0, worse: 0 },
+      blowupRisk: 0,
+      fairwayRate: 0.8,
+      stdStrokes: 0.8,
+      aimPoints: [{
+        position: compensatedPos, // as stored by dp-optimizer (shifted aim)
+        clubName: '5 Iron',
+        shotNumber: 1,
+        carry: 195,
+        carryNote: null,
+        tip: 'Start right, works left to fairway',
+      }],
+    };
+
+    const zones = computeLandingZonesFromAimPoints(strategy, [biasedDist], heading);
+
+    // Landing zone center should be back near the original fairway target
+    const distFromTarget = haversineYards(zones[0].center, targetOnFairway);
+    expect(distFromTarget).toBeLessThan(1); // within 1 yard of the fairway target
+
+    // Verify the center is on a wide fairway polygon (±30y)
+    const fwWidth = 30 / 91000;
+    const fairwayPoly = [
+      { lat: 33.0, lng: -117.0 - fwWidth },
+      { lat: 33.0, lng: -117.0 + fwWidth },
+      { lat: 33.004, lng: -117.0 + fwWidth },
+      { lat: 33.004, lng: -117.0 - fwWidth },
+    ];
+    expect(pointInPolygon(zones[0].center, fairwayPoly)).toBe(true);
   });
 });

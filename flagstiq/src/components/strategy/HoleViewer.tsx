@@ -188,12 +188,17 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
 
     }
 
-    // Numbered aim point markers (at aim points, not landing zone centers)
+    // Aim directions (compensated — for dashed white aim lines)
     const aimPositions = aimPoints && aimPoints.length > 0
       ? aimPoints.map((a) => a.position)
       : landingZones.map((z) => z.center);
 
-    for (let j = 0; j < aimPositions.length; j++) {
+    // Landing positions (where ball actually lands — for numbered markers)
+    const markerPositions = landingZones && landingZones.length > 0
+      ? landingZones.map((z) => z.center)
+      : aimPositions;
+
+    for (let j = 0; j < markerPositions.length; j++) {
       const wrapEl = document.createElement('div');
       wrapEl.style.cssText = 'display:flex;flex-direction:column;align-items:center;pointer-events:none;';
 
@@ -208,7 +213,7 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
 
       const circleMarker = new google.maps.marker.AdvancedMarkerElement({
         map,
-        position: aimPositions[j],
+        position: markerPositions[j],
         content: wrapEl,
       });
       simOverlaysRef.current.push(circleMarker);

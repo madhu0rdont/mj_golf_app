@@ -1,10 +1,10 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { discretizeHole, dpOptimizeHole, classifyLie } from '../dp-optimizer';
-import { DEFAULT_STRATEGY_CONSTANTS } from '../strategy-optimizer';
+import { DEFAULT_STRATEGY_CONSTANTS, compensateForBias } from '../strategy-optimizer';
 import type { ClubDistribution } from '../monte-carlo';
 import type { CourseHole, HazardFeature } from '../../models/types';
-import { pointInPolygon } from '../geo';
+import { pointInPolygon, projectPoint, haversineYards, bearingBetween } from '../geo';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1022,4 +1022,183 @@ describe('dogleg par 5 — no OB aim points', () => {
       }
     }
   });
+
+  it('no expected landing inside an OB polygon', () => {
+    const hole = makeDoglegPar5WithOB();
+    const obPolygons = (hole.hazards ?? [])
+      .filter((h) => h.type === 'ob')
+      .map((h) => h.polygon);
+    const heading = bearingBetween(hole.tee, hole.pin);
+
+    for (const r of results) {
+      for (const ap of r.aimPoints) {
+        const dist = makeLightDistributions().find((d) => d.clubName === ap.clubName);
+        if (!dist || Math.abs(dist.meanOffline) <= 0.5) continue;
+        // Reverse compensation to get expected landing
+        const landing = projectPoint(ap.position, heading + 90, dist.meanOffline);
+        for (const obPoly of obPolygons) {
+          expect(pointInPolygon(landing, obPoly)).toBe(false);
+        }
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// QA: Aim point landing validation
+// Ensures that expected landings (after bias) stay on the fairway, and that
+// compensateForBias round-trips correctly.
+// ---------------------------------------------------------------------------
+
+describe('QA — aim point landing validation', () => {
+  // Hole with a defined fairway polygon and biased clubs
+  function makeFairwayHoleWithBias(): { hole: CourseHole; dists: ClubDistribution[] } {
+    const tee = { lat: 33.0, lng: -117.0, elevation: 0 };
+    const pinLat = 33.0 + 300 / 121100;
+    const pin = { lat: pinLat, lng: -117.0, elevation: 0 };
+
+    // Wide fairway (±30y from center line)
+    const fwWidth = 30 / 91000; // ~30 yards in lng degrees
+    const fairway = [[
+      { lat: tee.lat, lng: -117.0 - fwWidth },
+      { lat: tee.lat, lng: -117.0 + fwWidth },
+      { lat: pinLat, lng: -117.0 + fwWidth },
+      { lat: pinLat, lng: -117.0 - fwWidth },
+    ]];
+
+    const green = [
+      { lat: pinLat - 0.00005, lng: -117.0 - 0.00015 },
+      { lat: pinLat - 0.00005, lng: -117.0 + 0.00015 },
+      { lat: pinLat + 0.00015, lng: -117.0 + 0.00015 },
+      { lat: pinLat + 0.00015, lng: -117.0 - 0.00015 },
+    ];
+
+    const hole: CourseHole = {
+      id: 'fairway-bias-hole',
+      courseId: 'course-1',
+      holeNumber: 1,
+      par: 4,
+      handicap: null,
+      yardages: { blue: 300 },
+      heading: 0,
+      tee,
+      pin,
+      targets: [],
+      centerLine: [tee, pin],
+      hazards: [],
+      fairway,
+      green,
+      playsLikeYards: null,
+      notes: null,
+    };
+
+    // Clubs with meaningful lateral bias (left-handed draw)
+    const dists: ClubDistribution[] = [
+      makeDist({ clubId: 'iron5', clubName: '5 Iron', meanCarry: 195, stdCarry: 7, meanOffline: -8, stdOffline: 6 }),
+      makeDist({ clubId: 'iron9', clubName: '9 Iron', meanCarry: 135, stdCarry: 5, meanOffline: -6, stdOffline: 4 }),
+      makeDist({ clubId: 'sw', clubName: 'SW', meanCarry: 85, stdCarry: 3, meanOffline: -4, stdOffline: 3 }),
+    ];
+
+    return { hole, dists };
+  }
+
+  let results: ReturnType<typeof dpOptimizeHole>;
+  let hole: CourseHole;
+  let dists: ClubDistribution[];
+
+  beforeAll(() => {
+    seedRandom();
+    const setup = makeFairwayHoleWithBias();
+    hole = setup.hole;
+    dists = setup.dists;
+    results = dpOptimizeHole(hole, 'blue', dists);
+  }, 60_000);
+
+  it('produces strategies with biased clubs on fairway hole', () => {
+    expect(results.length).toBeGreaterThan(0);
+  });
+
+  it('expected landings stay on fairway or green (not in rough)', () => {
+    const heading = bearingBetween(hole.tee, hole.pin);
+    const fairwayPoly = hole.fairway[0];
+    const greenPoly = hole.green;
+
+    for (const r of results) {
+      for (const ap of r.aimPoints) {
+        const dist = dists.find((d) => d.clubName === ap.clubName);
+        if (!dist) continue;
+
+        // Compute expected landing: compensatedPos + meanOffline reverses to raw target
+        let landing = ap.position;
+        if (Math.abs(dist.meanOffline) > 0.5) {
+          landing = projectPoint(ap.position, heading + 90, dist.meanOffline);
+        }
+
+        const onFairway = fairwayPoly ? pointInPolygon(landing, fairwayPoly) : true;
+        const onGreen = greenPoly.length > 0 ? pointInPolygon(landing, greenPoly) : false;
+
+        expect(onFairway || onGreen).toBe(true);
+      }
+    }
+  });
+
+  it('compensateForBias round-trips within 1 yard', () => {
+    const target = { lat: 33.001, lng: -117.001 };
+    const bearing = 45;
+    const biasValues = [5, -8, 12, -15];
+
+    for (const meanOffline of biasValues) {
+      const club = makeDist({ meanOffline });
+      const compensated = compensateForBias(target, bearing, club);
+      const roundTrip = projectPoint(compensated, bearing + 90, meanOffline);
+      expect(haversineYards(roundTrip, target)).toBeLessThan(1);
+    }
+  });
+
+  it('compensateForBias is identity when meanOffline is negligible', () => {
+    const target = { lat: 33.001, lng: -117.001 };
+    const club = makeDist({ meanOffline: 0.3 });
+    const compensated = compensateForBias(target, 0, club);
+    expect(compensated.lat).toBe(target.lat);
+    expect(compensated.lng).toBe(target.lng);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// QA: Snapshot — golden output for reference holes
+// Detects unintended changes to optimizer output across code changes.
+// ---------------------------------------------------------------------------
+
+describe('QA — optimizer snapshot', () => {
+  it('par 3 (150y) strategy output is stable', () => {
+    seedRandom();
+    const hole = makeStraightHole(3, 150);
+    const results = dpOptimizeHole(hole, 'blue', makeLightDistributions());
+
+    const snapshot = results.map((r) => ({
+      name: r.strategyName,
+      type: r.strategyType,
+      xS: Number(r.expectedStrokes.toFixed(2)),
+      clubs: r.clubs.map((c) => c.clubName),
+      aimPointCount: r.aimPoints.length,
+    }));
+
+    expect(snapshot).toMatchSnapshot();
+  });
+
+  it('par 4 (260y) strategy output is stable', () => {
+    seedRandom();
+    const hole = makeStraightHole(4, 260);
+    const results = dpOptimizeHole(hole, 'blue', makeLightDistributions());
+
+    const snapshot = results.map((r) => ({
+      name: r.strategyName,
+      type: r.strategyType,
+      xS: Number(r.expectedStrokes.toFixed(2)),
+      clubs: r.clubs.map((c) => c.clubName),
+      aimPointCount: r.aimPoints.length,
+    }));
+
+    expect(snapshot).toMatchSnapshot();
+  }, 30_000);
 });

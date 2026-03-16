@@ -1,0 +1,50 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`QA — optimizer snapshot > par 3 (150y) strategy output is stable 1`] = `
+[
+  {
+    "aimPointCount": 1,
+    "clubs": [
+      "9 Iron",
+    ],
+    "name": "Smart Play",
+    "type": "scoring",
+    "xS": 4.08,
+  },
+  {
+    "aimPointCount": 2,
+    "clubs": [
+      "SW",
+      "SW",
+    ],
+    "name": "Safe Play",
+    "type": "safe",
+    "xS": 4.1,
+  },
+]
+`;
+
+exports[`QA — optimizer snapshot > par 4 (260y) strategy output is stable 1`] = `
+[
+  {
+    "aimPointCount": 2,
+    "clubs": [
+      "5 Iron",
+      "SW",
+    ],
+    "name": "Smart Play",
+    "type": "scoring",
+    "xS": 5.34,
+  },
+  {
+    "aimPointCount": 2,
+    "clubs": [
+      "9 Iron",
+      "9 Iron",
+    ],
+    "name": "Safe Play",
+    "type": "safe",
+    "xS": 5.34,
+  },
+]
+`;
