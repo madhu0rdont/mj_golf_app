@@ -24,6 +24,9 @@ import {
   DEFAULT_STRATEGY_CONSTANTS,
   applyStrategyConstants,
   polygonCentroid,
+  STEEP_SLOPE_THRESHOLD,
+  STEEP_SLOPE_MAX_PENALTY,
+  STEEP_SLOPE_PENALTY_RATE,
 } from './strategy-optimizer.js';
 import type { OptimizedStrategy, NamedStrategyPlan, AimPoint, ElevationProfile } from './strategy-optimizer.js';
 
@@ -679,6 +682,15 @@ function sampleOutcomes(
       const slope = getProfileSlope(elevProfile, landingDistFromTee);
       const rollout = computeRollout(carry, club, landing, hole, slope);
       if (rollout > 0.5) landing = projectPoint(landing, bearing, rollout);
+
+      // Steep slope penalty — landing on steep terrain is unpredictable
+      const absSlope = Math.abs(slope);
+      if (absSlope > STEEP_SLOPE_THRESHOLD) {
+        penalty += Math.min(
+          STEEP_SLOPE_MAX_PENALTY,
+          (absSlope - STEEP_SLOPE_THRESHOLD) * STEEP_SLOPE_PENALTY_RATE,
+        );
+      }
     }
 
     // Hazard check (skip if OB trajectory — ball never reached landing)
@@ -1323,8 +1335,36 @@ function extractPlan(
     const obLanding = checkHazards(aimPoint, hole.hazards ?? []);
     const obTraj = checkTreeTrajectory(currentAnchor.position, bearing, club.meanCarry, hole.hazards, club);
     if (obLanding.hazardType === 'ob' || obTraj.hitOB) {
-      bearing = bearingBetween(currentAnchor.position, pin);
-      aimPoint = projectPoint(currentAnchor.position, bearing, adjustedTotalDist);
+      // Try pin bearing first
+      const pinBearing = bearingBetween(currentAnchor.position, pin);
+      const pinTraj = checkTreeTrajectory(currentAnchor.position, pinBearing, club.meanCarry, hole.hazards, club);
+      if (!pinTraj.hitOB) {
+        bearing = pinBearing;
+        aimPoint = projectPoint(currentAnchor.position, bearing, adjustedTotalDist);
+      } else {
+        // Pin bearing also crosses OB — use findSafeBearing's best result
+        bearing = safe.bearing;
+        aimPoint = safe.rawLanding;
+
+        // Fix 5: If safe bearing still has penalty, try shorter clubs
+        if (safe.penalty > 0) {
+          const eligible = getEligibleClubs(currentAnchor, distributions, pinElev);
+          const currentIdx = eligible.findIndex(c => c.clubId === club!.clubId);
+          for (let ci = currentIdx + 1; ci < eligible.length; ci++) {
+            const shorter = eligible[ci];
+            const shorterDist = shorter.meanTotal ?? shorter.meanCarry;
+            const shorterSafe = findSafeBearing(
+              currentAnchor.position, bearing, shorterDist, shorter, hole, pin,
+            );
+            if (shorterSafe.penalty === 0) {
+              club = shorter;
+              bearing = shorterSafe.bearing;
+              aimPoint = shorterSafe.rawLanding;
+              break;
+            }
+          }
+        }
+      }
     }
 
     // Resolve final landing after hazard drops
@@ -1374,6 +1414,60 @@ function extractPlan(
 
   const { name, type } = modeLabel(mode, hole.holeNumber);
   return { name, type, shots };
+}
+
+// ---------------------------------------------------------------------------
+// Post-Plan Validation (diagnostic — logs warnings for bad plans)
+// ---------------------------------------------------------------------------
+
+function validatePlan(
+  plan: NamedStrategyPlan,
+  hole: CourseHole,
+  tee: { lat: number; lng: number },
+  elevProfile: ElevationProfile,
+): string[] {
+  const issues: string[] = [];
+  let currentPos = tee;
+
+  for (let i = 0; i < plan.shots.length; i++) {
+    const shot = plan.shots[i];
+    const bearing = bearingBetween(currentPos, shot.aimPoint);
+
+    // Check trajectory for OB crossing
+    const traj = checkTreeTrajectory(
+      currentPos, bearing, shot.clubDist.meanCarry, hole.hazards, shot.clubDist,
+    );
+    if (traj.hitOB) {
+      issues.push(`Shot ${i + 1} (${shot.clubDist.clubName}) trajectory crosses OB`);
+    }
+
+    // Check landing position for OB
+    const landing = checkHazards(shot.aimPoint, hole.hazards ?? []);
+    if (landing.hazardType === 'ob') {
+      issues.push(`Shot ${i + 1} (${shot.clubDist.clubName}) lands in OB`);
+    }
+
+    // Check non-approach shots land on fairway
+    const isLast = i === plan.shots.length - 1;
+    if (!isLast && hole.fairway && hole.fairway.length > 0) {
+      const onFairway = hole.fairway.some(poly => pointInPolygon(shot.aimPoint, poly));
+      const onGreen = hole.green ? pointInPolygon(shot.aimPoint, hole.green) : false;
+      if (!onFairway && !onGreen) {
+        issues.push(`Shot ${i + 1} (${shot.clubDist.clubName}) lands off fairway`);
+      }
+    }
+
+    // Check landing slope
+    const landingDist = haversineYards(tee, shot.aimPoint);
+    const slope = getProfileSlope(elevProfile, landingDist);
+    if (Math.abs(slope) > STEEP_SLOPE_THRESHOLD) {
+      issues.push(`Shot ${i + 1} lands on steep slope (${(Math.abs(slope) * 100).toFixed(0)}% grade)`);
+    }
+
+    currentPos = shot.aimPoint;
+  }
+
+  return issues;
 }
 
 // ---------------------------------------------------------------------------
@@ -1713,6 +1807,17 @@ export function dpOptimizeHole(
     const newKey = planClubKey(plans[i]);
     usedKeys.add(newKey);
     keyToFirstClub.set(newKey, plans[i].shots[0]?.clubDist.clubName ?? '');
+  }
+
+  // 6b. Post-plan validation (diagnostic — log warnings)
+  for (let i = 0; i < plans.length; i++) {
+    if (plans[i].shots.length === 0) continue;
+    const issues = validatePlan(plans[i], hole, tee, elevProfile);
+    if (issues.length > 0) {
+      console.warn(
+        `[optimizer] Hole ${hole.holeNumber} "${plans[i].name}" plan issues:\n  ${issues.join('\n  ')}`,
+      );
+    }
   }
 
   // 7. Run MC simulations

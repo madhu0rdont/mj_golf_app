@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import useSWR from 'swr';
 import { useYardageBookShots } from './useYardageBook';
 import { api } from '../lib/api';
-import { projectPoint, computeEllipsePoints, bearingBetween } from '../utils/geo';
+import { projectPoint, computeEllipsePoints, bearingBetween, polygonCentroid } from '../utils/geo';
 import type { ClubDistribution, ApproachStrategy } from '../services/monte-carlo';
 import type { OptimizedStrategy, AimPoint } from '../services/strategy-optimizer';
 import type { CourseHole } from '../models/course';
@@ -60,28 +60,53 @@ export function computeLandingZones(
 
 /** Compute landing zone ellipses from OptimizedStrategy aimPoints instead of projecting from tee.
  *  Aim points represent where to AIM; ellipses are offset by meanOffline to show
- *  where the ball actually lands given the player's lateral bias. */
+ *  where the ball actually lands given the player's lateral bias.
+ *  Uses fairway/green centroids for per-shot bearing to match server-side compensation. */
 export function computeLandingZonesFromAimPoints(
   strategy: OptimizedStrategy,
   distributions: ClubDistribution[],
   heading: number,
+  tee?: { lat: number; lng: number },
+  fairway?: { lat: number; lng: number }[][],
+  green?: { lat: number; lng: number }[],
 ): LandingZone[] {
   const zones: LandingZone[] = [];
 
-  for (const aim of strategy.aimPoints) {
+  // Compute centroid targets for bearing reference
+  const fwCentroid = fairway && fairway.length > 0
+    ? polygonCentroid(fairway.flat())
+    : null;
+  const grCentroid = green && green.length >= 3
+    ? polygonCentroid(green)
+    : null;
+
+  let shotOrigin = tee ?? null;
+
+  for (let i = 0; i < strategy.aimPoints.length; i++) {
+    const aim = strategy.aimPoints[i];
     const dist = distributions.find((d) => d.clubName === aim.clubName);
     if (!dist) continue;
 
-    // Shift ellipse center by meanOffline to show expected landing position
+    // Per-shot bearing using centroid targets
+    const isLast = i === strategy.aimPoints.length - 1;
+    let shotHeading = heading; // fallback
+    if (shotOrigin) {
+      const target = isLast && grCentroid ? grCentroid : fwCentroid;
+      if (target) {
+        shotHeading = bearingBetween(shotOrigin, target);
+      }
+    }
+
+    // Reverse compensation using shot-specific bearing
     let center = aim.position;
     if (Math.abs(dist.meanOffline) > 0.5) {
-      center = projectPoint(center, heading + 90, dist.meanOffline);
+      center = projectPoint(center, shotHeading + 90, dist.meanOffline);
     }
 
     const carryAxis = dist.stdCarry;
     const offlineAxis = dist.stdOffline;
-    const sigma1 = computeEllipsePoints(center, heading, carryAxis, offlineAxis, 36);
-    const sigma2 = computeEllipsePoints(center, heading, carryAxis * 2, offlineAxis * 2, 36);
+    const sigma1 = computeEllipsePoints(center, shotHeading, carryAxis, offlineAxis, 36);
+    const sigma2 = computeEllipsePoints(center, shotHeading, carryAxis * 2, offlineAxis * 2, 36);
 
     zones.push({
       clubName: aim.clubName,
@@ -89,6 +114,9 @@ export function computeLandingZonesFromAimPoints(
       sigma1,
       sigma2,
     });
+
+    // Chain: next shot starts from this landing center
+    shotOrigin = center;
   }
 
   return zones;
@@ -151,6 +179,9 @@ export function useHoleStrategy(
         strategy as OptimizedStrategy,
         distributions,
         heading,
+        { lat: hole.tee.lat, lng: hole.tee.lng },
+        hole.fairway,
+        hole.green,
       );
     }
 

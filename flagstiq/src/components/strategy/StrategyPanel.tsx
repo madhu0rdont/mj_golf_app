@@ -149,7 +149,7 @@ export function StrategyPanel({ strategies, selectedIdx, onSelect, shotCount, is
                             +
                           </span>
                           <p className="text-[11px] text-text-medium leading-snug">
-                            {last.remainingToPin}y to pin — chip + putts ({last.shortGameStrokes} strokes)
+                            {last.remainingToPin}y to pin — chip + putts (~{last.shortGameStrokes} strokes)
                           </p>
                         </div>
                       );

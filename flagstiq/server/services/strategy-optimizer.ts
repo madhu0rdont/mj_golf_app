@@ -25,6 +25,7 @@ export const DEFAULT_STRATEGY_CONSTANTS: StrategyConstants = {
   mc_trials: 2000, max_iterations: 50, convergence_threshold: 0.001,
   min_carry_ratio: 0.5, max_carry_ratio: 1.10,
   hazard_drop_penalty: 0.3, max_shots_per_hole: 8,
+  steep_slope_threshold: 0.05, steep_slope_max_penalty: 0.5, steep_slope_penalty_rate: 5.0,
 };
 
 export async function loadStrategyConstants(): Promise<StrategyConstants> {
@@ -141,6 +142,11 @@ export function greedyClub(target: number, clubs: ClubDistribution[]): ClubDistr
 
 export let ELEV_YARDS_PER_METER = 1.09; // ~1 yard per 3 feet of elevation change
 const ELEV_PROFILE_STEP = 10;      // yards between elevation profile samples
+
+// Steep slope penalty — penalize landing on steep terrain
+export let STEEP_SLOPE_THRESHOLD = 0.05;    // meters/yard (~5% grade)
+export let STEEP_SLOPE_MAX_PENALTY = 0.5;   // max half-stroke penalty
+export let STEEP_SLOPE_PENALTY_RATE = 5.0;  // penalty per m/yd above threshold
 
 export interface ElevationProfile {
   /** Elevation samples at ELEV_PROFILE_STEP-yard intervals from tee to pin */
@@ -325,6 +331,9 @@ export function applyStrategyConstants(c: StrategyConstants): void {
   };
   DEFAULT_LOFT = c.default_loft;
   ROLLOUT_SLOPE_FACTOR = c.rollout_slope_factor;
+  STEEP_SLOPE_THRESHOLD = c.steep_slope_threshold;
+  STEEP_SLOPE_MAX_PENALTY = c.steep_slope_max_penalty;
+  STEEP_SLOPE_PENALTY_RATE = c.steep_slope_penalty_rate;
 }
 
 // ---------------------------------------------------------------------------
@@ -507,16 +516,15 @@ export function checkTreeTrajectory(
     const centroidDist = haversineYards(from, centroid);
     if (centroidDist > carry + 20 || centroidDist < 10) continue;
 
-    // Sample flight path at 10y intervals through the hazard area
+    // Sample flight path at 5y intervals through the hazard area
     const minDist = Math.max(20, centroidDist - 50);
     const maxDist = Math.min(carry - 5, centroidDist + 50);
 
-    const isOB = h.type === 'ob';
-    const requiredHits = isOB ? 3 : 1; // OB needs sustained flight through forest
+    const requiredHits = 1; // OB is a hard boundary — even clipping it is fatal
     let consecutiveHits = 0;
     let firstHitDist = 0;
 
-    for (let d = minDist; d <= maxDist; d += 10) {
+    for (let d = minDist; d <= maxDist; d += 5) {
       const height = ballHeightAtDistance(d, carry, club?.meanApex, club?.meanDescentAngle);
       if (height >= TREE_HEIGHT_YARDS) {
         consecutiveHits = 0;

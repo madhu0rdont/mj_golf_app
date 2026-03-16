@@ -166,4 +166,8 @@ export interface StrategyConstants {
   // Hazard
   hazard_drop_penalty: number;
   max_shots_per_hole: number;
+  // Slope penalty
+  steep_slope_threshold: number;
+  steep_slope_max_penalty: number;
+  steep_slope_penalty_rate: number;
 }

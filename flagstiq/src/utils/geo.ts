@@ -176,3 +176,11 @@ export function computeEllipsePoints(
   }
   return points;
 }
+
+/** Arithmetic mean centroid of a polygon */
+export function polygonCentroid(poly: { lat: number; lng: number }[]): { lat: number; lng: number } {
+  if (poly.length === 0) return { lat: 0, lng: 0 };
+  let lat = 0, lng = 0;
+  for (const p of poly) { lat += p.lat; lng += p.lng; }
+  return { lat: lat / poly.length, lng: lng / poly.length };
+}
