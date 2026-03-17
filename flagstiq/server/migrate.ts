@@ -259,7 +259,7 @@ export async function migrate() {
 
   // Force regeneration of all cached game plans after strategy-optimizer changes
   // Bump version when optimizer logic changes (caddy tips, strategies, simulation, etc.)
-  const STRATEGY_SYNC_VERSION = 'strategy_sync_v12'; // v12: OB detection, centroid bearings, slope penalty, validation (no rough penalty)
+  const STRATEGY_SYNC_VERSION = 'strategy_sync_v13'; // v13: fairway preference in scoring mode
   const { rows: syncFlag } = await query(
     'SELECT 1 FROM _migration_flags WHERE flag = $1',
     [STRATEGY_SYNC_VERSION],
@@ -765,6 +765,7 @@ export async function migrate() {
     // Mode weights
     ['safe_variance_weight', 1.0, 'mode', 'Safe mode variance penalty (+Nσ)'],
     ['aggressive_green_bonus', 0.6, 'mode', 'Aggressive mode green probability bonus'],
+    ['fairway_preference', 0.15, 'mode', 'Scoring mode fairway landing preference bonus'],
     // Sampling
     ['samples_base', 100, 'sampling', 'Monte Carlo samples for safe anchors'],
     ['samples_hazard', 250, 'sampling', 'Monte Carlo samples near hazards'],

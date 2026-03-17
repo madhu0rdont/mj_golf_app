@@ -14,7 +14,7 @@ export const DEFAULT_STRATEGY_CONSTANTS: StrategyConstants = {
   lie_fairway: 1.0, lie_rough: 1.25, lie_green: 1.0, lie_fairway_bunker: 1.25,
   lie_greenside_bunker: 1.20, lie_trees: 1.50, lie_recovery: 1.60,
   rollout_fairway: 1.0, rollout_rough: 0.15, rollout_green: 0.65, rollout_bunker: 0.0,
-  safe_variance_weight: 1.0, aggressive_green_bonus: 0.6,
+  safe_variance_weight: 1.0, aggressive_green_bonus: 0.6, fairway_preference: 0.15,
   samples_base: 100, samples_hazard: 250, samples_high_risk: 350,
   chip_range: 30, short_game_threshold: 60, green_radius: 10,
   zone_interval: 20, lateral_offset: 20, bearing_range: 30,

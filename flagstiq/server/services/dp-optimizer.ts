@@ -135,6 +135,7 @@ let LIE_MULTIPLIER: Record<LieClass, number> = {
 
 let SAFE_VARIANCE_WEIGHT = 1.0;
 let AGGRESSIVE_GREEN_BONUS = 0.6;
+let FAIRWAY_PREFERENCE = 0.15;
 
 /** Apply StrategyConstants to module-level variables for the current optimization run. */
 function applyConstants(c: StrategyConstants): void {
@@ -157,6 +158,7 @@ function applyConstants(c: StrategyConstants): void {
   SHORT_GAME_THRESHOLD = c.short_game_threshold;
   SAFE_VARIANCE_WEIGHT = c.safe_variance_weight;
   AGGRESSIVE_GREEN_BONUS = c.aggressive_green_bonus;
+  FAIRWAY_PREFERENCE = c.fairway_preference;
   LIE_MULTIPLIER = {
     fairway: c.lie_fairway,
     rough: c.lie_rough,
@@ -1103,7 +1105,7 @@ function valueIteration(
 
         let modeValue: number;
         if (mode === 'scoring') {
-          modeValue = meanQ;
+          modeValue = meanQ - FAIRWAY_PREFERENCE * entry.pFairway;
         } else if (mode === 'safe') {
           modeValue = meanQ + SAFE_VARIANCE_WEIGHT * Math.sqrt(Math.max(0, variance));
         } else {
@@ -1177,7 +1179,7 @@ function findAlternativeTeeAction(
 
     let modeValue: number;
     if (mode === 'scoring') {
-      modeValue = meanQ;
+      modeValue = meanQ - FAIRWAY_PREFERENCE * entry.pFairway;
     } else if (mode === 'safe') {
       modeValue = meanQ + SAFE_VARIANCE_WEIGHT * Math.sqrt(Math.max(0, variance));
     } else {

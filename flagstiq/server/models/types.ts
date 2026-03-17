@@ -130,6 +130,7 @@ export interface StrategyConstants {
   // Mode weights
   safe_variance_weight: number;
   aggressive_green_bonus: number;
+  fairway_preference: number;
   // Sampling
   samples_base: number;
   samples_hazard: number;
