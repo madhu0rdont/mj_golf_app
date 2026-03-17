@@ -517,13 +517,18 @@ function synthesizeCenterLine(
 function findNearestAnchor(
   point: { lat: number; lng: number },
   anchors: AnchorState[],
+  actualLie?: LieClass,
 ): AnchorState {
   let best = anchors[0];
-  let bestDist = Infinity;
+  let bestScore = Infinity;
+  const actualGroup = actualLie ? getLieGroup(actualLie) : null;
   for (const a of anchors) {
     const d = haversineYards(point, a.position);
-    if (d < bestDist) {
-      bestDist = d;
+    // Penalize lie mismatch: prefer same lie group within 30y
+    const liePenalty = actualGroup && getLieGroup(a.lie) !== actualGroup ? 30 : 0;
+    const score = d + liePenalty;
+    if (score < bestScore) {
+      bestScore = score;
       best = a;
     }
   }
@@ -1391,7 +1396,8 @@ function extractPlan(
       break;
     }
 
-    const nextAnchor = findNearestAnchor(landing, anchors);
+    const landingLie = classifyLie(landing, hole.fairway ?? [], hole.green ?? [], hole.hazards);
+    const nextAnchor = findNearestAnchor(landing, anchors, landingLie);
     if (nextAnchor.isTerminal) break;
 
     currentAnchor = nextAnchor;

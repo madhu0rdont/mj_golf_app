@@ -259,7 +259,7 @@ export async function migrate() {
 
   // Force regeneration of all cached game plans after strategy-optimizer changes
   // Bump version when optimizer logic changes (caddy tips, strategies, simulation, etc.)
-  const STRATEGY_SYNC_VERSION = 'strategy_sync_v13'; // v13: fairway preference in scoring mode
+  const STRATEGY_SYNC_VERSION = 'strategy_sync_v14'; // v14: lie-aware anchor matching in extractPlan
   const { rows: syncFlag } = await query(
     'SELECT 1 FROM _migration_flags WHERE flag = $1',
     [STRATEGY_SYNC_VERSION],
