@@ -1204,8 +1204,10 @@ function findAlternativeTeeAction(
 // Helpers for extractPlan
 // ---------------------------------------------------------------------------
 
-/** Try nearby bearing offsets to avoid OB/hazard. Returns the safest option found.
- *  HARD CONSTRAINT: never returns a bearing whose landing is in OB. */
+/** Try nearby bearing offsets to avoid OB/hazard and prefer fairway landings.
+ *  HARD CONSTRAINT: never returns a bearing whose landing is in OB.
+ *  When requireFairway is true, also searches for a bearing whose expected
+ *  landing (accounting for player's meanOffline) is on the fairway. */
 function findSafeBearing(
   origin: { lat: number; lng: number },
   initialBearing: number,
@@ -1213,7 +1215,22 @@ function findSafeBearing(
   club: ClubDistribution,
   hole: CourseHole,
   pin: { lat: number; lng: number },
+  requireFairway: boolean = false,
 ): { bearing: number; rawLanding: { lat: number; lng: number }; penalty: number } {
+
+  // Expected landing accounting for player's systematic miss
+  const expectedLandingAt = (b: number, raw: { lat: number; lng: number }) => {
+    if (Math.abs(club.meanOffline) <= 0.5) return raw;
+    return projectPoint(raw, b + 90, club.meanOffline);
+  };
+
+  // Check if a point is on fairway or green
+  const isOnFairwayOrGreen = (pt: { lat: number; lng: number }) => {
+    if (hole.green && hole.green.length >= 3 && pointInPolygon(pt, hole.green)) return true;
+    if (!hole.fairway || hole.fairway.length === 0) return true; // no polygon data = assume OK
+    return hole.fairway.some(poly => poly.length >= 3 && pointInPolygon(pt, poly));
+  };
+
   const bearing = initialBearing;
   const rawLanding = projectPoint(origin, bearing, adjustedTotalDist);
 
@@ -1223,8 +1240,17 @@ function findSafeBearing(
     hole.hazards ?? [], hole.fairway ?? [], hole.green ?? [], HAZARD_DROP_PENALTY,
   );
 
-  if (trajHit.hitOB || (hazDrop.penalty > 0 && haversineYards(hazDrop.landing, origin) < 5)) {
+  const expLanding = expectedLandingAt(bearing, rawLanding);
+  const onFairway = isOnFairwayOrGreen(expLanding);
+
+  // Search for alternatives if: OB, hazard drop near origin, or expected landing off fairway
+  const needsSearch = trajHit.hitOB
+    || (hazDrop.penalty > 0 && haversineYards(hazDrop.landing, origin) < 5)
+    || (requireFairway && !onFairway);
+
+  if (needsSearch) {
     let bestAlt = { bearing, rawLanding, penalty: hazDrop.penalty };
+    let bestFairway: { bearing: number; rawLanding: { lat: number; lng: number }; penalty: number } | null = null;
 
     // Try offset bearings + pin bearing as fallback candidates
     const pinBearing = bearingBetween(origin, pin);
@@ -1242,16 +1268,28 @@ function findSafeBearing(
         origin, altLanding,
         hole.hazards ?? [], hole.fairway ?? [], hole.green ?? [], HAZARD_DROP_PENALTY,
       );
-      if (altHaz.penalty === 0) {
+
+      const altExp = expectedLandingAt(altBearing, altLanding);
+      const altOnFairway = isOnFairwayOrGreen(altExp);
+
+      if (altHaz.penalty === 0 && altOnFairway) {
+        // Perfect: no hazard AND expected landing on fairway
         return { bearing: altBearing, rawLanding: altLanding, penalty: 0 };
       }
+
+      // Track best fairway option (even with hazard penalty)
+      if (requireFairway && altOnFairway && (!bestFairway || altHaz.penalty < bestFairway.penalty)) {
+        bestFairway = { bearing: altBearing, rawLanding: altLanding, penalty: altHaz.penalty };
+      }
+
       // Track lowest-penalty alternative
       if (altHaz.penalty < bestAlt.penalty) {
         bestAlt = { bearing: altBearing, rawLanding: altLanding, penalty: altHaz.penalty };
       }
     }
 
-    return bestAlt; // best available, never worse than original
+    // Prefer fairway option over lowest-penalty option
+    return bestFairway ?? bestAlt;
   }
 
   return { bearing, rawLanding, penalty: hazDrop.penalty };
@@ -1333,8 +1371,9 @@ function extractPlan(
     const elevDelta = landingElev - currentAnchor.elevation;
     const adjustedTotalDist = totalDist - elevDelta * ELEV_YARDS_PER_METER;
 
-    // Find safe bearing (avoids OB/hazard by trying nearby offsets)
-    const safe = findSafeBearing(currentAnchor.position, bearing, adjustedTotalDist, club, hole, pin);
+    // Find safe bearing (avoids OB/hazard, prefers fairway for non-approach shots)
+    const isApproach = currentAnchor.distToPin <= approachThreshold;
+    const safe = findSafeBearing(currentAnchor.position, bearing, adjustedTotalDist, club, hole, pin, !isApproach);
     bearing = safe.bearing;
     let aimPoint = safe.rawLanding;
 
