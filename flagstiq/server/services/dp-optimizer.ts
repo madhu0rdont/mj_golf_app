@@ -1441,6 +1441,11 @@ function validatePlan(
     const shot = plan.shots[i];
     const bearing = bearingBetween(currentPos, shot.aimPoint);
 
+    // Expected landing accounts for player's systematic miss (meanOffline)
+    const expectedLanding = Math.abs(shot.clubDist.meanOffline) > 0.5
+      ? projectPoint(shot.aimPoint, bearing + 90, shot.clubDist.meanOffline)
+      : shot.aimPoint;
+
     // Check trajectory for OB crossing
     const traj = checkTreeTrajectory(
       currentPos, bearing, shot.clubDist.meanCarry, hole.hazards, shot.clubDist,
@@ -1450,7 +1455,7 @@ function validatePlan(
     }
 
     // Check landing position for OB
-    const landing = checkHazards(shot.aimPoint, hole.hazards ?? []);
+    const landing = checkHazards(expectedLanding, hole.hazards ?? []);
     if (landing.hazardType === 'ob') {
       issues.push(`Shot ${i + 1} (${shot.clubDist.clubName}) lands in OB`);
     }
@@ -1458,21 +1463,21 @@ function validatePlan(
     // Check non-approach shots land on fairway
     const isLast = i === plan.shots.length - 1;
     if (!isLast && hole.fairway && hole.fairway.length > 0) {
-      const onFairway = hole.fairway.some(poly => pointInPolygon(shot.aimPoint, poly));
-      const onGreen = hole.green ? pointInPolygon(shot.aimPoint, hole.green) : false;
+      const onFairway = hole.fairway.some(poly => pointInPolygon(expectedLanding, poly));
+      const onGreen = hole.green ? pointInPolygon(expectedLanding, hole.green) : false;
       if (!onFairway && !onGreen) {
         issues.push(`Shot ${i + 1} (${shot.clubDist.clubName}) lands off fairway`);
       }
     }
 
     // Check landing slope
-    const landingDist = haversineYards(tee, shot.aimPoint);
+    const landingDist = haversineYards(tee, expectedLanding);
     const slope = getProfileSlope(elevProfile, landingDist);
     if (Math.abs(slope) > STEEP_SLOPE_THRESHOLD) {
       issues.push(`Shot ${i + 1} lands on steep slope (${(Math.abs(slope) * 100).toFixed(0)}% grade)`);
     }
 
-    currentPos = shot.aimPoint;
+    currentPos = expectedLanding;
   }
 
   return issues;
