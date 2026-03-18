@@ -28,6 +28,7 @@ import adminRouter from './routes/admin/index.js';
 import gamePlansRouter, { markPlansStale } from './routes/game-plans.js';
 import { OPTIMIZER_VERSION } from './services/game-plan.js';
 import strategyRouter from './routes/strategy.js';
+import weatherRouter from './routes/weather.js';
 import debugRouter from './routes/debug.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -118,6 +119,7 @@ app.use('/api/backup', requirePlayer, backupRouter);
 app.use('/api/wedge-overrides', requirePlayer, wedgeOverridesRouter);
 app.use('/api/game-plans', requirePlayer, gamePlansRouter);
 app.use('/api/strategy', requirePlayer, strategyRouter);
+app.use('/api/weather', requirePlayer, weatherRouter);
 
 // Lightweight map-impression tracker (any authenticated user)
 const MAP_COSTS: Record<string, number> = { maps_js: 0.007, static_maps: 0.002 };

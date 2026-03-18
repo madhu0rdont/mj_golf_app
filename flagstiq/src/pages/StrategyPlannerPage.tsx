@@ -16,6 +16,8 @@ import { useCourses, useCourse } from '../hooks/useCourses';
 import { useHoleStrategy } from '../hooks/useHoleStrategy';
 import { useYardageBookShots } from '../hooks/useYardageBook';
 import { useGamePlanCache } from '../hooks/useGamePlanCache';
+import { useWeather } from '../hooks/useWeather';
+import { WeatherBanner } from '../components/strategy/WeatherBanner';
 import { buildDistributions } from '../services/monte-carlo';
 import type { Course } from '../models/course';
 
@@ -169,6 +171,13 @@ export function StrategyPlannerPage() {
     teeBox,
   );
 
+  // Weather data
+  const { weather, adjustments: weatherAdjustments, courseTotalAdjust } = useWeather(courseId, teeBox);
+  const currentHoleWeather = useMemo(
+    () => weatherAdjustments?.find((a) => a.holeNumber === holeNumber) ?? null,
+    [weatherAdjustments, holeNumber],
+  );
+
   const keyHoleSet = useMemo(
     () => new Set<number>(gamePlan?.keyHoles ?? []),
     [gamePlan?.keyHoles],
@@ -295,6 +304,16 @@ export function StrategyPlannerPage() {
             </button>
           ))}
         </div>
+
+        {/* Weather */}
+        {weather && (
+          <WeatherBanner
+            weather={weather}
+            adjustment={currentHoleWeather}
+            courseTotalAdjust={courseTotalAdjust}
+            viewMode={viewMode}
+          />
+        )}
 
         {/* Content */}
         {viewMode === 'hole' ? (
