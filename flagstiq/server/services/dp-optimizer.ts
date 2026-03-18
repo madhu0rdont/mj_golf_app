@@ -1206,7 +1206,8 @@ function findAlternativeTeeAction(
 /** Try nearby bearing offsets to avoid OB/hazard and prefer fairway landings.
  *  HARD CONSTRAINT: never returns a bearing whose landing is in OB.
  *  When requireFairway is true, searches all candidate bearings and picks
- *  the one whose expected landing is most centered on the fairway. */
+ *  the one whose expected landing is closest to centerTarget (fairway center
+ *  at the landing distance). */
 function findSafeBearing(
   origin: { lat: number; lng: number },
   initialBearing: number,
@@ -1215,6 +1216,7 @@ function findSafeBearing(
   hole: CourseHole,
   pin: { lat: number; lng: number },
   requireFairway: boolean = false,
+  centerTarget?: { lat: number; lng: number },
 ): { bearing: number; rawLanding: { lat: number; lng: number }; penalty: number } {
 
   // Expected landing accounting for player's systematic miss
@@ -1230,17 +1232,6 @@ function findSafeBearing(
     return hole.fairway.some(poly => poly.length >= 3 && pointInPolygon(pt, poly));
   };
 
-  // Find centroid of the fairway polygon containing a point
-  const fairwayCentroidAt = (pt: { lat: number; lng: number }) => {
-    if (!hole.fairway) return null;
-    for (const poly of hole.fairway) {
-      if (poly.length >= 3 && pointInPolygon(pt, poly)) {
-        return polygonCentroid(poly);
-      }
-    }
-    return null;
-  };
-
   const bearing = initialBearing;
   const rawLanding = projectPoint(origin, bearing, adjustedTotalDist);
 
@@ -1254,10 +1245,11 @@ function findSafeBearing(
   const onFairway = isOnFairwayOrGreen(expLanding);
 
   // Search for alternatives if: OB, hazard drop near origin, off fairway,
-  // or requireFairway (always search for best-centered bearing)
+  // or requireFairway with a centering target
   const needsSearch = trajHit.hitOB
     || (hazDrop.penalty > 0 && haversineYards(hazDrop.landing, origin) < 5)
-    || requireFairway;
+    || (requireFairway && !onFairway)
+    || (requireFairway && centerTarget != null);
 
   if (needsSearch) {
     let bestAlt = { bearing, rawLanding, penalty: hazDrop.penalty };
@@ -1266,8 +1258,8 @@ function findSafeBearing(
 
     // Score the initial bearing as a candidate too
     if (!trajHit.hitOB && hazDrop.penalty === 0 && onFairway) {
-      const centroid = fairwayCentroidAt(expLanding);
-      bestFairwayCenterDist = centroid ? haversineYards(expLanding, centroid) : Infinity;
+      const centerDist = centerTarget ? haversineYards(expLanding, centerTarget) : 0;
+      bestFairwayCenterDist = centerDist;
       bestFairway = { bearing, rawLanding, penalty: 0 };
     }
 
@@ -1292,9 +1284,8 @@ function findSafeBearing(
       const altOnFairway = isOnFairwayOrGreen(altExp);
 
       if (altHaz.penalty === 0 && altOnFairway) {
-        // Score by distance to fairway centroid (lower = more centered)
-        const centroid = fairwayCentroidAt(altExp);
-        const centerDist = centroid ? haversineYards(altExp, centroid) : Infinity;
+        // Score by distance to centerTarget (fairway center at landing distance)
+        const centerDist = centerTarget ? haversineYards(altExp, centerTarget) : 0;
         if (centerDist < bestFairwayCenterDist) {
           bestFairway = { bearing: altBearing, rawLanding: altLanding, penalty: 0 };
           bestFairwayCenterDist = centerDist;
@@ -1350,6 +1341,7 @@ function extractPlan(
   mode: ScoringMode,
   elevProfile: ElevationProfile,
   forcedFirstAction?: { clubIdx: number; bearing: number },
+  centerLine?: { lat: number; lng: number }[],
 ): NamedStrategyPlan {
   const pin = { lat: hole.pin.lat, lng: hole.pin.lng };
   const pinElev = hole.pin.elevation;
@@ -1397,7 +1389,13 @@ function extractPlan(
 
     // Find safe bearing (avoids OB/hazard, prefers fairway for non-approach shots)
     const isApproach = currentAnchor.distToPin <= approachThreshold;
-    const safe = findSafeBearing(currentAnchor.position, bearing, adjustedTotalDist, club, hole, pin, !isApproach);
+    let centerTargetPt: { lat: number; lng: number } | undefined;
+    if (!isApproach && centerLine && centerLine.length >= 2) {
+      const landingDistFromTee = currentAnchor.distFromTee + adjustedTotalDist;
+      const holeHeading = bearingBetween({ lat: hole.tee.lat, lng: hole.tee.lng }, pin);
+      centerTargetPt = interpolateCenterLine(centerLine, { lat: hole.tee.lat, lng: hole.tee.lng }, holeHeading, landingDistFromTee);
+    }
+    const safe = findSafeBearing(currentAnchor.position, bearing, adjustedTotalDist, club, hole, pin, !isApproach, centerTargetPt);
     bearing = safe.bearing;
     let aimPoint = safe.rawLanding;
 
@@ -1853,7 +1851,7 @@ export function dpOptimizeHole(
       const ml = modeLabel(modes[i], hole.holeNumber);
       plans.push({ name: ml.name, type: ml.type, shots: [] });
     } else {
-      plans.push(extractPlan(anchors, policies[i], distributions, hole, teeBox, modes[i], elevProfile));
+      plans.push(extractPlan(anchors, policies[i], distributions, hole, teeBox, modes[i], elevProfile, undefined, centerLine));
     }
   }
 
@@ -1876,7 +1874,7 @@ export function dpOptimizeHole(
         excludeClubs, spatialIndex,
       );
       if (alt) {
-        plans[i] = extractPlan(anchors, policies[i], distributions, hole, teeBox, modes[i], elevProfile, alt);
+        plans[i] = extractPlan(anchors, policies[i], distributions, hole, teeBox, modes[i], elevProfile, alt, centerLine);
       }
     }
     const newKey = planClubKey(plans[i]);
