@@ -31,7 +31,7 @@ export interface GamePlan {
 }
 
 /** Bump when optimizer logic changes. Shown in debug UI. */
-export const OPTIMIZER_VERSION = '3.3.0';
+export const OPTIMIZER_VERSION = '3.3.1';
 
 // ---------------------------------------------------------------------------
 // Helpers

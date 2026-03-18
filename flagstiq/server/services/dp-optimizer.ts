@@ -8,7 +8,6 @@ import {
   resolveHazardDrop,
   checkTreeTrajectory,
   checkHazards,
-  compensateForBias,
   computeCarryNote,
   generateCaddyTip,
   computeScoreDistribution,
@@ -1702,14 +1701,13 @@ function simulateWithPolicy(
   for (let i = 0; i < plan.shots.length; i++) {
     const s = plan.shots[i];
     const bearing = bearingBetween(aimFrom, s.aimPoint);
-    const compensatedPos = compensateForBias(s.aimPoint, bearing, s.clubDist);
     const expectedLanding = Math.abs(s.clubDist.meanOffline) > 0.5
       ? projectPoint(s.aimPoint, bearing + 90, s.clubDist.meanOffline)
       : s.aimPoint;
     const isApproach = i === plan.shots.length - 1;
     const displayCarry = s.displayCarry ?? Math.round(s.clubDist.meanCarry);
     aimPoints.push({
-      position: compensatedPos,
+      position: expectedLanding,
       clubName: s.clubDist.clubName,
       shotNumber: i + 1,
       carry: displayCarry,
