@@ -305,16 +305,6 @@ export function StrategyPlannerPage() {
           ))}
         </div>
 
-        {/* Weather */}
-        {weather && (
-          <WeatherBanner
-            weather={weather}
-            adjustment={currentHoleWeather}
-            courseTotalAdjust={courseTotalAdjust}
-            viewMode={viewMode}
-          />
-        )}
-
         {/* Content */}
         {viewMode === 'hole' ? (
           <>
@@ -333,7 +323,7 @@ export function StrategyPlannerPage() {
               </div>
             ) : hole ? (
               <>
-                <HoleInfoPanel hole={hole} teeBox={teeBox} allHoles={course!.holes} isKeyHole={keyHoleSet.has(holeNumber)} />
+                <HoleInfoPanel hole={hole} teeBox={teeBox} allHoles={course!.holes} isKeyHole={keyHoleSet.has(holeNumber)} weather={weather} weatherAdjustment={currentHoleWeather} />
 
                 {/* Sim toggle + Regenerate */}
                 <div className="flex items-center gap-2">
@@ -397,6 +387,15 @@ export function StrategyPlannerPage() {
         ) : (
           /* Game Plan view */
           course ? (
+            <>
+            {weather && (
+              <WeatherBanner
+                weather={weather}
+                adjustment={currentHoleWeather}
+                courseTotalAdjust={courseTotalAdjust}
+                viewMode={viewMode}
+              />
+            )}
             <GamePlanView
               gamePlan={gamePlan}
               progress={progress}
@@ -409,6 +408,7 @@ export function StrategyPlannerPage() {
               cacheAge={cacheAge}
               courseHoles={course?.holes}
             />
+            </>
           ) : (
             <div className="flex items-center justify-center h-[55vh] rounded-sm border border-border bg-surface">
               <div className="animate-spin rounded-full h-7 w-7 border-2 border-primary border-t-transparent" />

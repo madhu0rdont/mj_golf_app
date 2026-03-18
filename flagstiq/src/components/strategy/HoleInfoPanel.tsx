@@ -2,12 +2,15 @@ import { useMemo } from 'react';
 import { Flag } from 'lucide-react';
 import type { CourseHole, HazardFeature } from '../../models/course';
 import { haversineYards, bearingBetween } from '../../utils/geo';
+import type { WeatherConditions, HoleWeatherAdjustment } from '../../services/weather';
 
 interface HoleInfoPanelProps {
   hole: CourseHole;
   teeBox: string;
   allHoles: CourseHole[];
   isKeyHole?: boolean;
+  weather?: WeatherConditions | null;
+  weatherAdjustment?: HoleWeatherAdjustment | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -306,7 +309,7 @@ function capitalize(s: string): string {
 // Component
 // ---------------------------------------------------------------------------
 
-export function HoleInfoPanel({ hole, teeBox, allHoles, isKeyHole }: HoleInfoPanelProps) {
+export function HoleInfoPanel({ hole, teeBox, allHoles, isKeyHole, weather, weatherAdjustment }: HoleInfoPanelProps) {
   const yardage = hole.yardages[teeBox] ?? Object.values(hole.yardages)[0] ?? 0;
   const playsLike = hole.playsLikeYards?.[teeBox] ?? null;
   const elevDeltaFeet = Math.round((hole.pin.elevation - hole.tee.elevation) * 3.281);
@@ -367,6 +370,52 @@ export function HoleInfoPanel({ hole, teeBox, allHoles, isKeyHole }: HoleInfoPan
             </span>
           )}
         </div>
+        {/* Weather chips */}
+        {weather && (
+          <div className="flex gap-4 items-center flex-wrap mt-1">
+            <span className="font-mono text-[10px] tracking-[0.2em] text-ink-light">
+              <strong className="text-ink font-medium">{Math.round(weather.temperature)}&deg;F</strong>
+            </span>
+            <span className="font-mono text-[10px] text-ink-light">&middot;</span>
+            <span className="font-mono text-[10px] tracking-[0.2em] text-ink-light">
+              Wind <strong className="text-ink font-medium">{Math.round(weather.windSpeed)}mph {weather.windCardinal}</strong>
+            </span>
+            {weather.windGust > weather.windSpeed + 3 && (
+              <>
+                <span className="font-mono text-[10px] text-ink-light">&middot;</span>
+                <span className="font-mono text-[10px] tracking-[0.2em] text-ink-faint">
+                  Gusts <strong className="text-ink font-medium">{Math.round(weather.windGust)}</strong>
+                </span>
+              </>
+            )}
+            {weatherAdjustment && (
+              <>
+                <span className="font-mono text-[10px] text-ink-light">&middot;</span>
+                <span className="font-mono text-[10px] tracking-[0.2em] text-ink-light">
+                  {Math.abs(weatherAdjustment.headwindMph) < 1 ? 'Calm' : (
+                    <><strong className="text-ink font-medium">{Math.round(Math.abs(weatherAdjustment.headwindMph))}mph</strong> {weatherAdjustment.headwindMph > 0 ? 'headwind' : 'helping'}</>
+                  )}
+                </span>
+                {Math.abs(weatherAdjustment.crosswindMph) >= 1 && (
+                  <>
+                    <span className="font-mono text-[10px] text-ink-light">&middot;</span>
+                    <span className="font-mono text-[10px] tracking-[0.2em] text-ink-light">
+                      <strong className="text-ink font-medium">{Math.round(Math.abs(weatherAdjustment.crosswindMph))}mph</strong> {weatherAdjustment.crosswindMph > 0 ? 'L\u2192R' : 'R\u2192L'}
+                    </span>
+                  </>
+                )}
+                {weatherAdjustment.carryAdjustYards !== 0 && (
+                  <>
+                    <span className="font-mono text-[10px] text-ink-light">&middot;</span>
+                    <span className={`font-mono text-[10px] tracking-[0.2em] ${weatherAdjustment.carryAdjustYards > 0 ? 'text-coral' : 'text-primary'}`}>
+                      <strong>{Math.abs(weatherAdjustment.carryAdjustYards)}y {weatherAdjustment.carryAdjustYards > 0 ? 'longer' : 'shorter'}</strong>
+                    </span>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Prose description */}

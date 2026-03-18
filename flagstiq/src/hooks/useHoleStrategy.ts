@@ -58,10 +58,9 @@ export function computeLandingZones(
   return zones;
 }
 
-/** Compute landing zone ellipses from OptimizedStrategy aimPoints instead of projecting from tee.
- *  Aim points represent where to AIM; ellipses are offset by meanOffline to show
- *  where the ball actually lands given the player's lateral bias.
- *  Uses fairway/green centroids for per-shot bearing to match server-side compensation. */
+/** Compute landing zone ellipses from OptimizedStrategy aimPoints.
+ *  The server already applies meanOffline compensation, so aimPoint.position
+ *  represents the expected landing position (where the ball actually lands). */
 export function computeLandingZonesFromAimPoints(
   strategy: OptimizedStrategy,
   distributions: ClubDistribution[],
@@ -97,11 +96,8 @@ export function computeLandingZonesFromAimPoints(
       }
     }
 
-    // Reverse compensation using shot-specific bearing
-    let center = aim.position;
-    if (Math.abs(dist.meanOffline) > 0.5) {
-      center = projectPoint(center, shotHeading + 90, dist.meanOffline);
-    }
+    // Server already applies meanOffline — use position directly
+    const center = aim.position;
 
     const carryAxis = dist.stdCarry;
     const offlineAxis = dist.stdOffline;
