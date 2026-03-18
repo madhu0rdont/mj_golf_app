@@ -2,11 +2,13 @@ import { Router } from 'express';
 import { query, toCamel } from '../db.js';
 import { logger } from '../logger.js';
 import { dpOptimizeHole } from '../services/dp-optimizer.js';
+import type { WindAdjustment } from '../services/dp-optimizer.js';
 import { loadStrategyConstants } from '../services/strategy-optimizer.js';
 import { computeClubShotGroups } from '../services/club-shot-groups.js';
 import { buildDistributions } from '../services/monte-carlo.js';
-import { loadSingleHole } from '../services/hole-loader.js';
+import { loadSingleHole, loadCourseHoles } from '../services/hole-loader.js';
 import { loadUserClubs } from '../services/club-loader.js';
+import { fetchCurrentWeather, computeHoleWeatherAdjustments } from '../services/weather.js';
 import type { Club, Shot } from '../models/types.js';
 
 const router = Router();
@@ -58,7 +60,28 @@ router.post('/hole', async (req, res) => {
 
     // No cache or no allStrategies — compute fresh
     const constants = await loadStrategyConstants();
-    const strategies = dpOptimizeHole(hole, teeBox, distributions, constants);
+
+    // Fetch wind adjustment for this hole
+    let wind: WindAdjustment | undefined;
+    try {
+      const allHoles = await loadCourseHoles(courseId, teeBox);
+      if (allHoles.length > 0) {
+        const weather = await fetchCurrentWeather(allHoles[0].tee.lat, allHoles[0].tee.lng);
+        const adjustments = computeHoleWeatherAdjustments(weather, allHoles, teeBox);
+        const holeAdj = adjustments.find((a) => a.holeNumber === holeNumber);
+        if (holeAdj) {
+          wind = {
+            windCarryPct: holeAdj.windCarryPct,
+            crosswindMph: holeAdj.crosswindMph,
+            tempAdjustYards: holeAdj.tempAdjustYards,
+          };
+        }
+      }
+    } catch (err) {
+      logger.warn('Could not fetch weather for strategy, proceeding without wind', { error: String(err) });
+    }
+
+    const strategies = dpOptimizeHole(hole, teeBox, distributions, constants, wind);
 
     res.json({ strategies, distributions });
   } catch (err) {

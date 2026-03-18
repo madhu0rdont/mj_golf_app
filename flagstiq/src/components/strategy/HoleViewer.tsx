@@ -7,6 +7,7 @@ import type { LandingZone } from '../../hooks/useHoleStrategy';
 
 interface AimPointInfo {
   position: { lat: number; lng: number };
+  rawAimPoint?: { lat: number; lng: number };
   clubName: string;
   shotNumber: number;
   carry?: number;
@@ -188,9 +189,10 @@ export function HoleViewer({ hole, landingZones, aimPoints }: HoleViewerProps) {
 
     }
 
-    // Aim directions (compensated — for dashed white aim lines)
+    // Aim directions — use rawAimPoint (where to point the club) when available,
+    // fall back to position (expected landing) if server hasn't sent raw aim data
     const aimPositions = aimPoints && aimPoints.length > 0
-      ? aimPoints.map((a) => a.position)
+      ? aimPoints.map((a) => a.rawAimPoint ?? a.position)
       : landingZones.map((z) => z.center);
 
     // Landing positions (where ball actually lands — for numbered markers)

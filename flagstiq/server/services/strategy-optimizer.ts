@@ -58,6 +58,7 @@ export interface ScoreDistribution {
 
 export interface AimPoint {
   position: { lat: number; lng: number };
+  rawAimPoint?: { lat: number; lng: number };  // where to aim (pre-compensation)
   clubName: string;
   shotNumber: number;
   carry: number;

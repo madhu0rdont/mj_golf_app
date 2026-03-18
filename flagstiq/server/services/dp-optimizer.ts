@@ -87,6 +87,19 @@ interface ActionOutcomes {
   pFairway: number;
 }
 
+/** Per-hole wind adjustment passed into the optimizer */
+export interface WindAdjustment {
+  windCarryPct: number;      // fraction: +0.10 = 10% longer (headwind), -0.05 = shorter (tailwind)
+  crosswindMph: number;      // positive = left-to-right push
+  tempAdjustYards: number;   // temperature carry offset
+}
+
+/** Convert crosswind to lateral yards of drift for a given carry */
+const CROSSWIND_DRIFT_FACTOR = 0.6; // yards of drift per mph of crosswind per 100y carry
+function crosswindDriftYards(crosswindMph: number, carryYards: number): number {
+  return crosswindMph * CROSSWIND_DRIFT_FACTOR * (carryYards / 100);
+}
+
 type LieGroup = 'fairway' | 'offFairway' | 'bunker' | 'green';
 
 interface SpatialIndex {
@@ -646,6 +659,7 @@ function sampleOutcomes(
   centerLine: { lat: number; lng: number }[],
   tee: { lat: number; lng: number },
   heading: number,
+  wind?: WindAdjustment,
 ): { outcomes: LandingOutcome[]; pGreen: number; pFairway: number } {
   const outcomes: LandingOutcome[] = [];
   let greenCount = 0;
@@ -656,8 +670,15 @@ function sampleOutcomes(
   const greenPoly = hole.green ?? [];
 
   for (let i = 0; i < sampleCount; i++) {
-    const carry = gaussianSample(club.meanCarry, club.stdCarry * lieMultiplier);
-    const offline = gaussianSample(club.meanOffline, club.stdOffline * lieMultiplier);
+    let carry = gaussianSample(club.meanCarry, club.stdCarry * lieMultiplier);
+    let offline = gaussianSample(club.meanOffline, club.stdOffline * lieMultiplier);
+
+    // Wind adjustments: carry % and crosswind drift
+    if (wind) {
+      carry *= (1 + wind.windCarryPct);
+      carry += wind.tempAdjustYards;
+      offline += crosswindDriftYards(wind.crosswindMph, carry);
+    }
 
     // Elevation-adjusted ground carry
     const landingDistFromTee = anchor.distFromTee + carry;
@@ -748,6 +769,7 @@ function buildOutcomeTable(
   centerLine: { lat: number; lng: number }[],
   tee: { lat: number; lng: number },
   heading: number,
+  wind?: WindAdjustment,
 ): ActionOutcomes[] {
   const pin = { lat: hole.pin.lat, lng: hole.pin.lng };
   const pinElev = hole.pin.elevation;
@@ -776,7 +798,7 @@ function buildOutcomeTable(
       for (let bi = 0; bi < bearings.length; bi++) {
         const { outcomes, pGreen, pFairway } = sampleOutcomes(
           anchor, clubs[ci], bearings[bi], hole, sampleCount,
-          elevProfile, centerLine, tee, heading,
+          elevProfile, centerLine, tee, heading, wind,
         );
         entries.push({
           key: { anchorId: anchor.id, clubIdx: ci, bearingIdx: bi },
@@ -805,6 +827,7 @@ function expandTeeBearings(
   centerLine: { lat: number; lng: number }[],
   tee: { lat: number; lng: number },
   heading: number,
+  wind?: WindAdjustment,
 ): ActionOutcomes[] {
   const teeAnchor = anchors[0];
   const pin = { lat: hole.pin.lat, lng: hole.pin.lng };
@@ -847,7 +870,7 @@ function expandTeeBearings(
       // Safe fairway landing — evaluate this action
       const { outcomes, pGreen, pFairway } = sampleOutcomes(
         teeAnchor, club, b, hole, sampleCount,
-        elevProfile, centerLine, tee, heading,
+        elevProfile, centerLine, tee, heading, wind,
       );
 
       const bi = 1000 + offset + BEARING_RANGE; // unique bearing index
@@ -1342,6 +1365,7 @@ function extractPlan(
   elevProfile: ElevationProfile,
   forcedFirstAction?: { clubIdx: number; bearing: number },
   centerLine?: { lat: number; lng: number }[],
+  wind?: WindAdjustment,
 ): NamedStrategyPlan {
   const pin = { lat: hole.pin.lat, lng: hole.pin.lng };
   const pinElev = hole.pin.elevation;
@@ -1380,8 +1404,12 @@ function extractPlan(
       bearing = bearingBetween(currentAnchor.position, pin);
     }
 
-    // Elevation-adjusted total distance for expected landing
-    const totalDist = club.meanTotal ?? club.meanCarry;
+    // Elevation + wind adjusted total distance for expected landing
+    let totalDist = club.meanTotal ?? club.meanCarry;
+    if (wind) {
+      totalDist *= (1 + wind.windCarryPct);
+      totalDist += wind.tempAdjustYards;
+    }
     const elevLandingDist = currentAnchor.distFromTee + totalDist;
     const landingElev = getProfileElevation(elevProfile, elevLandingDist);
     const elevDelta = landingElev - currentAnchor.elevation;
@@ -1565,9 +1593,17 @@ function simulateSingleShot(
   heading: number,
   elevProfile: ElevationProfile,
   hole: CourseHole,
+  wind?: WindAdjustment,
 ): ShotSimResult {
-  const carry = gaussianSample(club.meanCarry, club.stdCarry * lieMultiplier);
-  const offline = gaussianSample(club.meanOffline, club.stdOffline * lieMultiplier);
+  let carry = gaussianSample(club.meanCarry, club.stdCarry * lieMultiplier);
+  let offline = gaussianSample(club.meanOffline, club.stdOffline * lieMultiplier);
+
+  // Wind adjustments
+  if (wind) {
+    carry *= (1 + wind.windCarryPct);
+    carry += wind.tempAdjustYards;
+    offline += crosswindDriftYards(wind.crosswindMph, carry);
+  }
 
   // Elevation-adjusted ground carry
   const frame = projectToHoleFrame(currentPos, centerLine, tee, heading);
@@ -1623,6 +1659,7 @@ function simulateWithPolicy(
   centerLine: { lat: number; lng: number }[],
   heading: number,
   trials: number = DEFAULT_TRIALS,
+  wind?: WindAdjustment,
 ): OptimizedStrategy {
   const tee = { lat: hole.tee.lat, lng: hole.tee.lng };
   const pin = { lat: hole.pin.lat, lng: hole.pin.lng };
@@ -1665,7 +1702,7 @@ function simulateWithPolicy(
       const effectiveLie = lastHitTree ? 'recovery' as LieClass : currentAnchor.lie;
       const lieMultiplier = LIE_MULTIPLIER[effectiveLie];
 
-      const shot = simulateSingleShot(currentPos, club, shotBearing, lieMultiplier, centerLine, tee, heading, elevProfile, hole);
+      const shot = simulateSingleShot(currentPos, club, shotBearing, lieMultiplier, centerLine, tee, heading, elevProfile, hole, wind);
       strokes += 1 + shot.extraStrokes;
       lastHitTree = shot.hitTree;
       currentPos = shot.landing;
@@ -1692,7 +1729,7 @@ function simulateWithPolicy(
       const greedyLieMultiplier = LIE_MULTIPLIER[greedyLie];
       const shotBearing = bearingBetween(currentPos, pin);
 
-      const shot = simulateSingleShot(currentPos, club, shotBearing, greedyLieMultiplier, centerLine, tee, heading, elevProfile, hole);
+      const shot = simulateSingleShot(currentPos, club, shotBearing, greedyLieMultiplier, centerLine, tee, heading, elevProfile, hole, wind);
       strokes += 1 + shot.extraStrokes;
       lastHitTree = shot.hitTree;
       currentPos = shot.landing;
@@ -1731,6 +1768,7 @@ function simulateWithPolicy(
     const displayCarry = s.displayCarry ?? Math.round(s.clubDist.meanCarry);
     aimPoints.push({
       position: expectedLanding,
+      rawAimPoint: s.aimPoint,
       clubName: s.clubDist.clubName,
       shotNumber: i + 1,
       carry: displayCarry,
@@ -1783,6 +1821,7 @@ export function dpOptimizeHole(
   teeBox: string,
   distributions: ClubDistribution[],
   constants: StrategyConstants = DEFAULT_STRATEGY_CONSTANTS,
+  wind?: WindAdjustment,
 ): OptimizedStrategy[] {
   if (distributions.length === 0) return [];
 
@@ -1799,7 +1838,7 @@ export function dpOptimizeHole(
   const heading = bearingBetween(tee, { lat: hole.pin.lat, lng: hole.pin.lng });
   const yardage = hole.yardages[teeBox] ?? Object.values(hole.yardages)[0] ?? 400;
   const bearingStep = bearingStepForDistance(yardage);
-  const initialOutcome = buildOutcomeTable(anchors, distributions, hole, bearingStep, elevProfile, centerLine, tee, heading);
+  const initialOutcome = buildOutcomeTable(anchors, distributions, hole, bearingStep, elevProfile, centerLine, tee, heading, wind);
   if (initialOutcome.length === 0) return [];
 
   // 3. Build spatial index for interpolation
@@ -1829,7 +1868,7 @@ export function dpOptimizeHole(
       initialOutcome.filter((e) => e.key.anchorId === 0).map((e) => Math.round(e.bearing)),
     );
     const expanded = expandTeeBearings(
-      anchors, distributions, hole, existingBearings, elevProfile, centerLine, tee, heading,
+      anchors, distributions, hole, existingBearings, elevProfile, centerLine, tee, heading, wind,
     );
     if (expanded.length > 0) {
       outcomeTable = [...initialOutcome, ...expanded];
@@ -1851,7 +1890,7 @@ export function dpOptimizeHole(
       const ml = modeLabel(modes[i], hole.holeNumber);
       plans.push({ name: ml.name, type: ml.type, shots: [] });
     } else {
-      plans.push(extractPlan(anchors, policies[i], distributions, hole, teeBox, modes[i], elevProfile, undefined, centerLine));
+      plans.push(extractPlan(anchors, policies[i], distributions, hole, teeBox, modes[i], elevProfile, undefined, centerLine, wind));
     }
   }
 
@@ -1874,7 +1913,7 @@ export function dpOptimizeHole(
         excludeClubs, spatialIndex,
       );
       if (alt) {
-        plans[i] = extractPlan(anchors, policies[i], distributions, hole, teeBox, modes[i], elevProfile, alt, centerLine);
+        plans[i] = extractPlan(anchors, policies[i], distributions, hole, teeBox, modes[i], elevProfile, alt, centerLine, wind);
       }
     }
     const newKey = planClubKey(plans[i]);
@@ -1897,7 +1936,7 @@ export function dpOptimizeHole(
   for (let i = 0; i < plans.length; i++) {
     if (policies[i].size === 0) continue;
 
-    const strategy = simulateWithPolicy(plans[i], hole, distributions, anchors, policies[i], elevProfile, centerLine, heading);
+    const strategy = simulateWithPolicy(plans[i], hole, distributions, anchors, policies[i], elevProfile, centerLine, heading, DEFAULT_TRIALS, wind);
     strategy.strategyName = plans[i].name;
     strategy.strategyType = plans[i].type;
     results.push(strategy);
