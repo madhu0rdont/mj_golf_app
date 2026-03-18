@@ -1205,8 +1205,8 @@ function findAlternativeTeeAction(
 
 /** Try nearby bearing offsets to avoid OB/hazard and prefer fairway landings.
  *  HARD CONSTRAINT: never returns a bearing whose landing is in OB.
- *  When requireFairway is true, also searches for a bearing whose expected
- *  landing (accounting for player's meanOffline) is on the fairway. */
+ *  When requireFairway is true, searches all candidate bearings and picks
+ *  the one whose expected landing is most centered on the fairway. */
 function findSafeBearing(
   origin: { lat: number; lng: number },
   initialBearing: number,
@@ -1230,6 +1230,17 @@ function findSafeBearing(
     return hole.fairway.some(poly => poly.length >= 3 && pointInPolygon(pt, poly));
   };
 
+  // Find centroid of the fairway polygon containing a point
+  const fairwayCentroidAt = (pt: { lat: number; lng: number }) => {
+    if (!hole.fairway) return null;
+    for (const poly of hole.fairway) {
+      if (poly.length >= 3 && pointInPolygon(pt, poly)) {
+        return polygonCentroid(poly);
+      }
+    }
+    return null;
+  };
+
   const bearing = initialBearing;
   const rawLanding = projectPoint(origin, bearing, adjustedTotalDist);
 
@@ -1242,16 +1253,25 @@ function findSafeBearing(
   const expLanding = expectedLandingAt(bearing, rawLanding);
   const onFairway = isOnFairwayOrGreen(expLanding);
 
-  // Search for alternatives if: OB, hazard drop near origin, or expected landing off fairway
+  // Search for alternatives if: OB, hazard drop near origin, off fairway,
+  // or requireFairway (always search for best-centered bearing)
   const needsSearch = trajHit.hitOB
     || (hazDrop.penalty > 0 && haversineYards(hazDrop.landing, origin) < 5)
-    || (requireFairway && !onFairway);
+    || requireFairway;
 
   if (needsSearch) {
     let bestAlt = { bearing, rawLanding, penalty: hazDrop.penalty };
     let bestFairway: { bearing: number; rawLanding: { lat: number; lng: number }; penalty: number } | null = null;
+    let bestFairwayCenterDist = Infinity;
 
-    // Try offset bearings + pin bearing as fallback candidates
+    // Score the initial bearing as a candidate too
+    if (!trajHit.hitOB && hazDrop.penalty === 0 && onFairway) {
+      const centroid = fairwayCentroidAt(expLanding);
+      bestFairwayCenterDist = centroid ? haversineYards(expLanding, centroid) : Infinity;
+      bestFairway = { bearing, rawLanding, penalty: 0 };
+    }
+
+    // Try offset bearings + pin bearing as candidates
     const pinBearing = bearingBetween(origin, pin);
     const offsets = [3, -3, 6, -6, 10, -10, 15, -15, 20, -20, 25, -25, 30, -30];
     const candidates = [
@@ -1272,12 +1292,17 @@ function findSafeBearing(
       const altOnFairway = isOnFairwayOrGreen(altExp);
 
       if (altHaz.penalty === 0 && altOnFairway) {
-        // Perfect: no hazard AND expected landing on fairway
-        return { bearing: altBearing, rawLanding: altLanding, penalty: 0 };
+        // Score by distance to fairway centroid (lower = more centered)
+        const centroid = fairwayCentroidAt(altExp);
+        const centerDist = centroid ? haversineYards(altExp, centroid) : Infinity;
+        if (centerDist < bestFairwayCenterDist) {
+          bestFairway = { bearing: altBearing, rawLanding: altLanding, penalty: 0 };
+          bestFairwayCenterDist = centerDist;
+        }
       }
 
-      // Track best fairway option (even with hazard penalty)
-      if (requireFairway && altOnFairway && (!bestFairway || altHaz.penalty < bestFairway.penalty)) {
+      // Track best fairway option even with hazard penalty
+      if (requireFairway && altOnFairway && !bestFairway) {
         bestFairway = { bearing: altBearing, rawLanding: altLanding, penalty: altHaz.penalty };
       }
 
@@ -1287,7 +1312,7 @@ function findSafeBearing(
       }
     }
 
-    // Prefer fairway option over lowest-penalty option
+    // Prefer most-centered fairway option over lowest-penalty option
     return bestFairway ?? bestAlt;
   }
 

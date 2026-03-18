@@ -1119,20 +1119,13 @@ describe('QA — aim point landing validation', () => {
   });
 
   it('expected landings stay on fairway or green (not in rough)', () => {
-    const heading = bearingBetween(hole.tee, hole.pin);
     const fairwayPoly = hole.fairway[0];
     const greenPoly = hole.green;
 
     for (const r of results) {
       for (const ap of r.aimPoints) {
-        const dist = dists.find((d) => d.clubName === ap.clubName);
-        if (!dist) continue;
-
-        // Compute expected landing: compensatedPos + meanOffline reverses to raw target
-        let landing = ap.position;
-        if (Math.abs(dist.meanOffline) > 0.5) {
-          landing = projectPoint(ap.position, heading + 90, dist.meanOffline);
-        }
+        // ap.position is now the expected landing (aimPoint + meanOffline)
+        const landing = ap.position;
 
         const onFairway = fairwayPoly ? pointInPolygon(landing, fairwayPoly) : true;
         const onGreen = greenPoly.length > 0 ? pointInPolygon(landing, greenPoly) : false;
